@@ -1,0 +1,52 @@
+name: meca_oficina
+description: "A new Flutter project."
+version: 1.0.0+15
+
+environment:
+  sdk: ^3.5.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  file_picker: ^8.1.7
+  mega_commons_dependencies:
+  mega_commons:
+  mega_features:
+  flutter_svg: ^2.0.17
+  flutter_animate: ^4.5.2
+  image_cropper: ^9.0.0
+  skeletonizer: ^2.0.1
+  geocoding: ^3.0.0
+  open_filex: ^4.7.0
+dependency_overrides:
+  mega_commons_dependencies:
+    path: ../mega_commons_dependencies
+    # git:
+    #   url: git@github.com:megaleios-git/mega_commons_dependencies.git
+    #   ref: 1.4.2
+  mega_commons:
+    path: ../mega_commons
+    # git:
+    #   url: git@github.com:megaleios-git/mega_commons.git
+    #   ref: 1.4.4
+  mega_features:
+    path: ../mega_features
+    # git:
+    #   url: git@github.com:megaleios-git/megaflutter_features.git
+    #   ref: 1.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1
+  json_serializable: ^6.9.0
+  build_runner: ^2.4.14
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
