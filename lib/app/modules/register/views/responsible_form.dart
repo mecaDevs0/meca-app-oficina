@@ -121,7 +121,7 @@ class ResponsibleForm extends GetView<RegisterController> {
               onChanged: (value) => controller.isPolicyTermChecked = value,
               isSelected: controller.isPolicyTermChecked,
               policyTermsFileUrl:
-                  'https://api.megaleios.com/content/TermosMeca.html',
+                  'https://api.mecabr.com/content/TermosMeca.html',
             ),
           ),
         ],
