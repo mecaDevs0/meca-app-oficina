@@ -1,8 +1,8 @@
 class BaseUrls {
   BaseUrls._();
-  static String baseUrlDev = 'https://api.mecabr.com/';
-  static String baseUrlHml = 'https://api.mecabr.com/';
-  static String baseUrlProd = 'https://api.mecabr.com/';
+  static String baseUrlDev = 'https://api.mecabr.com';
+  static String baseUrlHml = 'https://api.mecabr.com';
+  static String baseUrlProd = 'https://api.mecabr.com';
 
   static String workshop = 'api/v1/Workshop';
   static String login = '$workshop/Token';
