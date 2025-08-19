@@ -127,13 +127,6 @@ class _CompanyFormState extends MegaState<CompanyForm, EditProfileController> {
           const SizedBox(height: 16),
           AppTextField(
             controller: cnpjController,
-            onTap: kDebugMode
-                ? () {
-                    if (kDebugMode) {
-                      cnpjController.text = UtilBrasilFields.gerarCNPJ();
-                    }
-                  }
-                : null,
             label: 'CNPJ',
             hintText: 'Digite o CNPJ da empresa',
             keyboardType: TextInputType.number,
