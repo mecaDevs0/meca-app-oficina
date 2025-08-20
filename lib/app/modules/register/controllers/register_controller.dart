@@ -110,15 +110,30 @@ class RegisterController extends GetxController {
     final location =
         await getLatLngFromAddress(address.formattedAddressWithState);
     
+    // Usar o código IBGE para definir os IDs
+    String? finalStateId = address.stateId;
+    String? finalCityId = address.cityId;
+    
+    if (address.ibge != null && address.ibge!.isNotEmpty) {
+      finalCityId = address.ibge; // Usar o IBGE como cityId
+      
+      // Extrair o stateId do IBGE (primeiros 2 dígitos)
+      if (address.ibge!.length >= 2) {
+        finalStateId = address.ibge!.substring(0, 2);
+      }
+      
+      log('Usando IBGE: $finalCityId, stateId extraído: $finalStateId');
+    }
+    
     final saveWorkshop = workshop.copyWith(
       zipCode: address.zipCode,
       streetAddress: address.streetAddress,
       number: address.number,
       complement: address.complement,
       neighborhood: address.neighborhood,
-      stateId: address.stateId,
+      stateId: finalStateId,
       stateName: address.stateName,
-      cityId: address.cityId,
+      cityId: finalCityId,
       cityName: address.cityName,
       stateUf: address.stateUf,
       latitude: location.$1,

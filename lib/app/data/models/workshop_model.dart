@@ -190,7 +190,13 @@ class WorkshopModel {
   @HiveField(25)
   int? typeProvider;
 
-  Map<String, dynamic> toJson() => _$WorkshopModelToJson(this);
+  Map<String, dynamic> toJson() {
+    final json = _$WorkshopModelToJson(this);
+    // Garantir que cityId e stateId sejam sempre incluídos
+    json['cityId'] = cityId ?? '';
+    json['stateId'] = stateId ?? '';
+    return json;
+  }
 
   static const String _key = 'workshop';
   static Box<WorkshopModel> get cacheBox => MegaDataCache.box<WorkshopModel>();
