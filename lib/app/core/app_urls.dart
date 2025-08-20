@@ -4,14 +4,15 @@ class BaseUrls {
   static String baseUrlHml = 'https://api.mecabr.com/';
   static String baseUrlProd = 'https://api.mecabr.com/';
 
-  static String workshop = 'api/v1/Workshop';
-  static String login = '$workshop/Token';
-  static String forgotPassword = '$workshop/ForgotPassword';
-  static String changePassword = '$workshop/ChangePassword';
-  static String updateDataBank = '$workshop/UpdateDataBank';
-  static String profile = '$workshop/GetInfo';
-  static String dataBank = '$workshop/GetDataBank';
-  static String registerDevice = '$workshop/RegisterUnRegisterDeviceId';
+  static String workshopBase = 'api/v1/Workshop';
+  static String workshop = '$workshopBase/Register';
+  static String login = '$workshopBase/Token';
+  static String forgotPassword = '$workshopBase/ForgotPassword';
+  static String changePassword = '$workshopBase/ChangePassword';
+  static String updateDataBank = '$workshopBase/UpdateDataBank';
+  static String profile = '$workshopBase/GetInfo';
+  static String dataBank = '$workshopBase/GetDataBank';
+  static String registerDevice = '$workshopBase/RegisterUnRegisterDeviceId';
   static String service = 'api/v1/WorkshopServices';
   static String financial = 'api/v1/FinancialHistory';
   static String scheduling = 'api/v1/Scheduling';

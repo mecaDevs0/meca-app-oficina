@@ -42,13 +42,14 @@ class WorkshopModelAdapter extends TypeAdapter<WorkshopModel> {
       fileDocument: fields[22] as String?,
       birthDate: fields[23] as String?,
       cpf: fields[24] as String?,
+      typeProvider: fields[25] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WorkshopModel obj) {
     writer
-      ..writeByte(25)
+      ..writeByte(26)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -98,7 +99,9 @@ class WorkshopModelAdapter extends TypeAdapter<WorkshopModel> {
       ..writeByte(23)
       ..write(obj.birthDate)
       ..writeByte(24)
-      ..write(obj.cpf);
+      ..write(obj.cpf)
+      ..writeByte(25)
+      ..write(obj.typeProvider);
   }
 
   @override
@@ -150,6 +153,7 @@ WorkshopModel _$WorkshopModelFromJson(Map<String, dynamic> json) =>
       fileDocument: json['fileDocument'] as String?,
       birthDate: json['birthDate'] as String?,
       cpf: json['cpf'] as String?,
+      typeProvider: (json['typeProvider'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$WorkshopModelToJson(WorkshopModel instance) =>
@@ -184,4 +188,5 @@ Map<String, dynamic> _$WorkshopModelToJson(WorkshopModel instance) =>
       if (instance.fileDocument case final value?) 'fileDocument': value,
       if (instance.birthDate case final value?) 'birthDate': value,
       if (instance.cpf case final value?) 'cpf': value,
+      if (instance.typeProvider case final value?) 'typeProvider': value,
     };

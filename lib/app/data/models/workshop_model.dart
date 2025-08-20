@@ -37,6 +37,7 @@ class WorkshopModel {
     this.fileDocument,
     this.birthDate,
     this.cpf,
+    this.typeProvider = 0,
   });
 
   factory WorkshopModel.fromJson(Map<String, dynamic> json) {
@@ -69,7 +70,8 @@ class WorkshopModel {
         dataBankValid = false,
         workshopAgendaValid = false,
         workshopServicesValid = false,
-        requirements = [];
+        requirements = [],
+        typeProvider = 0;
 
   WorkshopModel copyWith({
     String? id,
@@ -94,6 +96,7 @@ class WorkshopModel {
     String? meiCard,
     String? email,
     String? password,
+    int? typeProvider,
   }) {
     return WorkshopModel(
       id: id ?? this.id,
@@ -118,6 +121,7 @@ class WorkshopModel {
       meiCard: meiCard ?? this.meiCard,
       email: email ?? this.email,
       password: password ?? this.password,
+      typeProvider: typeProvider ?? this.typeProvider,
       dataBankValid: dataBankValid ?? dataBankValid,
       workshopAgendaValid: workshopAgendaValid ?? workshopAgendaValid,
       workshopServicesValid: workshopServicesValid ?? workshopServicesValid,
@@ -183,6 +187,8 @@ class WorkshopModel {
   String? birthDate;
   @HiveField(24)
   String? cpf;
+  @HiveField(25)
+  int? typeProvider;
 
   Map<String, dynamic> toJson() => _$WorkshopModelToJson(this);
 

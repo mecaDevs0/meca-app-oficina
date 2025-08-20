@@ -102,9 +102,14 @@ class RegisterController extends GetxController {
   }
 
   Future<void> populateAddress() async {
+    log('=== populateAddress called ===');
     final address = _formAddressController.address;
+    log('Address from FormAddressController: ${address.toJson()}');
+    log('cityId: ${address.cityId}, stateId: ${address.stateId}');
+    
     final location =
         await getLatLngFromAddress(address.formattedAddressWithState);
+    
     final saveWorkshop = workshop.copyWith(
       zipCode: address.zipCode,
       streetAddress: address.streetAddress,
@@ -120,5 +125,8 @@ class RegisterController extends GetxController {
       longitude: location.$2,
     );
     workshop = saveWorkshop;
+    
+    log('Workshop after populateAddress: ${workshop.toJson()}');
+    log('=== populateAddress finished ===');
   }
 }
