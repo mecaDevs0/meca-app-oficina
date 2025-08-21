@@ -30,6 +30,13 @@ class ScheduleProvider {
   }
 
   Future<AgendaModel> getConfigSchedule(String id) async {
+    // Verificar se o ID é válido
+    if (id.isEmpty) {
+      print('❌ ID do workshop está vazio, retornando agenda inicial');
+      return AgendaModel.initial();
+    }
+    
+    print('✅ Fazendo requisição para WorkshopAgenda/$id');
     // Usar o ID diretamente na URL para WorkshopAgenda/{id}
     final response = await _restClientDio.get('${BaseUrls.agenda}/$id');
     if (response.data == null) {

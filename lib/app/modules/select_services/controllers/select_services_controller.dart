@@ -83,22 +83,30 @@ class SelectServicesController extends GetxController {
 
     await MegaRequestUtils.load(
       action: () async {
-        // Aqui você pode implementar a lógica para salvar os serviços selecionados
-        // Por exemplo, criar WorkshopServices para cada serviço selecionado
-        
-        // Por enquanto, apenas simular sucesso
-        await Future.delayed(const Duration(seconds: 1));
-        
-        final workshopCache = WorkshopModel.fromCache();
-        workshopCache.workshopServicesValid = true;
-        workshopCache.save();
-        
-        isSuccess = true;
-        
-        MegaSnackbar.showSuccessSnackBar(
-          '${_selectedServiceIds.length} serviço(s) selecionado(s) com sucesso!',
-          title: 'Seleção de Serviços',
-        );
+        try {
+          // Salvar os serviços selecionados na API
+          final serviceIds = _selectedServiceIds.toList();
+          await _createServiceProvider.saveWorkshopServices(serviceIds);
+          
+          // Atualizar o cache do workshop
+          final workshopCache = WorkshopModel.fromCache();
+          workshopCache.workshopServicesValid = true;
+          await workshopCache.save();
+          
+          isSuccess = true;
+          
+          MegaSnackbar.showSuccessSnackBar(
+            '${_selectedServiceIds.length} serviço(s) selecionado(s) com sucesso!',
+            title: 'Seleção de Serviços',
+          );
+        } catch (e) {
+          print('❌ Erro ao salvar serviços: $e');
+          MegaSnackbar.showErroSnackBar(
+            'Erro ao salvar serviços. Tente novamente.',
+            title: 'Seleção de Serviços',
+          );
+          isSuccess = false;
+        }
       },
       onFinally: () => _isLoading.value = false,
     );

@@ -96,8 +96,17 @@ class ScheduleController extends GetxController {
     await MegaRequestUtils.load(
       action: () async {
         final workshop = WorkshopModel.fromCache();
-        final response =
-            await _scheduleProvider.getConfigSchedule(workshop.id!);
+        
+        // Verificar se o workshop tem ID válido
+        if (workshop.id.isNullOrEmpty) {
+          print('❌ Workshop ID está vazio ou nulo: ${workshop.id}');
+          // Retornar agenda inicial se não houver ID
+          _agendaModel.value = AgendaModel.initial();
+          return;
+        }
+        
+        print('✅ Workshop ID válido: ${workshop.id}');
+        final response = await _scheduleProvider.getConfigSchedule(workshop.id!);
         _agendaModel.value = response;
         _getOpenDays(response);
       },
@@ -233,6 +242,9 @@ class ScheduleController extends GetxController {
     required DaysOfWeek day,
     required String value,
   }) {
+    if (agendaModel == null) {
+      return; // Retorna sem fazer nada se agendaModel for null
+    }
     final WeekDayModel weekDay = agendaModel!.getWeekDay(day);
     final changed = switch (typeTime) {
       TypeTimeAgenda.startTime => weekDay.copyWith(startTime: value),

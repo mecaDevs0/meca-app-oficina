@@ -70,13 +70,13 @@ class _SelectServicesViewState
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
+                Obx(() => Text(
                   '${controller.selectedCount} de ${controller.totalCount} serviços selecionados',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
                   ),
-                ),
+                )),
               ],
             ),
           ),
@@ -179,13 +179,13 @@ class _SelectServicesViewState
         child: Row(
           children: [
             Expanded(
-              child: Text(
+              child: Obx(() => Text(
                 '${controller.selectedCount} serviço(s) selecionado(s)',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
-              ),
+              )),
             ),
             const SizedBox(width: 16),
             Expanded(

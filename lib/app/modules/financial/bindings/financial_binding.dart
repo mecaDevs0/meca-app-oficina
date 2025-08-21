@@ -1,3 +1,4 @@
+import 'package:get/get.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../data/providers/financial_provider.dart';

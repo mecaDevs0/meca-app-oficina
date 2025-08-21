@@ -46,4 +46,20 @@ class CreateServiceProvider {
       response.data.map((item) => DefaultServiceModel.fromJson(item)),
     );
   }
+
+  Future<String?> saveWorkshopServices(List<String> serviceIds) async {
+    final workshop = WorkshopModel.fromCache();
+    if (workshop.id.isNullOrEmpty) {
+      throw Exception('Workshop ID não encontrado');
+    }
+
+    final response = await _restClientDio.post(
+      BaseUrls.service,
+      data: {
+        'workshopId': workshop.id,
+        'serviceIds': serviceIds,
+      },
+    );
+    return response.message;
+  }
 }
