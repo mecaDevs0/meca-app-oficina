@@ -6,21 +6,39 @@ import '../data/data.dart';
 class AppInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final workshop = WorkshopModel.fromCache();
+    // Verificar se é uma requisição de autenticação antes de tentar acessar o cache
+    final isAuthRequest = options.path.contains('/Token') || 
+                         options.path.contains('/Register') ||
+                         options.path.contains('/ForgotPassword');
     
-    // Adicionar workshopId apenas se a oficina estiver logada e não for uma requisição de autenticação
-    if (options.method == 'GET' && 
-        workshop.id != null && 
-        !options.path.contains('/Token') && 
-        !options.path.contains('/Register') &&
-        !options.path.contains('/ForgotPassword')) {
-      options.queryParameters['workshopId'] = workshop.id;
+    WorkshopModel? workshop;
+    try {
+      workshop = WorkshopModel.fromCache();
+    } catch (e) {
+      console.log('⚠️ AppInterceptor - Erro ao acessar cache do workshop: $e', name: 'AppInterceptor');
+      workshop = null;
     }
     
-    // Adicionar dataBlocked apenas em requisições que não são de autenticação
-    if (!options.path.contains('/Token') && 
-        !options.path.contains('/Register') &&
-        !options.path.contains('/ForgotPassword')) {
+    console.log('🏭 AppInterceptor - Workshop ID: ${workshop?.id ?? "null"}', name: 'AppInterceptor');
+    console.log('🏭 AppInterceptor - Path: ${options.path}', name: 'AppInterceptor');
+    console.log('🏭 AppInterceptor - Method: ${options.method}', name: 'AppInterceptor');
+    
+    // Adicionar workshopId apenas se a oficina estiver logada e não for uma requisição de autenticação
+    // E não for um endpoint que já tem ID na URL (como WorkshopAgenda/{id})
+    if (!isAuthRequest &&
+        options.method == 'GET' && 
+        workshop?.id != null && 
+        workshop!.id!.isNotEmpty && 
+        !options.path.contains('/WorkshopAgenda/')) {
+      options.queryParameters['workshopId'] = workshop.id;
+      console.log('✅ AppInterceptor - Adicionando workshopId: ${workshop.id}', name: 'AppInterceptor');
+    } else {
+      console.log('❌ AppInterceptor - NÃO adicionando workshopId', name: 'AppInterceptor');
+      console.log('❌ Motivo: isAuthRequest=$isAuthRequest, method=${options.method}, workshop.id=${workshop?.id ?? "null"}, path=${options.path}', name: 'AppInterceptor');
+    }
+    
+    // Adicionar dataBlocked apenas em requisições GET que não são de autenticação
+    if (!isAuthRequest && options.method == 'GET') {
       options.queryParameters['dataBlocked'] = 0;
     }
     
@@ -42,11 +60,9 @@ class AppInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    console.log('❌ Erro de rede Oficina: ${err.type}', name: 'AppInterceptor');
-    console.log('📊 Status: ${err.response?.statusCode}', name: 'AppInterceptor');
-    console.log('🔗 URL: ${err.requestOptions.uri}', name: 'AppInterceptor');
-    console.log('💬 Mensagem: ${err.message}', name: 'AppInterceptor');
-    
+    console.log('❌ Erro Oficina: ${err.response?.statusCode} ${err.requestOptions.method} ${err.requestOptions.path}', 
+        name: 'AppInterceptor');
+    console.log('❌ Mensagem: ${err.message}', name: 'AppInterceptor');
     handler.next(err);
   }
 }

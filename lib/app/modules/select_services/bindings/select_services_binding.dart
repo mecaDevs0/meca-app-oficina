@@ -1,18 +1,21 @@
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../data/providers/create_service_provider.dart';
-import '../controllers/create_service_controller.dart';
+import '../controllers/select_services_controller.dart';
 
-class CreateServiceBinding extends Bindings {
+class SelectServicesBinding extends Bindings {
+  SelectServicesBinding();
+
   @override
   void dependencies() {
-    Get.lazyPut<CreateServiceProvider>(
-      () => CreateServiceProvider(
+    Get.put<CreateServiceProvider>(
+      CreateServiceProvider(
         restClientDio: Get.find(),
       ),
     );
-    Get.lazyPut<CreateServiceController>(
-      () => CreateServiceController(
+
+    Get.put<SelectServicesController>(
+      SelectServicesController(
         createServiceProvider: Get.find(),
       ),
     );

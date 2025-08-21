@@ -30,6 +30,7 @@ class ScheduleProvider {
   }
 
   Future<AgendaModel> getConfigSchedule(String id) async {
+    // Usar o ID diretamente na URL para WorkshopAgenda/{id}
     final response = await _restClientDio.get('${BaseUrls.agenda}/$id');
     if (response.data == null) {
       return AgendaModel.initial();

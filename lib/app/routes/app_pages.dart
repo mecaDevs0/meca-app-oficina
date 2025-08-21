@@ -1,13 +1,14 @@
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
-import 'package:mega_features/mega_features.dart';
+import 'package:mega_features/mega_features.dart' hide BankAccountBinding;
 
 import '../core/core.dart';
+import '../modules/bank_account/bindings/bank_account_binding.dart';
 import '../modules/bank_account/views/bank_account_view.dart';
 import '../modules/change_password/views/change_password_view.dart';
 import '../modules/core/bindings/core_binding.dart';
 import '../modules/core/views/core_view.dart';
-import '../modules/create_service/bindings/create_service_binding.dart';
-import '../modules/create_service/views/create_service_view.dart';
+import '../modules/select_services/bindings/select_services_binding.dart';
+import '../modules/select_services/views/select_services_view.dart';
 import '../modules/edit_profile/bindings/edit_profile_binding.dart';
 import '../modules/edit_profile/views/edit_profile_view.dart';
 import '../modules/forgot_password/views/forgot_password_view.dart';
@@ -133,8 +134,8 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.createService,
-      page: () => const CreateServiceView(),
-      binding: CreateServiceBinding(),
+      page: () => const SelectServicesView(),
+      binding: SelectServicesBinding(),
     ),
     GetPage(
       name: _Paths.editProfile,

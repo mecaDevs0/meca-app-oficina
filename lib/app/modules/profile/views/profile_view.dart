@@ -44,6 +44,24 @@ class ProfileView extends GetView<ProfileController> {
     }
   }
 
+  String _formatCnpj(String? cnpj) {
+    if (cnpj == null || cnpj.isEmpty) {
+      return 'CNPJ não informado';
+    }
+    
+    // Verificar se o CNPJ tem pelo menos 14 dígitos
+    final cleanCnpj = cnpj.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleanCnpj.length < 14) {
+      return 'CNPJ inválido';
+    }
+    
+    try {
+      return UtilBrasilFields.obterCnpj(cnpj);
+    } catch (e) {
+      return 'CNPJ inválido';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(
@@ -91,9 +109,7 @@ class ProfileView extends GetView<ProfileController> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      UtilBrasilFields.obterCnpj(
-                        controller.workshop.cnpj ?? '',
-                      ),
+                      _formatCnpj(controller.workshop.cnpj),
                       style: const TextStyle(
                         color: AppColors.silver,
                         fontSize: 10,

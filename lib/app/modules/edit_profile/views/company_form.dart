@@ -1,9 +1,8 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
@@ -23,12 +22,29 @@ class _CompanyFormState extends MegaState<CompanyForm, EditProfileController> {
   final openingHoursController = TextEditingController();
   final cnpjController = TextEditingController();
 
+  String _formatCnpj(String? cnpj) {
+    if (cnpj == null || cnpj.isEmpty) {
+      return '';
+    }
+    
+    // Verificar se o CNPJ tem pelo menos 14 dígitos
+    final cleanCnpj = cnpj.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleanCnpj.length < 14) {
+      return cnpj; // Retornar o valor original se for inválido
+    }
+    
+    try {
+      return UtilBrasilFields.obterCnpj(cnpj);
+    } catch (e) {
+      return cnpj; // Retornar o valor original se der erro
+    }
+  }
+
   @override
   void initState() {
     companyNameController.text = controller.workshop.companyName ?? '';
     openingHoursController.text = controller.workshop.openingHours ?? '';
-    cnpjController.text =
-        UtilBrasilFields.obterCnpj(controller.workshop.cnpj ?? '');
+    cnpjController.text = _formatCnpj(controller.workshop.cnpj);
     super.initState();
   }
 
@@ -84,17 +100,28 @@ class _CompanyFormState extends MegaState<CompanyForm, EditProfileController> {
             ),
           ),
           const SizedBox(height: 16),
-          const AppRequirementItem(
-            title: 'Formato',
-            subtitle: '.jpg, .jpeg, .png',
+          const Text(
+            'Formato: .jpg, .jpeg, .png',
+            style: TextStyle(
+              color: AppColors.hintTextColor,
+              fontSize: 12,
+            ),
           ),
-          const AppRequirementItem(
-            title: 'Tamanho máximo do arquivo',
-            subtitle: 'de 1mb',
+          const SizedBox(height: 4),
+          const Text(
+            'Tamanho máximo do arquivo: 1mb',
+            style: TextStyle(
+              color: AppColors.hintTextColor,
+              fontSize: 12,
+            ),
           ),
-          const AppRequirementItem(
-            title: 'Tamanho da imagem',
-            subtitle: '1000px x 1000px',
+          const SizedBox(height: 4),
+          const Text(
+            'Tamanho da imagem: 1000px x 1000px',
+            style: TextStyle(
+              color: AppColors.hintTextColor,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 16),
           AppTextField(
@@ -264,7 +291,7 @@ class _CompanyFormState extends MegaState<CompanyForm, EditProfileController> {
                 final workshop = controller.workshop.copyWith(
                   companyName: companyNameController.text,
                   openingHours: openingHoursController.text,
-                  cnpj: UtilBrasilFields.obterCnpj(cnpjController.text),
+                  cnpj: _formatCnpj(cnpjController.text),
                 );
                 controller.onEditWorkshop(workshop);
               },
