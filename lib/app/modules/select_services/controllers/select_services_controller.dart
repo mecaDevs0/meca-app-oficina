@@ -78,6 +78,18 @@ class SelectServicesController extends GetxController {
       return false;
     }
 
+    // Verificar se o workshop ID está disponível
+    final workshop = WorkshopModel.fromCache();
+    if (workshop.id.isNullOrEmpty) {
+      print('❌ Erro crítico: Workshop ID não encontrado no cache.');
+      MegaSnackbar.showErroSnackBar(
+        'Erro: Workshop não encontrado. Faça login novamente.',
+        title: 'Seleção de Serviços',
+      );
+      return false;
+    }
+    final workshopId = workshop.id!;
+
     _isLoading.value = true;
     bool isSuccess = false;
 
@@ -86,7 +98,7 @@ class SelectServicesController extends GetxController {
         try {
           // Salvar os serviços selecionados na API
           final serviceIds = _selectedServiceIds.toList();
-          await _createServiceProvider.saveWorkshopServices(serviceIds);
+          await _createServiceProvider.saveWorkshopServices(workshopId, serviceIds);
           
           // Atualizar o cache do workshop
           final workshopCache = WorkshopModel.fromCache();
