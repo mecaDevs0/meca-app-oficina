@@ -216,6 +216,9 @@ class ScheduleController extends GetxController {
         await _onGetSchedule();
         _agendaModel.value = response;
         isSuccess = true;
+        
+        // Navegar de volta após salvar com sucesso
+        Get.back();
       },
       onFinally: () => _isLoading.value = false,
     );
