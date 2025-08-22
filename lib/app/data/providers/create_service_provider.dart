@@ -4,6 +4,7 @@ import 'package:mega_commons/mega_commons.dart';
 
 import '../../core/core.dart';
 import '../data.dart';
+import '../models/workshop_service_model.dart';
 
 class CreateServiceProvider {
   CreateServiceProvider({required RestClientDio restClientDio})
@@ -49,13 +50,30 @@ class CreateServiceProvider {
 
   Future<String?> saveWorkshopServices(String workshopId, List<String> serviceIds) async {
     try {
-      // Buscar os dados do serviço padrão apenas UMA VEZ antes do loop
-      print('🔍 Buscando serviços padrão...');
+      // 1. Primeiro buscar os serviços já cadastrados na oficina
+      print('🔍 Buscando serviços já cadastrados na oficina...');
+      final existingServices = await getWorkshopServices(workshopId);
+      final existingServiceIds = existingServices.map((s) => s.service?.id).whereType<String>().toSet();
+      
+      print('✅ ${existingServices.length} serviços já cadastrados encontrados');
+      print('📋 IDs dos serviços existentes: ${existingServiceIds.toList()}');
+
+      // 2. Filtrar apenas os serviços que ainda não existem
+      final newServiceIds = serviceIds.where((id) => !existingServiceIds.contains(id)).toList();
+      
+      if (newServiceIds.isEmpty) {
+        print('✅ Todos os serviços selecionados já estão cadastrados');
+        return 'Todos os serviços selecionados já estão cadastrados';
+      }
+
+      print('🆕 ${newServiceIds.length} novos serviços para cadastrar: ${newServiceIds}');
+
+      // 3. Buscar dados dos serviços padrão
       final defaultServices = await getDefaultServices();
       print('✅ ${defaultServices.length} serviços padrão encontrados');
-      
-      // Fazer múltiplas requisições para salvar cada serviço individualmente
-      for (final serviceId in serviceIds) {
+
+      // 4. Salvar apenas os novos serviços
+      for (final serviceId in newServiceIds) {
         try {
           final defaultService = defaultServices.firstWhere(
             (service) => service.id == serviceId,
@@ -75,22 +93,54 @@ class CreateServiceProvider {
             'photo': defaultService.photo ?? '',
           };
 
+          print('🔧 Salvando novo serviço: ${defaultService.name}');
           final response = await _restClientDio.post(
             BaseUrls.service,
             data: workshopServiceData,
           );
-          
-          print('✅ Serviço salvo: ${defaultService.name}');
+
+          print('✅ Serviço ${defaultService.name} salvo com sucesso');
         } catch (e) {
           print('❌ Erro ao salvar serviço $serviceId: $e');
-          // Continuar com os próximos serviços mesmo se um falhar
+          return 'Erro ao salvar serviço: $e';
         }
       }
-      
+
       return 'Serviços salvos com sucesso';
     } catch (e) {
       print('❌ Erro geral ao salvar serviços: $e');
-      return 'Erro ao salvar serviços';
+      return 'Erro ao salvar serviços: $e';
+    }
+  }
+
+  /// Busca os serviços já cadastrados na oficina
+  Future<List<WorkshopServiceModel>> getWorkshopServices(String workshopId) async {
+    try {
+      final response = await _restClientDio.get(
+        BaseUrls.service,
+        queryParameters: {'workshopId': workshopId},
+      );
+
+      final responseData = response.data;
+      List servicesList;
+      
+      if (responseData is Map<String, dynamic>) {
+        servicesList = responseData['data'] as List;
+      } else if (responseData is List) {
+        servicesList = responseData;
+      } else {
+        print('❌ Formato de resposta inesperado para WorkshopServices');
+        return [];
+      }
+
+      return servicesList
+          .map<WorkshopServiceModel>(
+            (service) => WorkshopServiceModel.fromJson(service as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (e) {
+      print('❌ Erro ao buscar serviços da oficina: $e');
+      return [];
     }
   }
 }
