@@ -8,11 +8,13 @@ class BankAccountBinding extends Bindings {
 
   @override
   void dependencies() {
-    // Usar o BankAccountProvider do mega_features com URL base correta
+    // Usar o mesmo RestClientDio que já está configurado com AppInterceptor
+    final restClientDio = Get.find<RestClientDio>();
+    
     Get.put<BankAccountProvider>(
       BankAccountProvider(
-        megaApi: RestClientDio('https://api.mecabr.com/api/v1/'),
-        restClientDio: Get.find(),
+        megaApi: restClientDio, // Usar o mesmo cliente
+        restClientDio: restClientDio, // Usar o mesmo cliente
       ),
     );
 
