@@ -3,13 +3,17 @@ import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../data/data.dart';
 import '../../../data/providers/create_service_provider.dart';
+import '../../../data/providers/profile_provider.dart';
 
 class SelectServicesController extends GetxController {
   SelectServicesController({
     required CreateServiceProvider createServiceProvider,
-  }) : _createServiceProvider = createServiceProvider;
+    required ProfileProvider profileProvider,
+  }) : _createServiceProvider = createServiceProvider,
+       _profileProvider = profileProvider;
 
   final CreateServiceProvider _createServiceProvider;
+  final ProfileProvider _profileProvider;
 
   final _isLoading = RxBool(false);
   final _isLoadingServices = RxBool(false);
@@ -79,9 +83,27 @@ class SelectServicesController extends GetxController {
     }
 
     // Verificar se o workshop ID está disponível
-    final workshop = WorkshopModel.fromCache();
+    WorkshopModel workshop = WorkshopModel.fromCache();
     if (workshop.id.isNullOrEmpty) {
-      print('❌ Erro crítico: Workshop ID não encontrado no cache.');
+      print('❌ Workshop ID não encontrado no cache. Tentando obter do servidor...');
+      
+      try {
+        // Tentar obter as informações do workshop do servidor
+        workshop = await _profileProvider.onGetProfileInfo();
+        await workshop.save(); // Salvar no cache
+        print('✅ Workshop obtido do servidor e salvo no cache. ID: ${workshop.id}');
+      } catch (e) {
+        print('❌ Erro ao obter workshop do servidor: $e');
+        MegaSnackbar.showErroSnackBar(
+          'Erro: Workshop não encontrado. Faça login novamente.',
+          title: 'Seleção de Serviços',
+        );
+        return false;
+      }
+    }
+    
+    if (workshop.id.isNullOrEmpty) {
+      print('❌ Erro crítico: Workshop ID ainda não encontrado após tentativa de obtenção.');
       MegaSnackbar.showErroSnackBar(
         'Erro: Workshop não encontrado. Faça login novamente.',
         title: 'Seleção de Serviços',

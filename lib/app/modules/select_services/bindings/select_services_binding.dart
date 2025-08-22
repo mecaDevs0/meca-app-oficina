@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../data/providers/create_service_provider.dart';
+import '../../../data/providers/profile_provider.dart';
 import '../controllers/select_services_controller.dart';
 
 class SelectServicesBinding extends Bindings {
@@ -15,9 +16,16 @@ class SelectServicesBinding extends Bindings {
       ),
     );
 
+    Get.put<ProfileProvider>(
+      ProfileProvider(
+        restClientDio: Get.find(),
+      ),
+    );
+
     Get.put<SelectServicesController>(
       SelectServicesController(
         createServiceProvider: Get.find(),
+        profileProvider: Get.find(),
       ),
     );
   }
