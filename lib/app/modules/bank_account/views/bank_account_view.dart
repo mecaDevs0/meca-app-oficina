@@ -107,7 +107,7 @@ class _BankAccountViewState
                     if (userId != null && userId.isNotEmpty) {
                       await controller.updateRegister(
                         userId: userId,
-                        pathBank: BaseUrls.updateDataBank,
+                        pathBank: null, // Deixar null para usar a lógica do provider
                       );
                       final workshopCache = WorkshopModel.fromCache();
                       workshopCache.dataBankValid = true;
