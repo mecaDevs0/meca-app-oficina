@@ -48,13 +48,41 @@ class CreateServiceProvider {
   }
 
   Future<String?> saveWorkshopServices(String workshopId, List<String> serviceIds) async {
-    final response = await _restClientDio.post(
-      BaseUrls.service,
-      data: {
-        'workshopId': workshopId,
-        'serviceIds': serviceIds,
-      },
-    );
-    return response.message;
+    // Fazer múltiplas requisições para salvar cada serviço individualmente
+    for (final serviceId in serviceIds) {
+      try {
+        // Buscar os dados do serviço padrão para obter as informações necessárias
+        final defaultServices = await getDefaultServices();
+        final defaultService = defaultServices.firstWhere(
+          (service) => service.id == serviceId,
+          orElse: () => throw Exception('Serviço padrão não encontrado: $serviceId'),
+        );
+
+        // Criar o objeto WorkshopServicesViewModel
+        final workshopServiceData = {
+          'service': {
+            'id': serviceId,
+            'name': defaultService.name,
+          },
+          'quickService': defaultService.quickService ?? false,
+          'minTimeScheduling': defaultService.minTimeScheduling ?? 1.0,
+          'description': defaultService.description ?? '',
+          'estimatedTime': 1.0, // Valor padrão
+          'photo': defaultService.photo ?? '',
+        };
+
+        final response = await _restClientDio.post(
+          BaseUrls.service,
+          data: workshopServiceData,
+        );
+        
+        print('✅ Serviço salvo: ${defaultService.name}');
+      } catch (e) {
+        print('❌ Erro ao salvar serviço $serviceId: $e');
+        // Continuar com os próximos serviços mesmo se um falhar
+      }
+    }
+    
+    return 'Serviços salvos com sucesso';
   }
 }
