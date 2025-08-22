@@ -24,6 +24,9 @@ class _BankAccountViewState
   }
 
   Future<void> _checkTypeProfile() async {
+    print('🔍 [VIEW_DEBUG] Workshop ID: ${workshop.id}');
+    print('🔍 [VIEW_DEBUG] Workshop data: ${workshop.toJson()}');
+    
     await controller.initialize(
       userId: workshop.id,
       pathBank: BaseUrls.updateDataBank,
@@ -91,6 +94,7 @@ class _BankAccountViewState
                   ),
                   isLoading: controller.isLoading,
                   onButtonPress: () async {
+                    print('🔍 [VIEW_DEBUG] Button pressed - Workshop ID: ${workshop.id}');
                     if (workshop.id != null) {
                       await controller.updateRegister(
                         userId: workshop.id!,
@@ -99,6 +103,9 @@ class _BankAccountViewState
                       final workshopCache = WorkshopModel.fromCache();
                       workshopCache.dataBankValid = true;
                       workshopCache.save();
+                    } else {
+                      print('🔍 [VIEW_DEBUG] Workshop ID is null!');
+                      MegaSnackbar.showErroSnackBar('Erro: ID da oficina não encontrado');
                     }
                   },
                 ),
