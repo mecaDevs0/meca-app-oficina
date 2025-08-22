@@ -154,10 +154,18 @@ class SelectServicesController extends GetxController {
           final serviceIds = _selectedServiceIds.toList();
           await _createServiceProvider.saveWorkshopServices(workshopId, serviceIds);
           
-          // Atualizar o cache do workshop
-          final workshopCache = WorkshopModel.fromCache();
-          workshopCache.workshopServicesValid = true;
-          await workshopCache.save();
+          // Atualizar os dados do workshop do servidor
+          try {
+            final updatedWorkshop = await _profileProvider.onGetProfileInfo();
+            await updatedWorkshop.save();
+            print('✅ Dados do workshop atualizados do servidor');
+          } catch (e) {
+            print('⚠️ Erro ao atualizar dados do workshop do servidor: $e');
+            // Fallback: atualizar apenas o cache local
+            final workshopCache = WorkshopModel.fromCache();
+            workshopCache.workshopServicesValid = true;
+            await workshopCache.save();
+          }
           
           isSuccess = true;
           

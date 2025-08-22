@@ -6,6 +6,7 @@ import 'package:mega_features/mega_features.dart';
 
 import '../../../core/core.dart';
 import '../../../data/data.dart';
+import '../../../data/providers/profile_provider.dart';
 
 class BankAccountView extends StatefulWidget {
   const BankAccountView({super.key});
@@ -109,9 +110,20 @@ class _BankAccountViewState
                         userId: userId,
                         pathBank: null, // Deixar null para usar a lógica do provider
                       );
-                      final workshopCache = WorkshopModel.fromCache();
-                      workshopCache.dataBankValid = true;
-                      workshopCache.save();
+                      
+                      // Atualizar os dados do workshop do servidor
+                      try {
+                        final profileProvider = Get.find<ProfileProvider>();
+                        final updatedWorkshop = await profileProvider.onGetProfileInfo();
+                        await updatedWorkshop.save();
+                        print('✅ Dados do workshop atualizados do servidor após salvar dados bancários');
+                      } catch (e) {
+                        print('⚠️ Erro ao atualizar dados do workshop do servidor: $e');
+                        // Fallback: atualizar apenas o cache local
+                        final workshopCache = WorkshopModel.fromCache();
+                        workshopCache.dataBankValid = true;
+                        await workshopCache.save();
+                      }
                     } else {
                       print('🔍 [VIEW_DEBUG] User ID is null or empty!');
                       MegaSnackbar.showErroSnackBar('Erro: ID da oficina não encontrado');
