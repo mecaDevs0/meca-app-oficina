@@ -11,3 +11,4 @@ export 'send_quote_provider.dart';
 export 'service_details_provider.dart';
 export 'service_failed_provider.dart';
 export 'service_provider.dart';
+

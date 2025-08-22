@@ -173,6 +173,9 @@ class SelectServicesController extends GetxController {
             '${_selectedServiceIds.length} serviço(s) selecionado(s) com sucesso!',
             title: 'Seleção de Serviços',
           );
+          
+          // Retornar para a Home
+          Get.back(result: true);
         } catch (e) {
           print('❌ Erro ao salvar serviços: $e');
           MegaSnackbar.showErroSnackBar(
