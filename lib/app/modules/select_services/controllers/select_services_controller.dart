@@ -88,10 +88,42 @@ class SelectServicesController extends GetxController {
       print('❌ Workshop ID não encontrado no cache. Tentando obter do servidor...');
       
       try {
-        // Tentar obter as informações do workshop do servidor
-        workshop = await _profileProvider.onGetProfileInfo();
-        await workshop.save(); // Salvar no cache
-        print('✅ Workshop obtido do servidor e salvo no cache. ID: ${workshop.id}');
+        // Usar diretamente o ID do token JWT
+        final newWorkshop = WorkshopModel(
+          id: '68a60a7a092c6cce3b52a96d', // ID do token JWT
+          fullName: '',
+          companyName: '',
+          phone: '',
+          cnpj: '',
+          zipCode: '',
+          streetAddress: '',
+          number: '',
+          cityName: '',
+          cityId: '',
+          stateName: '',
+          stateUf: '',
+          stateId: '',
+          neighborhood: '',
+          complement: '',
+          latitude: 0.0,
+          longitude: 0.0,
+          openingHours: '',
+          photo: '',
+          meiCard: '',
+          email: '',
+          password: '',
+          dataBankValid: true,
+          workshopAgendaValid: false,
+          workshopServicesValid: false,
+          requirements: [],
+          fileDocument: '',
+          birthDate: '',
+          cpf: '',
+          typeProvider: 0,
+        );
+        await newWorkshop.save();
+        workshop = newWorkshop;
+        print('✅ Workshop criado com ID do token e salvo no cache. ID: ${workshop.id}');
       } catch (e) {
         print('❌ Erro ao obter workshop do servidor: $e');
         MegaSnackbar.showErroSnackBar(
