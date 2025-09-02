@@ -35,26 +35,16 @@ class ScheduleView extends GetView<ScheduleController> {
             const SizedBox(height: 24),
             Obx(() {
               if (controller.isLoading) {
-                final schedule = WorkshopAgendaModel(
-                  available: false,
-                  hour: '00:00',
-                  profile: ProfileModel(
-                    fullName: 'Carregando...',
-                    phone: 'Carregando...',
-                  ),
-                );
-                final fakeList = List.filled(
-                  6,
-                  ScheduleItem(schedule: schedule),
-                );
-                return Skeletonizer(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: fakeList.length,
-                    itemBuilder: (context, index) {
-                      return fakeList[index];
-                    },
+                return const Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Carregando agenda...'),
+                      ],
+                    ),
                   ),
                 );
               }
