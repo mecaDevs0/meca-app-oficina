@@ -175,64 +175,205 @@ class ItemWeek extends GetView<ScheduleController> {
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        TimerWidget(
-                          title: 'Abre',
-                          hint: 'Hora de inicio',
-                          value: weekDay.startTime,
-                          onChanged: (value) {
-                            controller.setTime(
-                              typeTime: TypeTimeAgenda.startTime,
-                              day: day,
-                              value: value,
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                        TimerWidget(
-                          title: 'Fecha',
-                          hint: 'Hora de fechar',
-                          value: weekDay.closingTime,
-                          onChanged: (value) {
-                            controller.setTime(
-                              typeTime: TypeTimeAgenda.closingTime,
-                              day: day,
-                              value: value,
-                            );
-                          },
-                        ),
-                      ],
+                    // Horários de funcionamento
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                color: Colors.green[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Horários de Funcionamento (Obrigatório)',
+                                style: TextStyle(
+                                  color: Colors.green[600],
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TimerWidget(
+                                  title: 'Abre',
+                                  hint: 'Hora de inicio',
+                                  value: weekDay.startTime,
+                                  onChanged: (value) {
+                                    controller.setTime(
+                                      typeTime: TypeTimeAgenda.startTime,
+                                      day: day,
+                                      value: value,
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TimerWidget(
+                                  title: 'Fecha',
+                                  hint: 'Hora de fechar',
+                                  value: weekDay.closingTime,
+                                  onChanged: (value) {
+                                    controller.setTime(
+                                      typeTime: TypeTimeAgenda.closingTime,
+                                      day: day,
+                                      value: value,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        TimerWidget(
-                          title: 'Inicio da pausa',
-                          hint: 'Inicio da pausa',
-                          value: weekDay.startOfBreak,
-                          onChanged: (value) {
-                            controller.setTime(
-                              typeTime: TypeTimeAgenda.startOfBreak,
-                              day: day,
-                              value: value,
-                            );
-                          },
-                        ),
-                        const Spacer(),
-                        TimerWidget(
-                          title: 'Fim da pausa',
-                          hint: 'Fim da pausa',
-                          value: weekDay.endOfBreak,
-                          onChanged: (value) {
-                            controller.setTime(
-                              typeTime: TypeTimeAgenda.endOfBreak,
-                              day: day,
-                              value: value,
-                            );
-                          },
-                        ),
-                      ],
+                    // Horários de pausa (opcional)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.coffee,
+                                color: Colors.blue[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Período de Pausa (Opcional)',
+                                style: TextStyle(
+                                  color: Colors.blue[600],
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'OPCIONAL',
+                                  style: TextStyle(
+                                    color: Colors.blue[700],
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Configure os horários de pausa se desejar. Deixe em branco se não houver pausa.',
+                            style: TextStyle(
+                              color: Colors.blue[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TimerWidget(
+                                  title: 'Início da Pausa',
+                                  hint: 'Ex: 12:00 (opcional)',
+                                  value: weekDay.startOfBreak,
+                                  isOptional: true,
+                                  onChanged: (value) {
+                                    controller.setTime(
+                                      typeTime: TypeTimeAgenda.startOfBreak,
+                                      day: day,
+                                      value: value,
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: TimerWidget(
+                                  title: 'Fim da Pausa',
+                                  hint: 'Ex: 13:00 (opcional)',
+                                  value: weekDay.endOfBreak,
+                                  onChanged: (value) {
+                                    controller.setTime(
+                                      typeTime: TypeTimeAgenda.endOfBreak,
+                                      day: day,
+                                      value: value,
+                                    );
+                                  },
+                                  isOptional: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Botão para limpar pausa
+                          Center(
+                            child: ElevatedButton.icon(
+                              onPressed: weekDay.startOfBreak.isNotEmpty || weekDay.endOfBreak.isNotEmpty
+                                  ? () {
+                                      controller.setTime(
+                                        typeTime: TypeTimeAgenda.startOfBreak,
+                                        day: day,
+                                        value: '',
+                                      );
+                                      controller.setTime(
+                                        typeTime: TypeTimeAgenda.endOfBreak,
+                                        day: day,
+                                        value: '',
+                                      );
+                                    }
+                                  : null,
+                              icon: Icon(
+                                Icons.clear,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                'Limpar Pausa',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red[400],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

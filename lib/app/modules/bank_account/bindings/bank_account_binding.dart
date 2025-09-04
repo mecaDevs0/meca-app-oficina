@@ -3,6 +3,8 @@ import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 import 'package:mega_features/mega_features.dart';
 
+import '../data/providers/bank_account_provider.dart';
+
 class BankAccountBinding extends Bindings {
   BankAccountBinding();
 

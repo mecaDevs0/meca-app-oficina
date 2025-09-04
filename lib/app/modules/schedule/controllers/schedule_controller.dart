@@ -3,7 +3,6 @@ import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../core/core.dart';
 import '../../../data/data.dart';
-import '../../../data/providers/schedule_provider.dart';
 
 class ScheduleController extends GetxController {
   ScheduleController({required ScheduleProvider scheduleProvider})
@@ -46,18 +45,23 @@ class ScheduleController extends GetxController {
 
   Future<void> _onGetSchedule() async {
     final workshop = WorkshopModel.fromCache();
-    if (workshop.id.isNullOrEmpty) {
+    if (workshop == null || workshop.id.isNullOrEmpty) {
+      print('⚠️ Workshop é null ou ID vazio em _onGetSchedule');
       return;
     }
 
     _isLoading.value = true;
     await MegaRequestUtils.load(
       action: () async {
-        final response = await _scheduleProvider.getSchedule(
-          selectedDate.formatFirstHour(),
-          workshop.id!,
-        );
-        _schedule.value = response;
+        try {
+          final response = await _scheduleProvider.getSchedule(
+            selectedDate.formatFirstHour(),
+            workshop.id!,
+          );
+          _schedule.value = response;
+        } catch (e) {
+          print('❌ Erro em _onGetSchedule: $e');
+        }
       },
       onFinally: () => _isLoading.value = false,
     );
@@ -198,38 +202,120 @@ class ScheduleController extends GetxController {
 
   bool isSelected(DaysOfWeek day) => _isSelectedDays.contains(day);
 
+  // Adicionar validação
+  bool get hasValidationErrors => _isSelectedDays.isEmpty;
+
   Future<bool> saveConfigSchedule() async {
     if (agendaModel == null) {
+      MegaSnackbar.showErroSnackBar(
+        'Erro: Dados da agenda não carregados',
+        title: 'Erro',
+      );
       return false;
     }
+    
+    if (_isSelectedDays.isEmpty) {
+      MegaSnackbar.showErroSnackBar(
+        'Selecione pelo menos um dia de funcionamento',
+        title: 'Validação',
+      );
+      return false;
+    }
+    
+    // Validar apenas horários principais (pausa é opcional)
+    for (final day in _isSelectedDays) {
+      if (agendaModel == null) continue;
+      final weekDay = agendaModel!.getWeekDay(day);
+      if (weekDay.startTime.isEmpty || weekDay.closingTime.isEmpty) {
+        MegaSnackbar.showErroSnackBar(
+          'Configure os horários de abertura e fechamento para o dia ${day.description}',
+          title: 'Horários Obrigatórios',
+        );
+        return false;
+      }
+      
+      // Pausa é opcional - não validar complexamente
+    }
+    
     bool isSuccess = false;
     _isLoading.value = true;
+    
     await MegaRequestUtils.load(
       action: () async {
-        final agenda = agendaModel!.toggleOpenStatus(isSelectedDays);
-        final response = await _scheduleProvider.saveConfigSchedule(agenda);
+        try {
+          if (agendaModel == null) {
+            throw Exception('Agenda não carregada');
+          }
+          
+          final agenda = agendaModel!.toggleOpenStatus(isSelectedDays);
+          print('🔍 Debug: Chamando saveConfigSchedule...');
+          final response = await _scheduleProvider.saveConfigSchedule(agenda);
+          print('🔍 Debug: saveConfigSchedule retornou: ${response}');
 
-        final workshop = WorkshopModel.fromCache();
-        workshop.workshopAgendaValid = true;
-        await workshop.save();
+          print('🔍 Debug: Atualizando workshop no cache...');
+          // Atualizar workshop no cache
+          final workshop = WorkshopModel.fromCache();
+          print('🔍 Debug: workshop = ${workshop}');
+          if (workshop != null) {
+            print('🔍 Debug: workshop não é null, atualizando...');
+            workshop.workshopAgendaValid = true;
+            await workshop.save();
+            print('🔍 Debug: workshop salvo com sucesso');
+          } else {
+            print('🔍 Debug: workshop é null, pulando atualização');
+          }
 
-        await _onGetSchedule();
-        _agendaModel.value = response;
-        isSuccess = true;
-        
-        // Navegar de volta após salvar com sucesso
-        Get.back();
+          print('🔍 Debug: Chamando _onGetSchedule...');
+          await _onGetSchedule();
+          print('🔍 Debug: _onGetSchedule concluído');
+          
+          print('🔍 Debug: Atualizando _agendaModel...');
+          _agendaModel.value = response;
+          print('🔍 Debug: _agendaModel atualizado');
+          
+          isSuccess = true;
+          
+          MegaSnackbar.showSuccessSnackBar(
+            'Agenda configurada com sucesso!',
+            title: 'Sucesso',
+          );
+          
+          // Recarregar dados da agenda para mostrar mudanças
+          print('🔍 Debug: Recarregando dados da agenda...');
+          await onGetConfigSchedule();
+          print('🔍 Debug: Dados recarregados com sucesso');
+          
+          // Mostrar mensagem de sucesso
+          MegaSnackbar.showSuccessSnackBar(
+            'Agenda atualizada! Nota: Algumas mudanças podem demorar para aparecer devido a cache da API.',
+            title: 'Sucesso',
+          );
+        } catch (e) {
+          print('❌ Erro ao salvar agenda: $e');
+          MegaSnackbar.showErroSnackBar(
+            'Erro ao salvar agenda: ${e.toString()}',
+            title: 'Erro',
+          );
+          isSuccess = false;
+        }
       },
       onFinally: () => _isLoading.value = false,
     );
+    
     return isSuccess;
   }
+
+
 
   Future<bool> saveConfigNewSchedule() async {
     bool isSuccess = false;
     _isLoading.value = true;
     await MegaRequestUtils.load(
       action: () async {
+        if (agendaModel == null) {
+          throw Exception('Agenda não carregada');
+        }
+        
         final agenda = agendaModel!.toggleOpenStatus(isSelectedDays);
         final response = await _scheduleProvider.saveConfigSchedule(agenda);
         _agendaModel.value = response;
