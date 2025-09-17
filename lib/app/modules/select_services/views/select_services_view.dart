@@ -18,8 +18,8 @@ class _SelectServicesViewState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const BaseAppBar(
-        title: 'Selecionar Serviços',
+      appBar: BaseAppBar(
+        title: controller.isEditingService ? 'Editar Serviço' : 'Selecionar Serviços',
       ),
       body: Obx(
         () => controller.isLoadingServices
@@ -28,7 +28,7 @@ class _SelectServicesViewState
               )
             : Column(
                 children: [
-                  _buildSelectAllSection(),
+                  if (!controller.isEditingService) _buildSelectAllSection(),
                   _buildServicesList(),
                 ],
               ),
@@ -417,9 +417,9 @@ class _SelectServicesViewState
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text(
-                              'Salvar Seleção',
-                              style: TextStyle(
+                          : Text(
+                              controller.isEditingService ? 'Salvar Alterações' : 'Salvar Seleção',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,

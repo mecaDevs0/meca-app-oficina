@@ -153,7 +153,7 @@ class _CoreViewState extends MegaState<CoreView, CoreController> {
                         const SizedBox(height: 16),
                         Text(
                           controller.loadingMessage,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.abbey,
                             fontSize: 16,
                           ),

@@ -5,7 +5,6 @@ import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../core/core.dart';
 import '../../../data/data.dart';
-import '../../../data/providers/home_provider.dart';
 import '../../core/controllers/core_controller.dart';
 
 class HomeController extends GetxController with WorkshopMixin {
@@ -51,6 +50,9 @@ class HomeController extends GetxController with WorkshopMixin {
 
   @override
   void onInit() {
+    // Inicializar workshop do cache
+    _workshop.value = WorkshopModel.fromCache();
+    
     nextPagingController.addPageRequestListener(getNextSchedule);
     historyPagingController.addPageRequestListener(getHistorySchedule);
 

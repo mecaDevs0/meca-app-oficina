@@ -1,4 +1,5 @@
 import 'dart:developer' as console;
+
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../data/data.dart';
@@ -25,11 +26,13 @@ class AppInterceptor extends Interceptor {
     
     // Adicionar workshopId apenas se a oficina estiver logada e não for uma requisição de autenticação
     // E não for um endpoint que já tem ID na URL (como WorkshopAgenda/{id})
+    // E não for um endpoint de serviços padrão (ServicesDefault)
     if (!isAuthRequest &&
         options.method == 'GET' && 
         workshop?.id != null && 
         workshop!.id!.isNotEmpty && 
-        !options.path.contains('/WorkshopAgenda/')) {
+        !options.path.contains('/WorkshopAgenda/') &&
+        !options.path.contains('/ServicesDefault')) {
       options.queryParameters['workshopId'] = workshop.id;
       console.log('✅ AppInterceptor - Adicionando workshopId: ${workshop.id}', name: 'AppInterceptor');
     } else {
@@ -38,7 +41,10 @@ class AppInterceptor extends Interceptor {
     }
     
     // Adicionar dataBlocked apenas em requisições GET que não são de autenticação
-    if (!isAuthRequest && options.method == 'GET') {
+    // E não para endpoints de serviços padrão (ServicesDefault)
+    if (!isAuthRequest && 
+        options.method == 'GET' && 
+        !options.path.contains('/ServicesDefault')) {
       options.queryParameters['dataBlocked'] = 0;
     }
     

@@ -1,6 +1,7 @@
 import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
+import '../../../core/args/service_args.dart';
 import '../../../data/data.dart';
 
 class SelectServicesController extends GetxController {
@@ -18,6 +19,8 @@ class SelectServicesController extends GetxController {
   final _defaultServices = RxList<DefaultServiceModel>.empty();
   final _selectedServiceIds = RxSet<String>();
   final _selectAll = RxBool(false);
+  final _isEditingService = RxBool(false);
+  final _editingServiceId = RxString('');
 
   bool get isLoading => _isLoading.value;
   bool get isLoadingServices => _isLoadingServices.value;
@@ -26,9 +29,18 @@ class SelectServicesController extends GetxController {
       .where((service) => _selectedServiceIds.contains(service.id))
       .toList();
   bool get selectAll => _selectAll.value;
+  bool get isEditingService => _isEditingService.value;
+  String get editingServiceId => _editingServiceId.value;
 
   @override
   Future<void> onInit() async {
+    // Verificar se está editando um serviço específico
+    final args = Get.arguments as ServiceArgs?;
+    if (args != null) {
+      _isEditingService.value = true;
+      _editingServiceId.value = args.serviceId;
+    }
+    
     await _fetchDefaultServices();
     super.onInit();
   }
@@ -72,6 +84,11 @@ class SelectServicesController extends GetxController {
   }
 
   Future<bool> saveSelectedServices() async {
+    // Se estiver editando um serviço específico, implementar lógica diferente
+    if (_isEditingService.value) {
+      return await _editService();
+    }
+    
     if (_selectedServiceIds.isEmpty) {
       MegaSnackbar.showErroSnackBar(
         'Selecione pelo menos um serviço',
@@ -187,6 +204,69 @@ class SelectServicesController extends GetxController {
           MegaSnackbar.showErroSnackBar(
             'Erro ao salvar serviços. Tente novamente.',
             title: 'Seleção de Serviços',
+          );
+          isSuccess = false;
+        }
+      },
+      onFinally: () => _isLoading.value = false,
+    );
+
+    return isSuccess;
+  }
+
+  Future<bool> _editService() async {
+    if (_selectedServiceIds.isEmpty) {
+      MegaSnackbar.showErroSnackBar(
+        'Selecione pelo menos um serviço para editar',
+        title: 'Edição de Serviço',
+      );
+      return false;
+    }
+
+    _isLoading.value = true;
+    bool isSuccess = false;
+
+    await MegaRequestUtils.load(
+      action: () async {
+        try {
+          // Para edição, vamos usar o primeiro serviço selecionado
+          final selectedServiceId = _selectedServiceIds.first;
+          final selectedService = _defaultServices.firstWhere(
+            (service) => service.id == selectedServiceId,
+          );
+
+          // Criar um ServiceModel com os dados do serviço selecionado
+          final serviceModel = ServiceModel(
+            id: _editingServiceId.value,
+            service: selectedService,
+            description: selectedService.description,
+            photo: selectedService.photo,
+            estimatedTime: selectedService.minTimeScheduling,
+            quickService: selectedService.quickService,
+            minTimeScheduling: selectedService.minTimeScheduling,
+          );
+
+          // Chamar o método de edição
+          final result = await _createServiceProvider.onEditService(serviceModel);
+          
+          if (result != null) {
+            MegaSnackbar.showSuccessSnackBar(
+              'Serviço editado com sucesso!',
+              title: 'Edição de Serviço',
+            );
+            isSuccess = true;
+            Get.back(result: true);
+          } else {
+            MegaSnackbar.showErroSnackBar(
+              'Erro ao editar serviço. Tente novamente.',
+              title: 'Edição de Serviço',
+            );
+          }
+        } catch (e) {
+          print('❌ Erro ao editar serviço: $e');
+          MegaSnackbar.showErroSnackBar(
+            'Erro ao editar serviço. Tente novamente.',
+            title: 'Edição de Serviço',
           );
           isSuccess = false;
         }

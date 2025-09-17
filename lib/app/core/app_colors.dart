@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 abstract class AppColors {
   // Meca Oficina color palette
-  static const primaryColor = Color(0xFF1E3A8A); // Meca primary blue (darker blue)
+  static const primaryColor = Color(0xFF252940); // Meca primary blue (darker blue)
   static const primaryDark = Color(0xFF1E40AF);
   static const primaryLight = Color(0xFFDEEAFF);
   

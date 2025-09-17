@@ -39,4 +39,12 @@ class ServiceProvider {
     final response = await _restClientDio.delete('${BaseUrls.service}/$id');
     return response.message;
   }
+
+  Future<String?> onEditService(ServiceModel editedService) async {
+    final response = await _restClientDio.patch(
+      '${BaseUrls.service}/${editedService.id}',
+      data: editedService.toJson(),
+    );
+    return response.message;
+  }
 }
