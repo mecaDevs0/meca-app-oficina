@@ -3,6 +3,7 @@ import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 import 'package:mega_features/mega_features.dart';
 
+import '../../../core/app_colors.dart';
 import '../controllers/edit_profile_controller.dart';
 
 class AddressForm extends StatefulWidget {
@@ -27,6 +28,7 @@ class _AddressFormState extends MegaState<AddressForm, EditProfileController> {
         Obx(
           () => MegaBaseButton(
             'Salvar alterações',
+            buttonColor: AppColors.primaryColor,
             isLoading: controller.isLoading,
             onButtonPress: () {
               if (_formKey.currentState?.validate() == false) {

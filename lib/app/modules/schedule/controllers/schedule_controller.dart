@@ -100,10 +100,14 @@ class ScheduleController extends GetxController {
     await MegaRequestUtils.load(
       action: () async {
         final workshop = WorkshopModel.fromCache();
+        print('🔍 [SCHEDULE_DEBUG] Workshop do cache: ${workshop?.toJson()}');
+        print('🔍 [SCHEDULE_DEBUG] Workshop ID: ${workshop?.id}');
+        print('🔍 [SCHEDULE_DEBUG] Workshop é null: ${workshop == null}');
+        print('🔍 [SCHEDULE_DEBUG] Workshop ID é vazio: ${workshop?.id.isNullOrEmpty}');
         
         // Verificar se o workshop tem ID válido
-        if (workshop.id.isNullOrEmpty) {
-          print('❌ Workshop ID está vazio ou nulo: ${workshop.id}');
+        if (workshop == null || workshop.id.isNullOrEmpty) {
+          print('❌ Workshop ID está vazio ou nulo: ${workshop?.id}');
           // Retornar agenda inicial se não houver ID
           _agendaModel.value = AgendaModel.initial();
           return;
@@ -275,11 +279,6 @@ class ScheduleController extends GetxController {
           
           isSuccess = true;
           
-          MegaSnackbar.showSuccessSnackBar(
-            'Agenda configurada com sucesso!',
-            title: 'Sucesso',
-          );
-          
           // Recarregar dados da agenda para mostrar mudanças
           print('🔍 Debug: Recarregando dados da agenda...');
           await onGetConfigSchedule();
@@ -287,7 +286,7 @@ class ScheduleController extends GetxController {
           
           // Mostrar mensagem de sucesso
           MegaSnackbar.showSuccessSnackBar(
-            'Agenda atualizada! Nota: Algumas mudanças podem demorar para aparecer devido a cache da API.',
+            'Agenda configurada com sucesso!',
             title: 'Sucesso',
           );
         } catch (e) {

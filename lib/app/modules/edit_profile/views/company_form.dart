@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
@@ -172,6 +171,7 @@ class _CompanyFormState extends MegaState<CompanyForm, EditProfileController> {
           Obx(
             () => MegaBaseButton(
               'Salvar alterações',
+              buttonColor: AppColors.primaryColor,
               isLoading: controller.isLoading,
               onButtonPress: () {
                 if (_formKey.currentState?.validate() == false) {

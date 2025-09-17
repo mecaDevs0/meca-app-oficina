@@ -78,7 +78,7 @@ class _ConfigScheduleViewState
                     }
                   },
                   isLoading: controller.isLoading,
-                  backgroundColor: AppColors.primary,
+                  buttonColor: AppColors.primaryColor,
                   textStyle: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,

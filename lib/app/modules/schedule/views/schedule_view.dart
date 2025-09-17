@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
+import '../../../core/app_colors.dart';
 import '../../../data/data.dart';
 import '../../../routes/app_pages.dart';
 import '../controllers/schedule_controller.dart';
@@ -20,13 +21,35 @@ class ScheduleView extends GetView<ScheduleController> {
           children: [
             const ScheduleCalendar(),
             const SizedBox(height: 24),
-            MegaBaseButton(
-              'Configurar agenda',
-              onButtonPress: () => Get.toNamed(Routes.configSchedule),
-              borderRadius: 4,
-              textStyle: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+            Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryColor, AppColors.primaryColor.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: MegaBaseButton(
+                'Configurar agenda',
+                onButtonPress: () => Get.toNamed(Routes.configSchedule),
+                borderRadius: 16,
+                buttonColor: Colors.transparent,
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             ).animate().fadeIn(
                   begin: 0,

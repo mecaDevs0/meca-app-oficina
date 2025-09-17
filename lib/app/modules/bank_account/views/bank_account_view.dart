@@ -6,7 +6,6 @@ import 'package:mega_features/mega_features.dart';
 
 import '../../../core/core.dart';
 import '../../../data/data.dart';
-import '../../../data/providers/profile_provider.dart';
 
 class BankAccountView extends StatefulWidget {
   const BankAccountView({super.key});
@@ -85,14 +84,34 @@ class _BankAccountViewState
                 ),
               FormBankAccountView(
                 isWithTitle: true,
-                actionButton: MegaBaseButton(
-                  'Salvar alterações',
-                  borderRadius: 4,
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                actionButton: Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primaryColor, AppColors.primaryColor.withOpacity(0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
+                  child: MegaBaseButton(
+                    'Salvar alterações',
+                    borderRadius: 16,
+                    buttonColor: Colors.transparent,
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
                   isLoading: controller.isLoading,
                   onButtonPress: () async {
                     print('🔍 [VIEW_DEBUG] Button pressed - Workshop ID: ${workshop.id}');
@@ -129,6 +148,7 @@ class _BankAccountViewState
                       MegaSnackbar.showErroSnackBar('Erro: ID da oficina não encontrado');
                     }
                   },
+                ),
                 ),
               ),
             ],

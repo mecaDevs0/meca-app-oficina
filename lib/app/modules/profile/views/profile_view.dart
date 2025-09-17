@@ -68,7 +68,7 @@ class ProfileView extends GetView<ProfileController> {
       () => MegaContainerLoading(
         isLoading: controller.isLoading,
         child: Scaffold(
-          backgroundColor: AppColors.surfaceColor,
+          backgroundColor: AppColors.white,
           body: SingleChildScrollView(
             child: Column(
               children: [
@@ -97,7 +97,7 @@ class ProfileView extends GetView<ProfileController> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.backgroundColor,
+                                color: AppColors.white,
                                 width: 3,
                               ),
                               boxShadow: [
@@ -120,7 +120,7 @@ class ProfileView extends GetView<ProfileController> {
                           Text(
                             controller.workshop.companyName ?? '',
                             style: const TextStyle(
-                              color: AppColors.backgroundColor,
+                              color: AppColors.white,
                               fontSize: 24,
                               fontWeight: FontWeight.w700,
                             ),
@@ -134,13 +134,13 @@ class ProfileView extends GetView<ProfileController> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.backgroundColor.withOpacity(0.2),
+                              color: AppColors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               _formatCnpj(controller.workshop.cnpj),
                               style: const TextStyle(
-                                color: AppColors.backgroundColor,
+                                color: AppColors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -151,10 +151,10 @@ class ProfileView extends GetView<ProfileController> {
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: AppColors.backgroundColor.withOpacity(0.1),
+                              color: AppColors.white.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: AppColors.backgroundColor.withOpacity(0.2),
+                                color: AppColors.white.withOpacity(0.2),
                                 width: 1,
                               ),
                             ),
@@ -163,15 +163,15 @@ class ProfileView extends GetView<ProfileController> {
                                 ContactItem(
                                   icon: AppImages.icEmail,
                                   label: controller.workshop.email ?? '',
-                                  iconColor: AppColors.backgroundColor,
-                                  textColor: AppColors.backgroundColor,
+                                  iconColor: AppColors.white,
+                                  textColor: AppColors.white,
                                 ),
                                 const SizedBox(height: 12),
                                 ContactItem(
                                   icon: AppImages.icWhatsapp,
                                   label: controller.workshop.phone.formattedPhone,
-                                  iconColor: AppColors.backgroundColor,
-                                  textColor: AppColors.backgroundColor,
+                                  iconColor: AppColors.white,
+                                  textColor: AppColors.white,
                                 ),
                               ],
                             ),
@@ -185,7 +185,7 @@ class ProfileView extends GetView<ProfileController> {
                 Container(
                   margin: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.backgroundColor,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -237,10 +237,10 @@ class ProfileView extends GetView<ProfileController> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.errorColor.withOpacity(0.1),
+                        color: AppColors.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.errorColor.withOpacity(0.2),
+                          color: AppColors.error.withOpacity(0.2),
                           width: 1,
                         ),
                       ),
@@ -249,14 +249,14 @@ class ProfileView extends GetView<ProfileController> {
                         children: [
                           Icon(
                             Icons.delete_outline,
-                            color: AppColors.errorColor,
+                            color: AppColors.error,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Deletar conta',
                             style: TextStyle(
-                              color: AppColors.errorColor,
+                              color: AppColors.error,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),

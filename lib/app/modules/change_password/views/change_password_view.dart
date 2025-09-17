@@ -60,6 +60,7 @@ class ChangePasswordView extends GetView<ChangePasswordController> {
               Obx(
                 () => MegaBaseButton(
                   'Salvar alterações',
+                  buttonColor: AppColors.primaryColor,
                   textStyle: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,

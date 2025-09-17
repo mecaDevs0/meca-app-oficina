@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../core/app_colors.dart';
 
 class AppTheme {
@@ -8,7 +9,7 @@ class AppTheme {
   
   static final theme = ThemeData.light().copyWith(
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: AppColors.white,
       foregroundColor: AppColors.fontDarkGray,
       elevation: 0,
       centerTitle: true,
@@ -18,19 +19,19 @@ class AppTheme {
         color: AppColors.fontDarkGray,
       ),
       systemOverlayStyle: SystemUiOverlayStyle(
-        statusBarColor: AppColors.backgroundColor,
+        statusBarColor: AppColors.white,
         statusBarIconBrightness: Brightness.dark,
       ),
     ),
     colorScheme: ThemeData.light().colorScheme.copyWith(
       primary: AppColors.primaryColor,
-      secondary: AppColors.secondaryColor,
-      error: AppColors.errorColor,
-      surface: AppColors.backgroundColor,
+      secondary: AppColors.success,
+      error: AppColors.error,
+      surface: AppColors.white,
       onSurface: AppColors.fontDarkGray,
-      onPrimary: AppColors.backgroundColor,
-      onSecondary: AppColors.backgroundColor,
-      onError: AppColors.backgroundColor,
+      onPrimary: AppColors.white,
+      onSecondary: AppColors.white,
+      onError: AppColors.white,
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -38,20 +39,20 @@ class AppTheme {
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppColors.grayBorderColor, width: 1),
       ),
-      surfaceTintColor: AppColors.backgroundColor,
-      color: AppColors.backgroundColor,
+      surfaceTintColor: AppColors.white,
+      color: AppColors.white,
     ),
     dialogTheme: DialogThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
-      backgroundColor: AppColors.backgroundColor,
-      surfaceTintColor: AppColors.backgroundColor,
+      backgroundColor: AppColors.white,
+      surfaceTintColor: AppColors.white,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primaryColor,
-        foregroundColor: AppColors.backgroundColor,
+        foregroundColor: AppColors.white,
         elevation: 0,
         shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
@@ -92,7 +93,7 @@ class AppTheme {
       ),
     ),
     primaryColor: AppColors.primaryColor,
-    scaffoldBackgroundColor: AppColors.surfaceColor,
+    scaffoldBackgroundColor: AppColors.white,
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: GoogleFonts.inter(
         color: AppColors.hintTextColor,
@@ -113,14 +114,14 @@ class AppTheme {
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.errorColor),
+        borderSide: const BorderSide(color: AppColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.errorColor, width: 2),
+        borderSide: const BorderSide(color: AppColors.error, width: 2),
       ),
       errorStyle: GoogleFonts.inter(
-        color: AppColors.errorColor,
+        color: AppColors.error,
         fontSize: 14,
         fontWeight: FontWeight.w400,
       ),

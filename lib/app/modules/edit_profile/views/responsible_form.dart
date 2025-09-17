@@ -74,6 +74,7 @@ class _ResponsibleFormState
           Obx(
             () => MegaBaseButton(
               'Salvar alterações',
+              buttonColor: AppColors.primaryColor,
               isLoading: controller.isLoading,
               onButtonPress: () {
                 if (_formKey.currentState?.validate() == false) {

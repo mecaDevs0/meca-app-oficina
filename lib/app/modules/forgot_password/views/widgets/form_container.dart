@@ -55,6 +55,7 @@ class FormContainer extends GetView<ForgotPasswordController> {
             Obx(
               () => MegaBaseButton(
                 'Recuperar senha',
+                buttonColor: AppColors.primaryColor,
                 textStyle: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,

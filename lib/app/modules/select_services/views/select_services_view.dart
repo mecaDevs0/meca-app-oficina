@@ -217,7 +217,7 @@ class _SelectServicesViewState
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.successColor.withOpacity(0.1),
+                              color: AppColors.success.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -225,7 +225,7 @@ class _SelectServicesViewState
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.successColor,
+                                color: AppColors.success,
                               ),
                             ),
                           ),
@@ -235,7 +235,7 @@ class _SelectServicesViewState
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppColors.infoColor.withOpacity(0.1),
+                              color: AppColors.info.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -243,7 +243,7 @@ class _SelectServicesViewState
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.infoColor,
+                                color: AppColors.info,
                               ),
                             ),
                           ),
@@ -404,10 +404,8 @@ class _SelectServicesViewState
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: controller.isLoading ? null : () async {
-                      final success = await controller.saveSelectedServices();
-                      if (success) {
-                        Get.back(result: true);
-                      }
+                      await controller.saveSelectedServices();
+                      // Não precisa chamar Get.back() aqui pois o controller já faz isso
                     },
                     child: Center(
                       child: controller.isLoading

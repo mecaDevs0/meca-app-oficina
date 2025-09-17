@@ -2,8 +2,6 @@ import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 
 import '../../../data/data.dart';
-import '../../../data/providers/create_service_provider.dart';
-import '../../../data/providers/profile_provider.dart';
 
 class SelectServicesController extends GetxController {
   SelectServicesController({
@@ -152,7 +150,7 @@ class SelectServicesController extends GetxController {
         try {
           // Salvar os serviços selecionados na API
           final serviceIds = _selectedServiceIds.toList();
-          await _createServiceProvider.saveWorkshopServices(workshopId, serviceIds);
+          final result = await _createServiceProvider.saveWorkshopServices(workshopId, serviceIds);
           
           // Atualizar os dados do workshop do servidor
           try {
@@ -169,10 +167,18 @@ class SelectServicesController extends GetxController {
           
           isSuccess = true;
           
-          MegaSnackbar.showSuccessSnackBar(
-            '${_selectedServiceIds.length} serviço(s) selecionado(s) com sucesso!',
-            title: 'Seleção de Serviços',
-          );
+          // Verificar se todos os serviços já estavam cadastrados
+          if (result != null && result.contains('já estão cadastrados')) {
+            MegaSnackbar.showSuccessSnackBar(
+              'Todos os serviços selecionados já estão cadastrados na sua oficina!',
+              title: 'Serviços já Cadastrados',
+            );
+          } else {
+            MegaSnackbar.showSuccessSnackBar(
+              '${_selectedServiceIds.length} serviço(s) adicionado(s) com sucesso!',
+              title: 'Serviços Cadastrados',
+            );
+          }
           
           // Retornar para a Home
           Get.back(result: true);

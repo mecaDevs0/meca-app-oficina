@@ -237,6 +237,7 @@ class _RegisterViewState extends MegaState<RegisterView, RegisterController> {
               Obx(
                 () => MegaBaseButton(
                   _labelButton,
+                  buttonColor: AppColors.primaryColor,
                   textStyle: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
