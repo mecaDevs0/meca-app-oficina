@@ -3,8 +3,6 @@ import 'package:mega_commons/mega_commons.dart';
 import 'package:mega_commons_dependencies/mega_commons_dependencies.dart';
 import 'package:mega_features/mega_features.dart';
 
-import '../data/providers/bank_account_provider.dart';
-
 class BankAccountBinding extends Bindings {
   BankAccountBinding();
 
@@ -13,13 +11,15 @@ class BankAccountBinding extends Bindings {
     // Usar o mesmo RestClientDio que já está configurado com AppInterceptor
     final restClientDio = Get.find<RestClientDio>();
     
+    // Criar o BankAccountProvider do mega_features
     Get.put<BankAccountProvider>(
       BankAccountProvider(
-        megaApi: restClientDio, // Usar o mesmo cliente
-        restClientDio: restClientDio, // Usar o mesmo cliente
+        megaApi: restClientDio,
+        restClientDio: restClientDio,
       ),
     );
 
+    // Usar o BankAccountController do mega_features
     Get.put<BankAccountController>(
       BankAccountController(
         bankProvider: Get.find(),

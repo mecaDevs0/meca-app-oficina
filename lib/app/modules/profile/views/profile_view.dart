@@ -68,105 +68,205 @@ class ProfileView extends GetView<ProfileController> {
       () => MegaContainerLoading(
         isLoading: controller.isLoading,
         child: Scaffold(
+          backgroundColor: AppColors.surfaceColor,
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(22),
             child: Column(
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      height: 78,
-                      width: 78,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(40),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x19000000),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: MegaCachedNetworkImage(
-                        imageUrl: controller.workshop.photo,
-                        height: 78,
-                        width: 78,
-                        radius: 40,
-                      ),
+                // Header com gradiente
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primaryColor,
+                        AppColors.primaryDark,
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      controller.workshop.companyName ?? '',
-                      style: const TextStyle(
-                        color: AppColors.abbey,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatCnpj(controller.workshop.cnpj),
-                      style: const TextStyle(
-                        color: AppColors.silver,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Obx(
-                      () => Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
                         children: [
-                          ContactItem(
-                            icon: AppImages.icEmail,
-                            label: controller.workshop.email ?? '',
+                          const SizedBox(height: 20),
+                          // Avatar com borda
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.backgroundColor,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: MegaCachedNetworkImage(
+                              imageUrl: controller.workshop.photo,
+                              height: 100,
+                              width: 100,
+                              radius: 50,
+                            ),
                           ),
-                          ContactItem(
-                            icon: AppImages.icWhatsapp,
-                            label: controller.workshop.phone.formattedPhone,
+                          const SizedBox(height: 16),
+                          // Nome da empresa
+                          Text(
+                            controller.workshop.companyName ?? '',
+                            style: const TextStyle(
+                              color: AppColors.backgroundColor,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          // CNPJ
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _formatCnpj(controller.workshop.cnpj),
+                              style: const TextStyle(
+                                color: AppColors.backgroundColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          // Informações de contato
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.backgroundColor.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                ContactItem(
+                                  icon: AppImages.icEmail,
+                                  label: controller.workshop.email ?? '',
+                                  iconColor: AppColors.backgroundColor,
+                                  textColor: AppColors.backgroundColor,
+                                ),
+                                const SizedBox(height: 12),
+                                ContactItem(
+                                  icon: AppImages.icWhatsapp,
+                                  label: controller.workshop.phone.formattedPhone,
+                                  iconColor: AppColors.backgroundColor,
+                                  textColor: AppColors.backgroundColor,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ...UserMenuOption.values.map(
-                      (menu) => MenuButton(
-                        icon: menu.icon,
-                        title: menu.title,
-                        subtitle: menu.subtitle,
-                        onTap: () => _makeAction(menu),
+                  ),
+                ),
+                // Menu de opções
+                Container(
+                  margin: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () {
-                        AppBottomSheet.showDeleteBottomSheet(
-                          context,
-                          icon: AppImages.icDelete,
-                          description: 'Excluir sua conta fará com que todos os'
-                              ' dados sejam perdidos permanentemente.',
-                          onButtonPress: () async {
-                            final result = await controller.onRemoveAccount();
-                            if (result) {
-                              Get.offAllNamed(Routes.login);
-                            }
-                          },
-                        );
-                      },
-                      child: const Text(
-                        'Deletar conta',
-                        style: TextStyle(
-                          color: AppColors.apricot,
-                          fontWeight: FontWeight.w700,
+                    ],
+                  ),
+                  child: Column(
+                    children: UserMenuOption.values.map(
+                      (menu) => Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: AppColors.grayBorderColor,
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        child: MenuButton(
+                          icon: menu.icon,
+                          title: menu.title,
+                          subtitle: menu.subtitle,
+                          onTap: () => _makeAction(menu),
                         ),
                       ),
-                    ),
-                  ],
+                    ).toList(),
+                  ),
                 ),
+                // Botão de deletar conta
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  child: GestureDetector(
+                    onTap: () {
+                      AppBottomSheet.showDeleteBottomSheet(
+                        context,
+                        icon: AppImages.icDelete,
+                        description: 'Excluir sua conta fará com que todos os'
+                            ' dados sejam perdidos permanentemente.',
+                        onButtonPress: () async {
+                          final result = await controller.onRemoveAccount();
+                          if (result) {
+                            Get.offAllNamed(Routes.login);
+                          }
+                        },
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.errorColor.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: AppColors.errorColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Deletar conta',
+                            style: TextStyle(
+                              color: AppColors.errorColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
               ],
             ),
           ),

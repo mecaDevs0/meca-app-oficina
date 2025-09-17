@@ -30,45 +30,64 @@ class _ConfigScheduleViewState
     return Scaffold(
       appBar: const BaseAppBar(title: 'Configuração da agenda'),
       body: Obx(() {
-        return SingleChildScrollView(
-          child: Column(
-            children: [
-              Skeletonizer(
-                enabled: controller.isLoadingConfig,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: DaysOfWeek.values
-                        .map(
-                          (day) => ItemWeek(
-                            day: day,
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ).shade,
+        return Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Skeletonizer(
+                  enabled: controller.isLoadingConfig,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: DaysOfWeek.values
+                          .map(
+                            (day) => ItemWeek(
+                              day: day,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ).shade,
+                ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+            ),
+            // Botão sempre visível na parte inferior
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
                 child: MegaBaseButton(
-                  'Salvar',
+                  'Salvar Configuração',
                   onButtonPress: () async {
                     final result = await controller.saveConfigSchedule();
                     if (result) {
                       MegaSnackbar.showSuccessSnackBar(
                         'Agenda salva com sucesso',
                       );
+                      // Voltar para a home após salvar
+                      Get.offAllNamed('/home');
                     }
                   },
                   isLoading: controller.isLoading,
+                  backgroundColor: AppColors.primary,
                   textStyle: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       }),
     );

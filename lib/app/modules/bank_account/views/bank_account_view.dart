@@ -32,7 +32,7 @@ class _BankAccountViewState
       userId: workshop.id,
       pathBank: BaseUrls.updateDataBank,
       pathBankGet: BaseUrls.dataBank,
-      isSandBox: Env.abbreviation != Abbreviation.production,
+      isSandBox: false, // Sempre false para não preencher dados de teste
     );
   }
 
@@ -42,10 +42,10 @@ class _BankAccountViewState
       appBar: const BaseAppBar(
         title: 'Dados bancários',
       ),
-      body: Center(
-        child: Obx(
-          () => ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      body: Obx(
+        () => SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
             children: [
               if (Env.abbreviation != Abbreviation.production)
                 GestureDetector(

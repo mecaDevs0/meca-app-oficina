@@ -127,6 +127,15 @@ class HomeController extends GetxController with WorkshopMixin {
     );
   }
 
+  Future<void> onRefresh() async {
+    // Refresh both paging controllers
+    nextPagingController.refresh();
+    historyPagingController.refresh();
+    
+    // Also refresh workshop info
+    await onGetWorkshopInfo();
+  }
+
   Future<bool> onCompleteRequirements(WorkshopModel workshop) async {
     bool isSuccess = false;
     final workshopSend = workshop.copyWith(id: _workshop.value?.id);
