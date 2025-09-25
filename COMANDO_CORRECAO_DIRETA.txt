@@ -1,0 +1,57 @@
+🚀 COMANDO PARA EXECUTAR NO EC2 - COPIE E COLE DIRETAMENTE
+================================================================
+
+Cole este comando completo no terminal do EC2 (será executado como um bloco):
+
+```bash
+#!/bin/bash
+echo "🚀 CORREÇÃO AUTOMÁTICA API MECABR" && \
+MONGO="mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority" && \
+echo "1. Parando PM2..." && pm2 stop all && pm2 delete all && \
+echo "2. Procurando API..." && \
+API_DIR=$(find /home /var /opt /root -name "*meca-api*" -type d 2>/dev/null | head -1) && \
+if [ -n "$API_DIR" ]; then \
+  echo "📁 API: $API_DIR" && cd "$API_DIR" && \
+  echo "3. Backup config..." && \
+  [ -f "appsettings.json" ] && cp appsettings.json appsettings.json.bak && \
+  echo "4. Atualizando MongoDB..." && \
+  cat > appsettings.json << EOF
+{
+  "ConnectionStrings": {
+    "MongoDb": "$MONGO",
+    "MongoDB": "$MONGO",
+    "DefaultConnection": "$MONGO"
+  },
+  "Logging": {"LogLevel": {"Default": "Information"}},
+  "AllowedHosts": "*"
+}
+EOF
+  echo "5. Compilando..." && \
+  [ -f "Meca.sln" ] && dotnet restore && dotnet build --configuration Release && \
+  echo "6. Iniciando PM2..." && \
+  EXE=$(find . -name "Meca.WebApi" -o -name "Meca.WebApi.exe" | head -1) && \
+  [ -n "$EXE" ] && pm2 start "$EXE" --name "meca-api" || echo "❌ Executável não encontrado" && \
+  sleep 10 && echo "7. Status:" && pm2 list && \
+  echo "8. Teste:" && curl -s -w "Status: %{http_code}" https://api.mecabr.com/api/v1/Workshop/Token; \
+else \
+  echo "❌ API não encontrada"; \
+fi
+```
+
+================================================================
+
+🔥 COMANDO ALTERNATIVO SUPER RÁPIDO:
+
+```bash
+pm2 stop all && pm2 delete all && cd $(find / -name "*meca-api*" -type d 2>/dev/null | head -1) && echo '{"ConnectionStrings":{"MongoDb":"mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority"},"AllowedHosts":"*"}' > appsettings.json && dotnet build -c Release && pm2 start $(find . -name "Meca.WebApi*" | head -1) --name meca-api && sleep 5 && pm2 list
+```
+
+================================================================
+
+📋 APÓS EXECUÇÃO:
+
+1. Verifique: pm2 list
+2. Logs: pm2 logs meca-api
+3. Teste: curl https://api.mecabr.com/api/v1/Workshop/Token
+
+================================================================
