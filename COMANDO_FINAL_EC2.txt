@@ -1,0 +1,156 @@
+🚀 COMANDO FINAL PARA CORREÇÃO NO EC2
+=====================================
+
+COPIE E COLE ESTE COMANDO COMPLETO NO TERMINAL DO SEU SERVIDOR EC2:
+
+```bash
+#!/bin/bash
+echo "🚀 CORREÇÃO API MECABR - EXECUTANDO AGORA..."
+
+# 1. PARAR TODOS OS SERVIÇOS PM2
+echo "1. Parando PM2..."
+pm2 stop all
+pm2 delete all
+
+# 2. ENCONTRAR DIRETÓRIO DA API
+echo "2. Localizando API..."
+API_DIR=""
+for dir in /home/ubuntu/meca-api-main /var/www/meca-api-main /opt/meca-api-main /home/ubuntu/API_WORKING_COPY_* /var/www/API_WORKING_COPY_* /root/meca-api-main; do
+    if [ -d "$dir" ]; then
+        API_DIR="$dir"
+        echo "📁 API encontrada: $API_DIR"
+        break
+    fi
+done
+
+if [ -z "$API_DIR" ]; then
+    echo "🔍 Procurando em todo o sistema..."
+    API_DIR=$(find / -name "*meca-api*" -type d 2>/dev/null | head -1)
+    if [ -n "$API_DIR" ]; then
+        echo "📁 API encontrada: $API_DIR"
+    else
+        echo "❌ ERRO: API não encontrada!"
+        exit 1
+    fi
+fi
+
+cd "$API_DIR"
+echo "📍 Diretório atual: $(pwd)"
+
+# 3. BACKUP DA CONFIGURAÇÃO
+echo "3. Fazendo backup..."
+[ -f "appsettings.json" ] && cp appsettings.json appsettings.json.backup.$(date +%Y%m%d_%H%M%S)
+
+# 4. CRIAR NOVA CONFIGURAÇÃO COM MONGODB
+echo "4. Atualizando MongoDB connection..."
+cat > appsettings.json << 'EOF'
+{
+  "ConnectionStrings": {
+    "MongoDb": "mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority",
+    "MongoDB": "mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority",
+    "DefaultConnection": "mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Cors": {
+    "Origins": ["https://admin.mecabr.com", "http://localhost:3000", "https://api.mecabr.com"]
+  }
+}
+EOF
+echo "✅ Configuração atualizada"
+
+# 5. COMPILAR APLICAÇÃO
+echo "5. Compilando aplicação..."
+if [ -f "Meca.sln" ]; then
+    dotnet clean
+    dotnet restore
+    dotnet build --configuration Release
+    echo "✅ Compilação concluída"
+else
+    echo "⚠️ Arquivo .sln não encontrado, continuando..."
+fi
+
+# 6. ENCONTRAR EXECUTÁVEL
+echo "6. Localizando executável..."
+EXECUTABLES=(
+    "bin/Release/net6.0/Meca.WebApi"
+    "bin/Release/net7.0/Meca.WebApi"
+    "bin/Release/net8.0/Meca.WebApi"
+    "bin/Release/net6.0/Meca.WebApi.exe"
+    "bin/Release/net7.0/Meca.WebApi.exe"
+    "bin/Release/net8.0/Meca.WebApi.exe"
+)
+
+EXECUTABLE=""
+for exe in "${EXECUTABLES[@]}"; do
+    if [ -f "$exe" ]; then
+        EXECUTABLE="$exe"
+        echo "📦 Executável encontrado: $EXECUTABLE"
+        break
+    fi
+done
+
+if [ -z "$EXECUTABLE" ]; then
+    echo "🔍 Procurando executável..."
+    EXECUTABLE=$(find . -name "Meca.WebApi" -o -name "Meca.WebApi.exe" 2>/dev/null | head -1)
+    if [ -n "$EXECUTABLE" ]; then
+        echo "📦 Executável encontrado: $EXECUTABLE"
+    else
+        echo "❌ ERRO: Executável não encontrado!"
+        echo "📋 Conteúdo do diretório Release:"
+        find bin -name "*.exe" -o -name "Meca*" 2>/dev/null | head -10
+        exit 1
+    fi
+fi
+
+# 7. INICIAR COM PM2
+echo "7. Iniciando aplicação com PM2..."
+pm2 start "$EXECUTABLE" --name "meca-api" --env production
+sleep 15
+
+# 8. VERIFICAR STATUS
+echo "8. Verificando status..."
+pm2 list
+echo ""
+echo "📋 Logs da aplicação:"
+pm2 logs meca-api --lines 5
+
+# 9. TESTAR API
+echo ""
+echo "9. Testando API..."
+sleep 5
+curl -X POST "https://api.mecabr.com/api/v1/Workshop/Token" \
+     -H "Content-Type: application/json" \
+     -d '{"email":"teste@test.com","password":"123456"}' \
+     -s -w "\nStatus HTTP: %{http_code}\n"
+
+echo ""
+echo "🎉 CORREÇÃO CONCLUÍDA!"
+echo "📊 Verificar se PM2 mostra 'online' e API não retorna mais 502"
+```
+
+=====================================
+
+🔥 VERSÃO ULTRA RÁPIDA (UMA LINHA):
+```bash
+pm2 stop all && pm2 delete all && cd $(find / -name "*meca-api*" -type d 2>/dev/null | head -1) && echo '{"ConnectionStrings":{"MongoDb":"mongodb+srv://pedrosantana:qsmEphWv3dQ2wSGk@cluster0.ccsupmg.mongodb.net/meca-app-2025?retryWrites=true&w=majority"},"AllowedHosts":"*"}' > appsettings.json && dotnet build -c Release && pm2 start $(find . -name "Meca.WebApi*" 2>/dev/null | head -1) --name meca-api && sleep 10 && pm2 list && curl -s -w "Status: %{http_code}" https://api.mecabr.com/api/v1/Workshop/Token
+```
+
+=====================================
+
+✅ APÓS EXECUÇÃO, VERIFIQUE:
+1. pm2 list (deve mostrar "meca-api" como "online")
+2. curl https://api.mecabr.com/api/v1/Workshop/Token (não deve retornar 502)
+3. Teste nos apps (meca-app-oficina, admin.mecabr)
+
+🚨 SE HOUVER PROBLEMAS:
+- pm2 logs meca-api
+- pm2 restart meca-api
+- Verificar se executável existe: find . -name "*Meca*"
+
+=====================================
