@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
-import '../../widgets/theme_switch_widget.dart';
 import '../../widgets/animation_widgets.dart';
+import '../../widgets/theme_switch_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);

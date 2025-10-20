@@ -1,16 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:9000';
-  static const bool useAdminEndpoints = true; // Usar endpoints admin para desenvolvimento
+  // API configurada no AppConfig (EC2 AWS)
+  static String get baseUrl => AppConfig.apiBaseUrl;
+  static bool get useAdminEndpoints => AppConfig.useAdminEndpoints;
   final Dio _dio = Dio();
   String? _token;
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
+    _dio.options.connectTimeout = Duration(seconds: AppConfig.connectionTimeout);
+    _dio.options.receiveTimeout = Duration(seconds: AppConfig.receiveTimeout);
     
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {

@@ -180,7 +180,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                     // Header
                     Text(
                       'Integração PagBank',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: textColor,
@@ -189,7 +189,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Configure sua conta PagBank para receber pagamentos',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         color: secondaryTextColor,
                       ),
@@ -263,7 +263,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                   children: [
                     Text(
                       hasAccount ? 'Conta PagBank Ativa' : 'Conta PagBank Não Configurada',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: textColor,
@@ -273,7 +273,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                       hasAccount 
                           ? 'Sua conta está configurada e pronta para receber pagamentos'
                           : 'Configure sua conta para começar a receber pagamentos',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: secondaryTextColor,
                       ),
@@ -372,7 +372,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
               const Spacer(),
               Text(
                 '${bankAccounts.length} conta(s)',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: secondaryTextColor,
                 ),
@@ -437,7 +437,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                   children: [
                     Text(
                       account['holder_name'] ?? 'N/A',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: textColor,
@@ -445,7 +445,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
                     ),
                     Text(
                       '${account['bank_code']} - ${account['agency_number']} / ${account['account_number']}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: secondaryTextColor,
                       ),
@@ -546,7 +546,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: secondaryTextColor,
@@ -556,7 +556,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: textColor,
               ),
