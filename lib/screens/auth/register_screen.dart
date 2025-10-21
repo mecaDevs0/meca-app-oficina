@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/theme_service.dart';
+import '../../widgets/theme_switch_widget.dart';
 import '../../core/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -244,13 +247,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isDark = themeService.isDarkMode;
+    final bgColor = ThemeService.getBackgroundColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF252940), Color(0xFF1B1D2E)],
+            colors: isDark
+                ? [const Color(0xFF252940), const Color(0xFF1B1D2E)]
+                : [const Color(0xFFF5F7FA), const Color(0xFFE5E7EB)],
           ),
         ),
         child: SafeArea(
@@ -262,30 +274,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : textColor),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Cadastro de Oficina',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cadastro de Oficina',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : textColor,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Preencha os dados abaixo',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withOpacity(0.7),
+                          Text(
+                            'Preencha os dados abaixo',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? Colors.white.withOpacity(0.7) : textColor.withOpacity(0.7),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const ThemeSwitchButton(),
                   ],
                 ),
               ),
@@ -293,9 +308,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Form
               Expanded(
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark 
+                            ? Colors.black.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
                   ),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(25),
@@ -624,12 +648,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final textColor = ThemeService.getTextColor(isDark);
+    
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: Color(0xFF252940),
+        color: textColor,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _cnpjController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _cepController.dispose();
+    _logradouroController.dispose();
+    _numeroController.dispose();
+    _bairroController.dispose();
+    _cidadeController.dispose();
+    _estadoController.dispose();
+    super.dispose();
+  }
+}
+
+    
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: textColor,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _cnpjController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _cepController.dispose();
+    _logradouroController.dispose();
+    _numeroController.dispose();
+    _bairroController.dispose();
+    _cidadeController.dispose();
+    _estadoController.dispose();
+    super.dispose();
+  }
+}
+
+    
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: textColor,
       ),
     );
   }

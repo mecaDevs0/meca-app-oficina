@@ -420,3 +420,31 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     );
   }
 }
+
+      case 'profile_photo':
+        return '3MB';
+      case 'service_photo':
+        return '4MB';
+      default:
+        return '5MB';
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFEF4444),
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF00C977),
+      ),
+    );
+  }
+}

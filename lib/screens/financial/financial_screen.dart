@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
+import '../../widgets/animation_widgets.dart';
 import '../../widgets/theme_switch_widget.dart';
 
 class FinancialScreen extends StatefulWidget {
@@ -54,7 +55,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
     final bgColor = themeService.isDarkMode ? const Color(0xFF0A0A0A) : const Color(0xFFF5F7FA);
-    final textColor = themeService.isDarkMode ? Colors.white : const Color(0xFF111827);
+    final textColor = themeService.isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF111827);
+    final secondaryTextColor = themeService.isDarkMode ? const Color(0xFFD1D5DB) : const Color(0xFF6B7280);
     final cardColor = themeService.isDarkMode ? const Color(0xFF1A1A1A) : Colors.white;
     
     return Scaffold(
@@ -69,7 +71,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? AnimationWidgets.buildLoadingWidget(message: 'Carregando dados financeiros...')
           : RefreshIndicator(
               onRefresh: _loadFinancialData,
               child: CustomScrollView(
@@ -83,19 +85,19 @@ class _FinancialScreenState extends State<FinancialScreen> {
                         children: [
                           Text(
                             'Financeiro',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1F2937),
+                              color: textColor,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Acompanhe seu faturamento',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF6B7280),
+                              color: secondaryTextColor,
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -115,6 +117,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
                             amount: (_financialData?['total_revenue'] ?? 0).toDouble(),
                             icon: Icons.attach_money,
                             color: const Color(0xFF10B981),
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            secondaryTextColor: secondaryTextColor,
                           ),
                           const SizedBox(height: 16),
                           _buildFinancialCard(
@@ -122,6 +127,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
                             amount: (_financialData?['monthly_revenue'] ?? 0).toDouble(),
                             icon: Icons.calendar_month,
                             color: const Color(0xFF3B82F6),
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            secondaryTextColor: secondaryTextColor,
                           ),
                           const SizedBox(height: 16),
                           _buildFinancialCard(
@@ -129,6 +137,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
                             amount: (_financialData?['weekly_revenue'] ?? 0).toDouble(),
                             icon: Icons.date_range,
                             color: const Color(0xFF8B5CF6),
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            secondaryTextColor: secondaryTextColor,
                           ),
                         ],
                       ),
@@ -146,16 +157,16 @@ class _FinancialScreenState extends State<FinancialScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Estatísticas',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1F2937),
+                              color: textColor,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          _buildStatsGrid(),
+                          _buildStatsGrid(cardColor, textColor, secondaryTextColor),
                         ],
                       ),
                     ),
@@ -172,12 +183,12 @@ class _FinancialScreenState extends State<FinancialScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Transações Recentes',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1F2937),
+                              color: textColor,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -187,7 +198,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   ),
                   
                   SliverToBoxAdapter(
-                    child: _buildTransactionsList(),
+                    child: _buildTransactionsList(cardColor, textColor, secondaryTextColor),
                   ),
                   
                   SliverToBoxAdapter(
@@ -204,11 +215,14 @@ class _FinancialScreenState extends State<FinancialScreen> {
     required double amount,
     required IconData icon,
     required Color color,
+    required Color cardColor,
+    required Color textColor,
+    required Color secondaryTextColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFE5E7EB),
@@ -236,19 +250,19 @@ class _FinancialScreenState extends State<FinancialScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF6B7280),
+                    color: secondaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'R\$ ${(amount / 100).toStringAsFixed(2)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
+                    color: textColor,
                   ),
                 ),
               ],
@@ -259,7 +273,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(Color cardColor, Color textColor, Color secondaryTextColor) {
     final stats = [
       {
         'title': 'Serviços Realizados',
@@ -302,7 +316,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: const Color(0xFFE5E7EB),
@@ -320,10 +334,10 @@ class _FinancialScreenState extends State<FinancialScreen> {
               const SizedBox(height: 8),
               Text(
                 stat['title'] as String,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF6B7280),
+                  color: secondaryTextColor,
                 ),
               ),
               const SizedBox(height: 4),
@@ -331,10 +345,10 @@ class _FinancialScreenState extends State<FinancialScreen> {
                 stat['title'] == 'Ticket Médio' || stat['title'] == 'Avaliação'
                     ? stat['value'].toString()
                     : stat['value'].toString(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1F2937),
+                  color: textColor,
                 ),
               ),
             ],
@@ -344,42 +358,42 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _buildTransactionsList() {
+  Widget _buildTransactionsList(Color cardColor, Color textColor, Color secondaryTextColor) {
     final transactions = _financialData?['recent_transactions'] as List<dynamic>? ?? [];
     
     if (transactions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: const Color(0xFFE5E7EB),
             width: 1,
           ),
         ),
-        child: const Column(
+        child: Column(
           children: [
-            Icon(
+            const Icon(
               Icons.receipt_long,
               size: 48,
               color: Color(0xFFD1D5DB),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Nenhuma transação recente',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2937),
+                color: textColor,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Suas transações aparecerão aqui',
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF6B7280),
+                color: secondaryTextColor,
               ),
             ),
           ],
@@ -389,7 +403,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFE5E7EB),
@@ -406,9 +420,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               border: index < transactions.length - 1
-                  ? const Border(
+                  ? Border(
                       bottom: BorderSide(
-                        color: Color(0xFFF3F4F6),
+                        color: secondaryTextColor.withOpacity(0.3),
                         width: 1,
                       ),
                     )
@@ -435,17 +449,17 @@ class _FinancialScreenState extends State<FinancialScreen> {
                     children: [
                       Text(
                         transaction['description'] ?? 'Serviço',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1F2937),
+                          color: textColor,
                         ),
                       ),
                       Text(
                         _formatDate(transaction['date']),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6B7280),
+                          color: secondaryTextColor,
                         ),
                       ),
                     ],
@@ -459,6 +473,26 @@ class _FinancialScreenState extends State<FinancialScreen> {
                     color: Color(0xFF10B981),
                   ),
                 ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatDate(String? date) {
+    if (date == null) return 'Data não informada';
+    
+    try {
+      final dateTime = DateTime.parse(date);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return date;
+    }
+  }
+}
+
               ],
             ),
           );

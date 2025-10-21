@@ -210,15 +210,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                         ],
                                       ),
                                     ),
-                                    // Status indicator
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF00C977),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ],
@@ -796,6 +787,55 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00C977),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Ver',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (appointmentDate != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: secondaryTextColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDate(appointmentDate),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String date) {
+    try {
+      final dateTime = DateTime.parse(date);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} às ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return date;
+    }
+  }
+}
+
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(

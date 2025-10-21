@@ -548,3 +548,32 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
     }
   }
 }
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: currentValue.isNotEmpty 
+          ? TimeOfDay(
+              hour: int.parse(currentValue.split(':')[0]),
+              minute: int.parse(currentValue.split(':')[1]),
+            )
+          : const TimeOfDay(hour: 8, minute: 0),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF00C977),
+              onPrimary: Colors.white,
+              surface: Color(0xFF1A1A1A),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      onChanged(timeString);
+    }
+  }
+}

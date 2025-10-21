@@ -19,7 +19,6 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     
-    // Configurar animação de fade
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -33,26 +32,20 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeInOut,
     ));
 
-    // Iniciar animação e navegação
     _startSplashSequence();
   }
 
   Future<void> _startSplashSequence() async {
-    // Iniciar animação de fade
     _fadeController.forward();
     
-    // Aguardar a animação de entrada
     await Future.delayed(const Duration(milliseconds: 3000));
     
-    // Verificar se o usuário já está logado
     final token = await StorageService.getToken();
     
     if (mounted) {
       if (token != null) {
-        // Usuário já logado, ir para home
         Navigator.pushReplacementNamed(context, '/core');
       } else {
-        // Usuário não logado, ir para login
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
@@ -71,47 +64,101 @@ class _SplashScreenState extends State<SplashScreen>
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Center(
+          child: AnimationWidgets.buildEnterAnimation(width: 500, height: 500),
+        ),
+      ),
+    );
+  }
+}
+
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF252940),
+              Color(0xFF1B1D2E),
+              Color(0xFF252940),
+            ],
+          ),
+        ),
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animação de entrada
-              AnimationWidgets.buildEnterAnimation(width: 250, height: 250),
-              
-              const SizedBox(height: 40),
-              
-              // Título MECA
-              const Text(
-                'MECA',
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 6,
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00C977).withOpacity(0.3),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(30),
+                          child: Image.asset(
+                            'assets/logos/icone_verde.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      const Text(
+                        'MECA',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF00C977).withOpacity(0.3),
+                              const Color(0xFF00B369).withOpacity(0.3),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Oficina Parceira',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              
-              const SizedBox(height: 12),
-              
-              // Subtítulo
-              const Text(
-                'Oficina',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Color(0xFF00C977),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 2,
-                ),
-              ),
-              
               const SizedBox(height: 60),
-              
-              // Indicador de loading
-              const SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: const SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
+                    strokeWidth: 3,
+                  ),
                 ),
               ),
             ],

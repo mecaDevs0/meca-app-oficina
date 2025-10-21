@@ -1,12 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
+import '../../widgets/animation_widgets.dart';
 import '../../widgets/theme_switch_widget.dart';
 
 class ScheduleScreen extends StatefulWidget {
@@ -35,6 +33,84 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Widget _buildStatusTab(
+    String title,
+    int count,
+    IconData icon,
+    Color color,
+    bool isSelected,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? color.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected 
+                ? color.withOpacity(0.3)
+                : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? color.withOpacity(0.2)
+                    : color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Icon(
+                icon,
+                size: 14,
+                color: isSelected ? color : secondaryTextColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? color : textColor,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 7,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? color : secondaryTextColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadBookings() async {
@@ -135,119 +211,47 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       width: 1,
                     ),
                   ),
-                  child: TabBar(
-                    isScrollable: true,
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: const Color(0xFF00C977),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: ThemeService.getSecondaryTextColor(themeService.isDarkMode),
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 12,
-                    ),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    tabs: [
-                      Tab(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: _pendingBookings.isEmpty ? Colors.grey.withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Icon(
-                                  Icons.pending, 
-                                  size: 14,
-                                  color: _pendingBookings.isEmpty ? Colors.grey : const Color(0xFFF59E0B),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Pendentes (${_pendingBookings.length})',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _pendingBookings.isEmpty ? Colors.grey : null,
-                                ),
-                              ),
-                            ],
+                  child: Container(
+                    height: 44,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatusTab(
+                            'Pendentes',
+                            _pendingBookings.length,
+                            Icons.pending_actions,
+                            const Color(0xFFF59E0B),
+                            _tabController.index == 0,
+                            () => _tabController.animateTo(0),
+                            themeService.isDarkMode,
                           ),
                         ),
-                      ),
-                      Tab(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: _confirmedBookings.isEmpty ? Colors.grey.withOpacity(0.3) : const Color(0xFF10B981).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Icon(
-                                  Icons.check_circle, 
-                                  size: 14,
-                                  color: _confirmedBookings.isEmpty ? Colors.grey : const Color(0xFF10B981),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Confirmados (${_confirmedBookings.length})',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _confirmedBookings.isEmpty ? Colors.grey : null,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatusTab(
+                            'Confirmados',
+                            _confirmedBookings.length,
+                            Icons.check_circle,
+                            const Color(0xFF10B981),
+                            _tabController.index == 1,
+                            () => _tabController.animateTo(1),
+                            themeService.isDarkMode,
                           ),
                         ),
-                      ),
-                      Tab(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: _completedBookings.isEmpty ? Colors.grey.withOpacity(0.3) : const Color(0xFF6B7280).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Icon(
-                                  Icons.done_all, 
-                                  size: 14,
-                                  color: _completedBookings.isEmpty ? Colors.grey : const Color(0xFF6B7280),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Concluídos (${_completedBookings.length})',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _completedBookings.isEmpty ? Colors.grey : null,
-                                ),
-                              ),
-                            ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStatusTab(
+                            'Concluídos',
+                            _completedBookings.length,
+                            Icons.done_all,
+                            const Color(0xFF6B7280),
+                            _tabController.index == 2,
+                            () => _tabController.animateTo(2),
+                            themeService.isDarkMode,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -257,7 +261,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           // Content
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? AnimationWidgets.buildLoadingWidget(message: 'Carregando agenda...')
                 : TabBarView(
                     controller: _tabController,
                     children: [
@@ -273,6 +277,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   }
 
   Widget _buildBookingsList(List<Map<String, dynamic>> bookings, String type) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -286,16 +293,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             const SizedBox(height: 16),
             Text(
               _getEmptyMessage(type),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                      color: ThemeService.getTextColor(isDark),
+                color: ThemeService.getTextColor(isDark),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               _getEmptySubtitle(type),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: ThemeService.getSecondaryTextColor(isDark),
               ),
@@ -448,7 +455,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.directions_car,
                     size: 16,
                     color: ThemeService.getSecondaryTextColor(isDark),
@@ -456,7 +463,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                   const SizedBox(width: 8),
                   Text(
                     '${booking['vehicle_snapshot']['marca']} ${booking['vehicle_snapshot']['modelo']} - ${booking['vehicle_snapshot']['placa']}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       color: ThemeService.getSecondaryTextColor(isDark),
                     ),
@@ -470,7 +477,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           // Date and time
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.access_time,
                 size: 16,
                 color: ThemeService.getSecondaryTextColor(isDark),
@@ -478,7 +485,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               const SizedBox(width: 8),
               Text(
                 _formatDateTime(booking['appointment_date']),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: ThemeService.getSecondaryTextColor(isDark),
                 ),
@@ -487,7 +494,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               if (booking['estimated_price'] != null)
                 Text(
                   'R\$ ${(booking['estimated_price'] / 100).toStringAsFixed(2)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                       color: ThemeService.getTextColor(isDark),
@@ -512,7 +519,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.note,
                     size: 16,
                     color: Color(0xFFF59E0B),
@@ -540,7 +547,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _confirmBooking(booking),
-                    icon: const Icon(Icons.check, size: 16),
+                    icon: Icon(Icons.check, size: 16),
                     label: const Text('Aprovar'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF10B981),
@@ -555,7 +562,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _rejectBooking(booking),
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: Icon(Icons.close, size: 16),
                     label: const Text('Recusar'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
@@ -570,7 +577,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _suggestNewTime(booking),
-                    icon: const Icon(Icons.schedule, size: 16),
+                    icon: Icon(Icons.schedule, size: 16),
                     label: const Text('Sugerir'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFF59E0B),
@@ -657,6 +664,90 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         SnackBar(
           content: Text('Erro: $e'),
           backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _rejectBooking(Map<String, dynamic> booking) async {
+    final reasonController = TextEditingController();
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recusar Agendamento'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Informe o motivo da recusa:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                hintText: 'Motivo da recusa...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, reasonController.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: const Text('Recusar'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      try {
+        final apiResult = await _apiService.rejectBooking(booking['id'], result);
+        if (apiResult['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Agendamento recusado!'),
+              backgroundColor: Color(0xFFEF4444),
+            ),
+          );
+          _loadBookings();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${apiResult['error']}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _suggestNewTime(Map<String, dynamic> booking) async {
+    // TODO: Implementar seleção de novo horário
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Funcionalidade de sugerir novo horário em desenvolvimento!'),
+        backgroundColor: Color(0xFFF59E0B),
+      ),
+    );
+  }
+}
+
         ),
       );
     }

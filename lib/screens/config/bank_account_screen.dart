@@ -820,3 +820,31 @@ class _BankSelectorModalState extends State<BankSelectorModal> {
     );
   }
 }
+
+                                  fontSize: 12,
+                                  color: Color(0xFF8B8B8B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          bank.code,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? const Color(0xFF00C977) : const Color(0xFF8B8B8B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

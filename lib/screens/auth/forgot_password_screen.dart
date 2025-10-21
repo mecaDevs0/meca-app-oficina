@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/theme_service.dart';
+import '../../widgets/theme_switch_widget.dart';
 import '../../core/app_colors.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -30,13 +33,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isDark = themeService.isDarkMode;
+    final textColor = ThemeService.getTextColor(isDark);
+    final cardColor = ThemeService.getCardColor(isDark);
+    
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF252940), Color(0xFF1B1D2E)],
+            colors: isDark
+                ? [const Color(0xFF252940), const Color(0xFF1B1D2E)]
+                : [const Color(0xFFF5F7FA), const Color(0xFFE5E7EB)],
           ),
         ),
         child: SafeArea(
@@ -48,30 +58,33 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : textColor),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 10),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recuperar Senha',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Recuperar Senha',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : textColor,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Enviaremos um email para você',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
+                          Text(
+                            'Enviaremos um email para você',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? Colors.white70 : textColor.withOpacity(0.7),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const ThemeSwitchButton(),
                   ],
                 ),
               ),
@@ -79,9 +92,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               // Form
               Expanded(
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark 
+                            ? Colors.black.withOpacity(0.3)
+                            : Colors.grey.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
                   ),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(30),

@@ -812,3 +812,88 @@ class ApiService {
   }
 }
 
+
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> createPagBankBankAccount({
+    required String accountNumber,
+    required String bankCode,
+    required String agencyNumber,
+    required String holderName,
+    required String holderType,
+  }) async {
+    try {
+      final response = await _dio.post('/store/workshops/me/pagbank/bank-accounts', data: {
+        'account_number': accountNumber,
+        'bank_code': bankCode,
+        'agency_number': agencyNumber,
+        'holder_name': holderName,
+        'holder_type': holderType,
+      });
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> testPagBankConnection() async {
+    try {
+      final response = await _dio.get('/store/workshops/me/pagbank/test');
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPagBankPayments({
+    int limit = 50,
+    int offset = 0,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'limit': limit,
+        'offset': offset,
+      };
+      if (startDate != null) queryParams['start_date'] = startDate;
+      if (endDate != null) queryParams['end_date'] = endDate;
+
+      final response = await _dio.get('/store/workshops/me/pagbank/payments', queryParameters: queryParams);
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> createPagBankPayment({
+    required int amount,
+    required String customerId,
+    String? description,
+  }) async {
+    try {
+      final response = await _dio.post('/store/workshops/me/pagbank/payments', data: {
+        'amount': amount,
+        'customer_id': customerId,
+        'description': description,
+      });
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Reviews
+  Future<Map<String, dynamic>> getMyReviews() async {
+    try {
+      final response = await _dio.get('/workshop/reviews');
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+}
+

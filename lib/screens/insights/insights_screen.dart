@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
+import '../../widgets/animation_widgets.dart';
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({Key? key}) : super(key: key);
@@ -28,6 +29,67 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Widget _buildInsightTab(
+    String title,
+    IconData icon,
+    Color color,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? color.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected 
+                ? color.withOpacity(0.3)
+                : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? color.withOpacity(0.2)
+                    : color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Icon(
+                icon,
+                size: 14,
+                color: isSelected ? color : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? color : const Color(0xFF6B7280),
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadInsightsData() async {
@@ -110,7 +172,7 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? AnimationWidgets.buildLoadingWidget(message: 'Carregando insights...')
           : Column(
               children: [
                 // Tabs
@@ -125,27 +187,41 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
                       width: 1,
                     ),
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: const Color(0xFF252940),
-                      borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    height: 44,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildInsightTab(
+                            'Visão Geral',
+                            Icons.analytics,
+                            const Color(0xFF00C977),
+                            _tabController.index == 0,
+                            () => _tabController.animateTo(0),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildInsightTab(
+                            'Performance',
+                            Icons.trending_up,
+                            const Color(0xFF3B82F6),
+                            _tabController.index == 1,
+                            () => _tabController.animateTo(1),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildInsightTab(
+                            'Clientes',
+                            Icons.people,
+                            const Color(0xFF8B5CF6),
+                            _tabController.index == 2,
+                            () => _tabController.animateTo(2),
+                          ),
+                        ),
+                      ],
                     ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: const Color(0xFF6B7280),
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 14,
-                    ),
-                    tabs: const [
-                      Tab(text: 'Visão Geral'),
-                      Tab(text: 'Performance'),
-                      Tab(text: 'Clientes'),
-                    ],
                   ),
                 ),
                 
@@ -1022,3 +1098,82 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
     );
   }
 }
+
+
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildInsightItem(
+            icon: Icons.trending_up,
+            title: 'Crescimento de Clientes',
+            description: 'Seu número de clientes está crescendo consistentemente.',
+            color: const Color(0xFF10B981),
+          ),
+          _buildInsightItem(
+            icon: Icons.star,
+            title: 'Alta Satisfação',
+            description: 'Sua avaliação de ${_insightsData?['customer_satisfaction']} indica clientes muito satisfeitos.',
+            color: const Color(0xFFF59E0B),
+          ),
+          _buildInsightItem(
+            icon: Icons.repeat,
+            title: 'Fidelização Forte',
+            description: '${((_insightsData?['repeat_customers'] / _insightsData?['total_customers']) * 100).toStringAsFixed(0)}% dos clientes retornam, mostrando confiança no seu serviço.',
+            color: const Color(0xFF3B82F6),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightItem({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
