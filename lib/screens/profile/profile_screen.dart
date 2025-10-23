@@ -146,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 : [
                                     const Color(0xFFF5F7FA),
                                     const Color(0xFFE5E7EB),
-                                  ],
+                            ],
                           ),
                         ),
                         child: SafeArea(
@@ -321,14 +321,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: secondaryTextColor,
                 ),
                 const SizedBox(width: 8),
-                Text(
+            Text(
                   'CNPJ: ${_workshopData?['cnpj'] ?? '12.345.678/0001-90'}',
                   style: TextStyle(
-                    fontSize: 14,
+                fontSize: 14,
                     color: secondaryTextColor,
                     fontWeight: FontWeight.w500,
-                  ),
-                ),
+              ),
+            ),
               ],
             ),
           ),
@@ -566,6 +566,1134 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _buildMenuOption(
           icon: Icons.notifications,
           title: 'Notificações',
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+          subtitle: 'Central de notificações e alertas',
+          onTap: () => Navigator.pushNamed(context, '/notifications'),
+        ),
+        _buildMenuOption(
+          icon: Icons.payment,
+          title: 'PagBank',
+          subtitle: 'Configuração de pagamentos',
+          onTap: () => Navigator.pushNamed(context, '/config/pagbank'),
+        ),
+        
+        _buildMenuOption(
+          icon: Icons.help,
+          title: 'Central de Ajuda',
+          subtitle: 'Dúvidas e suporte',
+          onTap: () => _showHelp(),
+        ),
+        _buildMenuOption(
+          icon: Icons.logout,
+          title: 'Sair',
+          subtitle: 'Fazer logout da conta',
+          onTap: () => _logout(),
+          isDestructive: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+            ),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977)).withOpacity(isDark ? 0.2 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: isDestructive ? const Color(0xFFEF4444) : const Color(0xFF00C977),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: secondaryTextColor,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showHelp() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Central de Ajuda',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Para suporte, entre em contato:\n\nEmail: suporte@meca.com.br\nTelefone: (11) 99999-9999\n\nHorário de atendimento:\nSegunda a Sexta: 8h às 18h',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(color: Color(0xFF00C977)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _logout() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Confirmar Logout',
+          style: TextStyle(color: textColor),
+        ),
+        content: Text(
+          'Tem certeza que deseja sair da sua conta?',
+          style: TextStyle(color: secondaryTextColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(color: secondaryTextColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await StorageService.clearToken();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text(
+              'Sair',
+              style: TextStyle(color: Color(0xFFEF4444)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
           subtitle: 'Central de notificações e alertas',
           onTap: () => Navigator.pushNamed(context, '/notifications'),
         ),

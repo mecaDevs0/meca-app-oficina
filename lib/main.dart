@@ -1,36 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import 'screens/auth/forgot_password_screen.dart';
+import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
-import 'screens/bookings/booking_detail_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/core/core_screen.dart';
+import 'screens/home/home_screen.dart';
+import 'screens/schedule/schedule_screen.dart';
+import 'screens/financial/financial_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'screens/config/agenda_config_screen.dart';
 import 'screens/config/bank_account_screen.dart';
-import 'screens/config/pagbank_config_screen.dart';
 import 'screens/config/services_config_screen.dart';
-import 'screens/core/core_screen.dart';
-import 'screens/financial/financial_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/config/pagbank_config_screen.dart';
+import 'screens/service/service_details_screen.dart';
+import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/insights/insights_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
-import 'screens/profile/profile_screen.dart';
-import 'screens/schedule/schedule_screen.dart';
-import 'screens/service/service_details_screen.dart';
-import 'screens/splash_screen.dart';
-import 'services/onesignal_service.dart';
 import 'services/theme_service.dart';
-import 'config/app_config.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Imprimir configurações do app
-  AppConfig.printConfig();
-  
-  // Initialize OneSignal
-  await OneSignalService.initialize();
-  
+void main() {
   runApp(const MecaOficinaApp());
 }
 

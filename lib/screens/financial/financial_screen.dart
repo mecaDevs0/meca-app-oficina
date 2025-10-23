@@ -492,23 +492,3 @@ class _FinancialScreenState extends State<FinancialScreen> {
     }
   }
 }
-
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  String _formatDate(String? date) {
-    if (date == null) return 'Data não informada';
-    
-    try {
-      final dateTime = DateTime.parse(date);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    } catch (e) {
-      return date;
-    }
-  }
-}

@@ -100,3 +100,158 @@ class _CoreScreenState extends State<CoreScreen> with SingleTickerProviderStateM
   }
 
 }
+
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}
+
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}
+
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}
+
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}
+
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    
+    return Scaffold(
+      backgroundColor: themeService.isDarkMode 
+          ? const Color(0xFF0A0A0A) 
+          : const Color(0xFFF5F7FA),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        physics: const BouncingScrollPhysics(),
+        children: _pages,
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: _currentIndex,
+        onTap: _onNavTap,
+      ),
+    );
+  }
+
+}

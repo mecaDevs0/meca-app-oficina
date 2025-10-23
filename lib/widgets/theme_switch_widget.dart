@@ -214,27 +214,3 @@ class ThemeSwitchCard extends StatelessWidget {
     );
   }
 }
-                    ),
-
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Switch
-              Switch(
-                value: !themeService.isDarkMode, // Invertido: true = claro, false = escuro
-                onChanged: (value) => themeService.toggleTheme(),
-                activeColor: const Color(0xFF00C977),
-                activeTrackColor: const Color(0xFF00C977).withOpacity(0.3),
-                inactiveThumbColor: const Color(0xFF8B8B8B),
-                inactiveTrackColor: const Color(0xFF333333),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-                    ),
