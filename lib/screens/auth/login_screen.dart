@@ -59,45 +59,45 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Logo Section
               Padding(
-                padding: const EdgeInsets.all(40),
+                padding: const EdgeInsets.fromLTRB(40, 20, 40, 10),
                 child: Column(
                   children: [
                     Container(
-                      width: 100,
-                      height: 100,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
                             color: AppColors.primaryColor.withOpacity(0.3),
-                            blurRadius: 20,
-                            spreadRadius: 3,
+                            blurRadius: 15,
+                            spreadRadius: 2,
                           ),
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(20),
                         child: Image.asset(
                           'assets/logos/icone_verde.png',
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 15),
                     const Text(
                       'MECA',
                       style: TextStyle(
-                        fontSize: 36,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
-                        letterSpacing: 6,
+                        letterSpacing: 4,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     const Text(
                       'Oficina Parceira',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         color: Colors.white70,
                         letterSpacing: 1,
                       ),

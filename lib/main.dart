@@ -13,6 +13,7 @@ import 'screens/config/agenda_config_screen.dart';
 import 'screens/config/bank_account_screen.dart';
 import 'screens/config/services_config_screen.dart';
 import 'screens/config/pagbank_config_screen.dart';
+import 'screens/config/installment_config_screen.dart';
 import 'screens/service/service_details_screen.dart';
 import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/insights/insights_screen.dart';
@@ -64,6 +65,8 @@ class MecaOficinaApp extends StatelessWidget {
             return MaterialPageRoute(builder: (_) => const BankAccountScreen());
           case '/config/services':
             return MaterialPageRoute(builder: (_) => const ServicesConfigScreen());
+          case '/config/installment':
+            return MaterialPageRoute(builder: (_) => const InstallmentConfigScreen());
           case '/service/details':
             return MaterialPageRoute(
               builder: (_) => ServiceDetailsScreen(

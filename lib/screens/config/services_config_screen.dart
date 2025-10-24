@@ -22,6 +22,10 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
   List<Map<String, dynamic>> _myServices = [];
   List<Map<String, dynamic>> _masterServices = [];
   final ApiService _apiService = ApiService();
+  
+  // Configuração de parcelamento
+  bool _acceptsInstallment = true;
+  int _maxInstallments = 12;
 
   @override
   void initState() {

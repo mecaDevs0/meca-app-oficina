@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -52,9 +53,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   Widget build(BuildContext context) {
     final pendingBookings = _bookings.where((b) => b['status'] == 'pending').toList();
     final confirmedBookings = _bookings.where((b) => b['status'] == 'confirmed' || b['status'] == 'in_progress').toList();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : const Color(0xFFFAFAFA),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C977)))
           : RefreshIndicator(

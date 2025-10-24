@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/api_service.dart';
+import '../../services/bank_service.dart';
 import '../../core/app_colors.dart';
 
 class BankAccountScreen extends StatefulWidget {
@@ -15,20 +15,22 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   final _bankNameController = TextEditingController();
   final _agenciaController = TextEditingController();
   final _contaController = TextEditingController();
-  final ApiService _apiService = ApiService();
+  final BankService _bankService = BankService();
   bool _loading = false;
   String _accountType = 'corrente';
+  bool _acceptsInstallment = false;
 
   Future<void> _saveBankDetails() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
 
-    final result = await _apiService.updateBankDetails(
+    final result = await _bankService.updateBankDetails(
       bankName: _bankNameController.text,
       agencia: _agenciaController.text,
       conta: _contaController.text,
       accountType: _accountType,
+      acceptsInstallment: _acceptsInstallment,
     );
 
     setState(() => _loading = false);
@@ -189,6 +191,107 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                   ),
                 ),
                 validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,
+              ),
+              const SizedBox(height: 30),
+
+              // Checkbox para aceitar parcelamento
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: const Color(0xFF00C977).withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.credit_card,
+                          color: Color(0xFF00C977),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Configurações de Pagamento',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00C977),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _acceptsInstallment,
+                          onChanged: (value) {
+                            setState(() {
+                              _acceptsInstallment = value ?? false;
+                            });
+                          },
+                          activeColor: const Color(0xFF00C977),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Aceito parcelamento',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF252940),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Permitir que clientes paguem em parcelas',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'MECA gerencia automaticamente as configurações de parcelamento. Você receberá o valor total do serviço.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 40),
 

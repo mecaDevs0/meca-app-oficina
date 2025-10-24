@@ -1,12 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:provider/provider.dart';
+
+import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/theme_switch_widget.dart';
-import '../../core/app_colors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -249,10 +251,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
     final isDark = themeService.isDarkMode;
-    final bgColor = ThemeService.getBackgroundColor(isDark);
     final textColor = ThemeService.getTextColor(isDark);
     final cardColor = ThemeService.getCardColor(isDark);
-    final borderColor = ThemeService.getBorderColor(isDark);
     
     return Scaffold(
       body: Container(
@@ -270,7 +270,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 5),
                 child: Row(
                   children: [
                     IconButton(
@@ -285,7 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text(
                             'Cadastro de Oficina',
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : textColor,
                             ),
@@ -293,7 +293,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Text(
                             'Preencha os dados abaixo',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 12,
                               color: isDark ? Colors.white.withOpacity(0.7) : textColor.withOpacity(0.7),
                             ),
                           ),
@@ -651,62 +651,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     final isDark = themeService.isDarkMode;
     final textColor = ThemeService.getTextColor(isDark);
-    
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _cnpjController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _phoneController.dispose();
-    _cepController.dispose();
-    _logradouroController.dispose();
-    _numeroController.dispose();
-    _bairroController.dispose();
-    _cidadeController.dispose();
-    _estadoController.dispose();
-    super.dispose();
-  }
-}
-
-    
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _cnpjController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _phoneController.dispose();
-    _cepController.dispose();
-    _logradouroController.dispose();
-    _numeroController.dispose();
-    _bairroController.dispose();
-    _cidadeController.dispose();
-    _estadoController.dispose();
-    super.dispose();
-  }
-}
-
     
     return Text(
       title,
