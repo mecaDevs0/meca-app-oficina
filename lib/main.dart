@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/splash_screen.dart';
+
+import 'providers/auth_provider.dart';
+import 'providers/services_provider.dart';
+import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
-import 'screens/auth/forgot_password_screen.dart';
-import 'screens/core/core_screen.dart';
-import 'screens/home/home_screen.dart';
-import 'screens/schedule/schedule_screen.dart';
-import 'screens/financial/financial_screen.dart';
-import 'screens/profile/profile_screen.dart';
+import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/config/agenda_config_screen.dart';
 import 'screens/config/bank_account_screen.dart';
-import 'screens/config/services_config_screen.dart';
-import 'screens/config/pagbank_config_screen.dart';
 import 'screens/config/installment_config_screen.dart';
-import 'screens/service/service_details_screen.dart';
-import 'screens/bookings/booking_detail_screen.dart';
+import 'screens/config/pagbank_config_screen.dart';
+import 'screens/config/services_config_screen.dart';
+import 'screens/core/core_screen.dart';
+import 'screens/financial/financial_screen.dart';
+import 'screens/home/home_screen.dart';
 import 'screens/insights/insights_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/schedule/schedule_screen.dart';
+import 'screens/service/service_details_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
+import 'utils/page_transitions.dart';
+
 void main() {
   runApp(const MecaOficinaApp());
 }
@@ -28,8 +33,12 @@ class MecaOficinaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => ThemeService(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ThemeService()),
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+        ChangeNotifierProvider(create: (context) => ServicesProvider()),
+      ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, child) {
                  return MaterialApp(
@@ -42,50 +51,50 @@ class MecaOficinaApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/':
-            return MaterialPageRoute(builder: (_) => const SplashScreen());
+            return PageTransitions.fade(const SplashScreen());
           case '/login':
-            return MaterialPageRoute(builder: (_) => const LoginScreen());
+            return PageTransitions.slideFromRight(const LoginScreen());
           case '/register':
-            return MaterialPageRoute(builder: (_) => const RegisterScreen());
+            return PageTransitions.slideFromRight(const RegisterScreen());
           case '/forgot-password':
-            return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+            return PageTransitions.slideFromRight(const ForgotPasswordScreen());
           case '/core':
-            return MaterialPageRoute(builder: (_) => const CoreScreen());
+            return PageTransitions.fade(const CoreScreen());
           case '/home':
-            return MaterialPageRoute(builder: (_) => const HomeScreen());
+            return PageTransitions.fade(const HomeScreen());
           case '/schedule':
-            return MaterialPageRoute(builder: (_) => const ScheduleScreen());
+            return PageTransitions.fade(const ScheduleScreen());
           case '/financial':
-            return MaterialPageRoute(builder: (_) => const FinancialScreen());
+            return PageTransitions.fade(const FinancialScreen());
           case '/profile':
-            return MaterialPageRoute(builder: (_) => const ProfileScreen());
+            return PageTransitions.fade(const ProfileScreen());
           case '/config/agenda':
-            return MaterialPageRoute(builder: (_) => const AgendaConfigScreen());
+            return PageTransitions.slideFromRight(const AgendaConfigScreen());
           case '/config/bank':
-            return MaterialPageRoute(builder: (_) => const BankAccountScreen());
+            return PageTransitions.slideFromRight(const BankAccountScreen());
           case '/config/services':
-            return MaterialPageRoute(builder: (_) => const ServicesConfigScreen());
+            return PageTransitions.slideFromRight(ServicesConfigScreen());
           case '/config/installment':
-            return MaterialPageRoute(builder: (_) => const InstallmentConfigScreen());
+            return PageTransitions.slideFromRight(const InstallmentConfigScreen());
           case '/service/details':
-            return MaterialPageRoute(
-              builder: (_) => ServiceDetailsScreen(
+            return PageTransitions.slideFromRight(
+              ServiceDetailsScreen(
                 serviceId: settings.arguments as String? ?? '',
               ),
             );
           case '/booking-detail':
             final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => BookingDetailScreen(booking: args),
+            return PageTransitions.slideFromRight(
+              BookingDetailScreen(booking: args),
             );
-                 case '/insights':
-                   return MaterialPageRoute(builder: (_) => const InsightsScreen());
-                 case '/notifications':
-                   return MaterialPageRoute(builder: (_) => const NotificationsScreen());
-                 case '/config/pagbank':
-                   return MaterialPageRoute(builder: (_) => const PagBankConfigScreen());
-                 default:
-                   return MaterialPageRoute(builder: (_) => const SplashScreen());
+          case '/insights':
+            return PageTransitions.slideFromRight(const InsightsScreen());
+          case '/notifications':
+            return PageTransitions.slideFromRight(const NotificationsScreen());
+          case '/config/pagbank':
+            return PageTransitions.slideFromRight(const PagBankConfigScreen());
+          default:
+            return PageTransitions.fade(const SplashScreen());
         }
       },
           );

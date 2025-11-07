@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/theme_service.dart';
-import '../../widgets/theme_switch_widget.dart';
 import '../../core/app_colors.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -84,7 +83,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ],
                       ),
                     ),
-                    const ThemeSwitchButton(),
                   ],
                 ),
               ),

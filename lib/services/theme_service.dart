@@ -23,9 +23,9 @@ class ThemeService extends ChangeNotifier {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF00C977),
-        primary: const Color(0xFF00C977),
-        secondary: const Color(0xFF3B82F6),
+        seedColor: const Color(0xFF3B82F6),
+        primary: const Color(0xFF3B82F6),
+        secondary: const Color(0xFF00C977),
         surface: const Color(0xFF1A1A1A),
         background: const Color(0xFF0A0A0A),
         brightness: Brightness.dark,

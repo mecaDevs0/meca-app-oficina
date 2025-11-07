@@ -1,264 +1,292 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'dart:io';
-import 'dart:convert';
+
 import '../../services/evidence_service.dart';
-import '../../widgets/animation_widgets.dart';
 
 class EvidenceUploadScreen extends StatefulWidget {
-  final String bookingId;
-  final Map<String, dynamic> booking;
-
   const EvidenceUploadScreen({
-    Key? key,
+    super.key,
     required this.bookingId,
-    required this.booking,
-  }) : super(key: key);
+    this.booking,
+  });
+
+  final String bookingId;
+  final Map<String, dynamic>? booking;
 
   @override
   State<EvidenceUploadScreen> createState() => _EvidenceUploadScreenState();
 }
 
 class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
-  final ApiService _apiService = ApiService();
+  final EvidenceService _evidenceService = EvidenceService();
   final ImagePicker _picker = ImagePicker();
-  
-  List<File> _selectedFiles = [];
-  List<Map<String, dynamic>> _uploadedEvidence = [];
-  bool _uploading = false;
-  String _error = '';
+
+  bool _isLoading = true;
+  bool _isUploading = false;
+  String? _errorMessage;
+  File? _selectedFile;
+  List<dynamic> _evidences = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadExistingEvidence();
+    _loadEvidences();
   }
 
-  Future<void> _loadExistingEvidence() async {
-    try {
-      final result = await _apiService.getBookingEvidence(widget.bookingId);
-      if (result['success']) {
-        setState(() {
-          _uploadedEvidence = List<Map<String, dynamic>>.from(result['data']['evidence'] ?? []);
-        });
-      }
-    } catch (e) {
-      print('Erro ao carregar evidências existentes: $e');
+  Future<void> _loadEvidences() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final result = await _evidenceService.getBookingEvidence(widget.bookingId);
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      setState(() {
+        _evidences = _extractEvidenceList(result['data']);
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = result['error']?.toString() ?? 'Erro ao carregar evidências.';
+        _isLoading = false;
+      });
     }
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-      
-      if (image != null) {
-        setState(() {
-          _selectedFiles.add(File(image.path));
-        });
-      }
-    } catch (e) {
-      _showError('Erro ao capturar imagem: ${e.toString()}');
+  List<dynamic> _extractEvidenceList(dynamic data) {
+    if (data == null) return const [];
+    if (data is List) return data;
+    if (data is Map) {
+      if (data['data'] is List) return data['data'] as List<dynamic>;
+      if (data['evidences'] is List) return data['evidences'] as List<dynamic>;
+      if (data['files'] is List) return data['files'] as List<dynamic>;
     }
+    return const [];
   }
 
-  Future<void> _pickFromGallery() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-      
-      if (image != null) {
+      final picked = await _picker.pickImage(source: source, imageQuality: 75);
+      if (picked != null) {
         setState(() {
-          _selectedFiles.add(File(image.path));
+          _selectedFile = File(picked.path);
         });
       }
     } catch (e) {
-      _showError('Erro ao selecionar imagem: ${e.toString()}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao selecionar imagem: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _uploadEvidence() async {
-    if (_selectedFiles.isEmpty) {
-      _showError('Selecione pelo menos um arquivo para upload');
+    if (_selectedFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione uma imagem antes de enviar.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
     setState(() {
-      _uploading = true;
-      _error = '';
+      _isUploading = true;
+      _errorMessage = null;
     });
 
-    try {
-      for (int i = 0; i < _selectedFiles.length; i++) {
-        final file = _selectedFiles[i];
-        
-        // Mostrar progresso
-        _showUploadProgress(i + 1, _selectedFiles.length);
-        
-        final result = await _apiService.uploadBookingEvidence(
-          widget.bookingId,
-          file,
-        );
+    final result = await _evidenceService.uploadBookingEvidence(
+      widget.bookingId,
+      _selectedFile!,
+    );
 
-        if (!result['success']) {
-          throw Exception(result['error'] ?? 'Erro no upload');
-        }
-      }
+    if (!mounted) return;
 
-      // Recarregar evidências
-      await _loadExistingEvidence();
-      
-      setState(() {
-        _selectedFiles.clear();
-        _uploading = false;
-      });
-
-      _showSuccess('Evidências enviadas com sucesso!');
-      
-    } catch (e) {
-      setState(() {
-        _uploading = false;
-        _error = e.toString();
-      });
-      _showError('Erro no upload: ${e.toString()}');
-    }
-  }
-
-  void _showUploadProgress(int current, int total) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimationWidgets.buildLoadingWidget(
-              message: 'Enviando evidência $current de $total...',
-              size: 80,
-            ),
-          ],
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Evidência enviada com sucesso!'),
+          backgroundColor: Colors.green,
         ),
-      ),
-    );
-  }
+      );
+      setState(() {
+        _selectedFile = null;
+      });
+      await _loadEvidences();
+    } else {
+      setState(() {
+        _errorMessage = result['error']?.toString() ?? 'Falha ao enviar a evidência.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage ?? 'Falha ao enviar a evidência.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
 
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF00C977),
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+    if (mounted) {
+      setState(() {
+        _isUploading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Provas do Serviço',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+        title: const Text('Evidências do Serviço'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadEvidences,
           ),
-        ),
-        backgroundColor: const Color(0xFF00C977),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          _buildBookingInfo(),
-          Expanded(
-            child: _buildContent(),
-          ),
-          if (_selectedFiles.isNotEmpty) _buildUploadButton(),
         ],
       ),
-    );
-  }
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadEvidences,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_errorMessage != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.withOpacity(0.4)),
+                        ),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    _buildUploaderSection(),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Evidências enviadas',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_evidences.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Nenhuma evidência enviada para este agendamento.',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: _evidences.length,
+                        itemBuilder: (context, index) {
+                          final item = _evidences[index];
+                          final url = _resolveEvidenceUrl(item);
+                          final description = _resolveEvidenceDescription(item);
 
-  Widget _buildBookingInfo() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00C977).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF00C977).withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Informações do Agendamento',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF00C977),
+                          if (url == null) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'Arquivo não suportado',
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
+
+                          return GestureDetector(
+                            onTap: () => _showImagePreview(url, description),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    url,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey.shade200,
+                                        alignment: Alignment.center,
+                                        child: const Icon(Icons.broken_image),
+                                      );
+                                    },
+                                  ),
+                                  if (description != null && description.isNotEmpty)
+                                    Align(
+                                      alignment: Alignment.bottomCenter,
+                                      child: Container(
+                                        width: double.infinity,
+                                        color: Colors.black.withOpacity(0.5),
+                                        padding: const EdgeInsets.all(6),
+                                        child: Text(
+                                          description,
+                                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Cliente: ${widget.booking['customer']?['name'] ?? 'N/A'}',
-            style: const TextStyle(fontSize: 14),
-          ),
-          Text(
-            'Serviço: ${widget.booking['service']?['name'] ?? 'N/A'}',
-            style: const TextStyle(fontSize: 14),
-          ),
-          Text(
-            'Data: ${_formatDate(widget.booking['scheduled_date'])}',
-            style: const TextStyle(fontSize: 14),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildUploadSection(),
-          const SizedBox(height: 24),
-          _buildExistingEvidence(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUploadSection() {
+  Widget _buildUploaderSection() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -268,264 +296,130 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Anexar Evidências',
+            'Enviar nova evidência',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF252940),
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           const Text(
-            'Capture fotos ou vídeos do serviço realizado para o cliente.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+            'Selecione uma imagem da galeria ou tire uma foto para registrar o progresso do serviço.',
+            style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 16),
-          
-          // Botões de captura
           Row(
             children: [
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _uploading ? null : _pickImage,
-                  icon: const Icon(Icons.camera_alt),
+                child: OutlinedButton.icon(
+                  onPressed: _isUploading ? null : () => _pickImage(ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera),
                   label: const Text('Câmera'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C977),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _uploading ? null : _pickFromGallery,
+                  onPressed: _isUploading ? null : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library),
                   label: const Text('Galeria'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF00C977)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                 ),
               ),
             ],
           ),
-          
-          // Lista de arquivos selecionados
-          if (_selectedFiles.isNotEmpty) ...[
+          if (_selectedFile != null) ...[
             const SizedBox(height: 16),
-            const Text(
-              'Arquivos Selecionados:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ..._selectedFiles.asMap().entries.map((entry) {
-              final index = entry.key;
-              final file = entry.value;
-              return _buildSelectedFileCard(file, index);
-            }).toList(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectedFileCard(File file, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.attach_file, color: Color(0xFF00C977)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              file.path.split('/').last,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-          IconButton(
-            onPressed: _uploading ? null : () {
-              setState(() {
-                _selectedFiles.removeAt(index);
-              });
-            },
-            icon: const Icon(Icons.close, color: Colors.red),
-            iconSize: 20,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExistingEvidence() {
-    if (_uploadedEvidence.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Evidências Enviadas',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF252940),
-            ),
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1,
-            ),
-            itemCount: _uploadedEvidence.length,
-            itemBuilder: (context, index) {
-              final evidence = _uploadedEvidence[index];
-              return _buildEvidenceCard(evidence);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEvidenceCard(Map<String, dynamic> evidence) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Stack(
-          children: [
-            // Placeholder para imagem
-            Container(
-              width: double.infinity,
-              height: double.infinity,
-              color: Colors.grey.shade100,
-              child: const Icon(
-                Icons.image,
-                size: 40,
-                color: Colors.grey,
-              ),
-            ),
-            // Overlay com nome do arquivo
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                ),
-                child: Text(
-                  evidence['fileName'] ?? 'Arquivo',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUploadButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _uploading ? null : _uploadEvidence,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF00C977),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
+            ClipRRect(
               borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                _selectedFile!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isUploading ? null : _uploadEvidence,
+              icon: _isUploading
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.cloud_upload),
+              label: Text(_isUploading ? 'Enviando...' : 'Enviar evidência'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
-          child: _uploading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text(
-                  'Enviar Evidências',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-        ),
+        ],
       ),
     );
   }
 
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'N/A';
-    try {
-      final date = DateTime.parse(dateString);
-      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    } catch (e) {
-      return 'N/A';
+  String? _resolveEvidenceUrl(dynamic item) {
+    if (item == null) return null;
+    if (item is String) return item;
+    if (item is Map) {
+      final url = item['url'] ?? item['path'] ?? item['file_url'];
+      if (url is String && url.isNotEmpty) {
+        return url.startsWith('http') ? url : EvidenceService.baseUrl + url;
+      }
     }
+    return null;
+  }
+
+  String? _resolveEvidenceDescription(dynamic item) {
+    if (item is Map) {
+      return item['description']?.toString();
+    }
+    return null;
+  }
+
+  void _showImagePreview(String imageUrl, String? description) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AspectRatio(
+                aspectRatio: 1,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.black,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image, color: Colors.white, size: 48),
+                    );
+                  },
+                ),
+              ),
+              if (description != null && description.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(description),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fechar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
+
+

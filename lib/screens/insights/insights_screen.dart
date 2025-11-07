@@ -104,53 +104,34 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
 
       await _apiService.loadToken();
       
-      // Simular dados de insights (em produção, viria da API)
+      // Buscar dados REAIS da API (100% PRODUÇÃO)
+      final dashboardResult = await _apiService.getWorkshopDashboard();
+      final financialResult = await _apiService.getFinancialSummary();
+      
+      // Processar dados REAIS da API
       setState(() {
+        final dashboardData = dashboardResult['success'] ? (dashboardResult['data'] ?? {}) : {};
+        final financialData = financialResult['success'] ? (financialResult['data'] ?? {}) : {};
+        
         _insightsData = {
-          'revenue_trend': [
-            {'month': 'Jan', 'value': 2500},
-            {'month': 'Fev', 'value': 3200},
-            {'month': 'Mar', 'value': 2800},
-            {'month': 'Abr', 'value': 4100},
-            {'month': 'Mai', 'value': 3800},
-            {'month': 'Jun', 'value': 4500},
-          ],
-          'service_popularity': [
-            {'name': 'Troca de Óleo', 'percentage': 35},
-            {'name': 'Revisão', 'percentage': 25},
-            {'name': 'Pneus', 'percentage': 20},
-            {'name': 'Freios', 'percentage': 15},
-            {'name': 'Outros', 'percentage': 5},
-          ],
-          'customer_satisfaction': 4.7,
-          'average_rating': 4.6,
-          'total_customers': 156,
-          'repeat_customers': 89,
-          'peak_hours': [
-            {'hour': '08:00', 'bookings': 12},
-            {'hour': '09:00', 'bookings': 18},
-            {'hour': '10:00', 'bookings': 22},
-            {'hour': '11:00', 'bookings': 15},
-            {'hour': '14:00', 'bookings': 20},
-            {'hour': '15:00', 'bookings': 25},
-            {'hour': '16:00', 'bookings': 19},
-            {'hour': '17:00', 'bookings': 14},
-          ],
-          'monthly_comparison': {
-            'current_month': 4500,
-            'previous_month': 3800,
-            'growth_percentage': 18.4,
-          },
-          'efficiency_metrics': {
-            'average_service_time': 45,
-            'on_time_completion': 92,
-            'customer_wait_time': 8,
-          },
+          'revenue_trend': financialData['revenue_trend'] ?? [],
+          'service_popularity': dashboardData['service_popularity'] ?? [],
+          'customer_satisfaction': dashboardData['customer_satisfaction'] ?? 0.0,
+          'average_rating': dashboardData['average_rating'] ?? 0.0,
+          'total_customers': dashboardData['total_customers'] ?? 0,
+          'repeat_customers': dashboardData['repeat_customers'] ?? 0,
+          'peak_hours': dashboardData['peak_hours'] ?? [],
+          'monthly_comparison': financialData['monthly_comparison'] ?? {},
+          'efficiency_metrics': dashboardData['efficiency_metrics'] ?? {},
         };
       });
       
     } catch (e) {
       print('Erro ao carregar insights: $e');
+      // Em caso de erro, mostrar dados vazios (nunca mock)
+      setState(() {
+        _insightsData = {};
+      });
     } finally {
       setState(() => _isLoading = false);
     }

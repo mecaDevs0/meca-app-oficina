@@ -82,7 +82,10 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
                               // Adicionar serviço
                               final price = await _showPriceDialog(context, service['title']);
                               if (price != null && mounted) {
-                                await servicesProvider.addService(service['id'], price);
+                                await servicesProvider.addService(
+                                  service['id'],
+                                  price: price,
+                                );
                               }
                             } else {
                               // Remover serviço
@@ -115,7 +118,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, -2),
                       ),
@@ -126,8 +129,9 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
                       onPressed: servicesProvider.myServices.isEmpty
                           ? null
                           : () {
+                              if (!mounted) return;
                               Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Serviços salvos com sucesso!'),
                                   backgroundColor: Colors.green,
@@ -191,4 +195,8 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
     );
   }
 }
+
+
+
+
 

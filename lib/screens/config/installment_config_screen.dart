@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
-import '../../widgets/theme_switch_widget.dart';
 
 class InstallmentConfigScreen extends StatefulWidget {
   const InstallmentConfigScreen({Key? key}) : super(key: key);
@@ -105,9 +104,6 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                 : const Color(0xFF00C977),
             foregroundColor: Colors.white,
             elevation: 0,
-            actions: const [
-              ThemeSwitchButton(),
-            ],
           ),
           body: _isLoading
               ? const Center(
@@ -225,7 +221,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                     });
                                     _saveInstallmentConfig();
                                   },
-                                  activeColor: const Color(0xFF00C977),
+                                  activeThumbColor: const Color(0xFF00C977),
                                 ),
                               ],
                             ),
@@ -425,4 +421,9 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
     );
   }
 }
+
+
+
+
+
 

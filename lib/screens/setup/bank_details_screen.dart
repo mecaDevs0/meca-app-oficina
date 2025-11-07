@@ -89,7 +89,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
               ElevatedButton(
                 onPressed: authProvider.isLoading
                     ? null
-                    : () async {
+                      : () async {
                         if (!_formKey.currentState!.validate()) return;
 
                         final success = await authProvider.updateWorkshop({
@@ -108,7 +108,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                               backgroundColor: Colors.green,
                             ),
                           );
-                          Navigator.pop(context);
+                          Navigator.of(context).pop();
                         }
                       },
                 style: ElevatedButton.styleFrom(

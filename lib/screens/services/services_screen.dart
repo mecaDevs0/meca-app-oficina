@@ -151,7 +151,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     );
                     _loadServices();
                   },
-                  activeColor: const Color(0xFF00C977),
+                  activeThumbColor: const Color(0xFF00C977),
                 ),
               ],
             ),

@@ -67,7 +67,7 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -89,7 +89,7 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                               backgroundColor: Colors.green,
                             ),
                           );
-                          Navigator.pop(context);
+                          Navigator.of(context).pop();
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -134,7 +134,7 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                 ),
                 Switch(
                   value: isActive,
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                   onChanged: (value) {
                     setState(() {
                       _schedule[day]!['ativo'] = value.toString();

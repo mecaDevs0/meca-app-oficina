@@ -1,11 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../data/banks_data.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
-import '../../widgets/theme_switch_widget.dart';
 
 class BankAccountScreen extends StatefulWidget {
   const BankAccountScreen({Key? key}) : super(key: key);
@@ -17,6 +19,7 @@ class BankAccountScreen extends StatefulWidget {
 class _BankAccountScreenState extends State<BankAccountScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isFetchingCep = false;
   Map<String, dynamic>? _bankData;
   final ApiService _apiService = ApiService();
 
@@ -30,6 +33,13 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   final _accountHolderDocumentController = TextEditingController();
   final _pixKeyController = TextEditingController();
   final _pixKeyTypeController = TextEditingController();
+  final _cepController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _numberController = TextEditingController();
+  final _neighborhoodController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _complementController = TextEditingController();
 
   // Selected bank
   BankData? _selectedBank;
@@ -52,11 +62,23 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     _accountHolderDocumentController.dispose();
     _pixKeyController.dispose();
     _pixKeyTypeController.dispose();
+    _cepController.dispose();
+    _streetController.dispose();
+    _numberController.dispose();
+    _neighborhoodController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _complementController.dispose();
     super.dispose();
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   Future<void> _loadBankData() async {
-    setState(() => _isLoading = true);
+    _safeSetState(() => _isLoading = true);
     
     try {
       final token = await StorageService.getToken();
@@ -69,7 +91,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       
       final response = await _apiService.getBankAccount();
       if (response['success']) {
-        setState(() {
+        _safeSetState(() {
           _bankData = response['data'];
         });
         
@@ -77,25 +99,46 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         if (_bankData != null) {
           _bankNameController.text = _bankData!['bank_name'] ?? '';
           _accountTypeController.text = _bankData!['account_type'] ?? '';
-          _accountNumberController.text = _bankData!['account_number'] ?? '';
-          _agencyNumberController.text = _bankData!['agency_number'] ?? '';
+          _accountNumberController.text =
+              _bankData!['account_number'] ?? _bankData!['account'] ?? '';
+          _agencyNumberController.text =
+              _bankData!['agency_number'] ?? _bankData!['agency'] ?? '';
           _accountHolderNameController.text = _bankData!['account_holder_name'] ?? '';
           _accountHolderDocumentController.text = _bankData!['account_holder_document'] ?? '';
           _pixKeyController.text = _bankData!['pix_key'] ?? '';
           _pixKeyTypeController.text = _bankData!['pix_key_type'] ?? '';
+          _cepController.text = _bankData!['bank_cep'] ?? '';
+          _streetController.text = _bankData!['bank_street'] ?? '';
+          _numberController.text = _bankData!['bank_number'] ?? '';
+          _neighborhoodController.text = _bankData!['bank_neighborhood'] ?? '';
+          _cityController.text = _bankData!['bank_city'] ?? '';
+          _stateController.text = _bankData!['bank_state'] ?? '';
+          _complementController.text = _bankData!['bank_complement'] ?? '';
           
           // Encontrar banco selecionado
           final bankCode = _bankData!['bank_code'];
           if (bankCode != null) {
             _selectedBank = BanksData.getBankByCode(bankCode);
           }
+
+          final accountType = _bankData!['account_type'];
+          if (accountType != null && accountType.toString().isNotEmpty) {
+            _selectedAccountType = accountType;
+          }
+
+          final pixType = _bankData!['pix_key_type'];
+          if (pixType != null && pixType.toString().isNotEmpty) {
+            _selectedPixKeyType = pixType;
+          }
+
+          _safeSetState(() {});
         }
       }
       
     } catch (e) {
       print('Erro ao carregar dados bancários: $e');
     } finally {
-      setState(() => _isLoading = false);
+      _safeSetState(() => _isLoading = false);
     }
   }
 
@@ -111,29 +154,68 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    _safeSetState(() => _isSaving = true);
     
     try {
       final response = await _apiService.updateBankAccount(
         bankName: _selectedBank!.name,
+        bankCode: _selectedBank!.code,
         accountType: _selectedAccountType,
         accountNumber: _accountNumberController.text,
         agencyNumber: _agencyNumberController.text,
         accountHolderName: _accountHolderNameController.text,
         accountHolderDocument: _accountHolderDocumentController.text,
-        pixKey: _pixKeyController.text,
+        pixKey: _pixKeyController.text.isNotEmpty ? _pixKeyController.text : null,
         pixKeyType: _selectedPixKeyType,
+        cep: _cepController.text,
+        street: _streetController.text,
+        number: _numberController.text,
+        neighborhood: _neighborhoodController.text,
+        city: _cityController.text,
+        state: _stateController.text,
+        complement: _complementController.text,
       );
       
       if (response['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Dados bancários salvos com sucesso!'),
-            backgroundColor: Color(0xFF00C977),
-          ),
-        );
-        // Voltar para home e recarregar
-        Navigator.pop(context, true); // Passa true para indicar sucesso
+        // Aguardar um pouco para garantir que o banco foi atualizado
+        await Future.delayed(const Duration(milliseconds: 1000));
+        
+        // Verificar novamente se os dados foram salvos corretamente
+        final verifyResponse = await _apiService.getBankAccount();
+        if (verifyResponse['success'] && verifyResponse['data'] != null) {
+          final bankData = verifyResponse['data'];
+          final bankCode = bankData['bank_code']?.toString().trim() ?? '';
+          final agency = bankData['agency']?.toString().trim() ?? '';
+          final account = bankData['account']?.toString().trim() ?? '';
+          
+          if (bankCode.isNotEmpty && agency.isNotEmpty && account.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Dados bancários salvos com sucesso!'),
+                backgroundColor: Color(0xFF00C977),
+              ),
+            );
+            // Voltar para home e recarregar
+            Navigator.pop(context, true); // Passa true para indicar sucesso
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Dados salvos, mas não foram encontrados na verificação. Recarregue a página.'),
+                backgroundColor: Color(0xFFF59E0B),
+              ),
+            );
+            Navigator.pop(context, true); // Passa true para indicar sucesso mesmo assim
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Dados bancários salvos com sucesso!'),
+              backgroundColor: Color(0xFF00C977),
+            ),
+          );
+          // Voltar para home e recarregar
+          Navigator.pop(context, true); // Passa true para indicar sucesso
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -150,7 +232,66 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         ),
       );
     } finally {
-      setState(() => _isSaving = false);
+      _safeSetState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _fetchAddressByCep() async {
+    final cepRaw = _cepController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cepRaw.length != 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um CEP válido com 8 dígitos.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    _safeSetState(() => _isFetchingCep = true);
+
+    try {
+      final response = await http.get(Uri.parse('https://viacep.com.br/ws/$cepRaw/json/'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map<String, dynamic> && data['erro'] != true) {
+          _streetController.text = (data['logradouro'] ?? '').toString();
+          _neighborhoodController.text = (data['bairro'] ?? '').toString();
+          _cityController.text = (data['localidade'] ?? '').toString();
+          _stateController.text = (data['uf'] ?? '').toString();
+          _complementController.text = (data['complemento'] ?? '').toString();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Endereço carregado pelo ViaCEP.'),
+              backgroundColor: Color(0xFF10B981),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('CEP não encontrado no ViaCEP.'),
+              backgroundColor: Color(0xFFF59E0B),
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao buscar CEP: ${response.statusCode}'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao buscar CEP: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    } finally {
+      _safeSetState(() => _isFetchingCep = false);
     }
   }
 
@@ -165,33 +306,12 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: const Text('Conta Bancária'),
-        backgroundColor: bgColor,
+        title: const Text('Conta bancária'),
+        backgroundColor: themeService.isDarkMode
+            ? const Color(0xFF0A0A0A)
+            : const Color(0xFF00C977),
+        foregroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: textColor,
-        actions: [
-          const ThemeSwitchButton(),
-          if (!_isLoading)
-            TextButton(
-              onPressed: _isSaving ? null : _saveBankData,
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
-                      ),
-                    )
-                  : const Text(
-                      'Salvar',
-                      style: TextStyle(
-                        color: Color(0xFF00C977),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-            ),
-        ],
       ),
       body: _isLoading
           ? const Center(
@@ -312,6 +432,98 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildSectionTitle('Endereço bancário'),
+                    const SizedBox(height: 12),
+                    _buildInputField(
+                      controller: _cepController,
+                      label: 'CEP',
+                      hint: 'Digite o CEP',
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'CEP é obrigatório';
+                        }
+                        final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+                        if (digits.length != 8) {
+                          return 'Informe um CEP válido';
+                        }
+                        return null;
+                      },
+                      suffixIcon: _isFetchingCep
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.search),
+                              onPressed: _isFetchingCep ? null : _fetchAddressByCep,
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _streetController,
+                      label: 'Endereço',
+                      hint: 'Rua ou avenida',
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildInputField(
+                            controller: _numberController,
+                            label: 'Número',
+                            hint: 'Número',
+                            keyboardType: TextInputType.text,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildInputField(
+                            controller: _neighborhoodController,
+                            label: 'Bairro',
+                            hint: 'Digite o bairro',
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildInputField(
+                            controller: _cityController,
+                            label: 'Cidade',
+                            hint: 'Digite a cidade',
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 100,
+                          child: _buildInputField(
+                            controller: _stateController,
+                            label: 'UF',
+                            hint: 'UF',
+                            textCapitalization: TextCapitalization.characters,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      controller: _complementController,
+                      label: 'Complemento',
+                      hint: 'Apartamento, sala, referência...',
+                      textCapitalization: TextCapitalization.sentences,
                     ),
                     const SizedBox(height: 32),
                     
@@ -467,7 +679,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     final isSelected = _selectedAccountType == value;
     
     return InkWell(
-      onTap: () => setState(() => _selectedAccountType = value),
+      onTap: () => _safeSetState(() => _selectedAccountType = value),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -547,7 +759,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     final isSelected = _selectedPixKeyType == value;
     
     return InkWell(
-      onTap: () => setState(() => _selectedPixKeyType = value),
+      onTap: () => _safeSetState(() => _selectedPixKeyType = value),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -587,6 +799,9 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     required String hint,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    Widget? suffixIcon,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    bool readOnly = false,
   }) {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     final isDark = themeService.isDarkMode;
@@ -611,6 +826,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
+          readOnly: readOnly,
+          textCapitalization: textCapitalization,
           style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: hint,
@@ -634,6 +851,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
               borderSide: const BorderSide(color: Color(0xFFEF4444)),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            suffixIcon: suffixIcon,
           ),
         ),
       ],

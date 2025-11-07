@@ -1,10 +1,9 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 
 class ImageCacheService {
   static const String _cacheKey = 'image_cache';
@@ -151,7 +150,7 @@ class ImageCacheService {
       return ClipRRect(
         borderRadius: borderRadius ?? BorderRadius.zero,
         child: Image.memory(
-          Uri.dataFromString(imageUrl).data.contentAsBytes(),
+          Uri.dataFromString(imageUrl).data?.contentAsBytes() ?? Uint8List(0),
           width: width,
           height: height,
           fit: fit,

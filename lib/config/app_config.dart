@@ -13,6 +13,9 @@ class AppConfig {
   /// Timeout de recebimento (segundos) - Otimizado para EC2
   static const int receiveTimeout = 60;
   
+  /// Usar endpoints admin (sempre false - usar endpoints reais)
+  static const bool useAdminEndpoints = false;
+  
   // ========================================
   // APP INFO
   // ========================================
@@ -85,3 +88,9 @@ class AppConfig {
     print('========================================');
   }
 }
+
+
+
+
+
+

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../services/storage_service.dart';
+import 'package:provider/provider.dart';
+
 import '../../services/api_service.dart';
+import '../../services/storage_service.dart';
+import '../../services/theme_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -22,7 +25,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     
     try {
       final token = await StorageService.getToken();
@@ -35,23 +40,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       
       final response = await _apiService.getNotifications();
       if (response['success']) {
-        setState(() {
-          _notifications = List<Map<String, dynamic>>.from(response['data']['notifications'] ?? []);
-          _unreadCount = response['data']['unread_count'] ?? 0;
-        });
+        if (mounted) {
+          setState(() {
+            final data = response['data'] ?? {};
+            _notifications = List<Map<String, dynamic>>.from(data['notifications'] ?? data ?? []);
+            _unreadCount = data['unread_count'] is int
+                ? data['unread_count']
+                : int.tryParse('${data['unread_count']}') ?? 0;
+          });
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['error'] ?? 'Erro ao carregar notificações'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
       
     } catch (e) {
-      print('Erro ao carregar notificações: $e');
+      if (mounted) {
+        print('Erro ao carregar notificações: $e');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _markAsRead(String notificationId) async {
     try {
       await _apiService.markNotificationAsRead(notificationId);
-      _loadNotifications(); // Recarregar para atualizar o status
+      if (!mounted) return;
+      _loadNotifications();
     } catch (e) {
       print('Erro ao marcar notificação como lida: $e');
     }
@@ -59,51 +83,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        title: const Text('Notificações'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (_unreadCount > 0)
-            Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$_unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+    return Consumer<ThemeService>(
+      builder: (context, themeService, child) {
+        final isDark = themeService.isDarkMode;
+        final backgroundColor = ThemeService.getBackgroundColor(isDark);
+        final textColor = ThemeService.getTextColor(isDark);
+        final badgeColor = isDark ? const Color(0xFFEF4444) : const Color(0xFFEF4444);
+
+        return Scaffold(
+          backgroundColor: backgroundColor,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              'Notificações',
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w600,
               ),
             ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadNotifications,
-              child: _notifications.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(20),
-                      itemCount: _notifications.length,
-                      itemBuilder: (context, index) {
-                        final notification = _notifications[index];
-                        return _buildNotificationCard(notification);
-                      },
+            iconTheme: IconThemeData(color: textColor),
+            actions: [
+              if (_unreadCount > 0)
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '$_unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-            ),
+                  ),
+                ),
+            ],
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadNotifications,
+                  child: _notifications.isEmpty
+                      ? _buildEmptyState(isDark)
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(20),
+                          itemCount: _notifications.length,
+                          itemBuilder: (context, index) {
+                            final notification = _notifications[index];
+                            return _buildNotificationCard(notification, isDark);
+                          },
+                        ),
+                ),
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondary = ThemeService.getSecondaryTextColor(isDark);
+    final iconColor = isDark ? Colors.white30 : const Color(0xFF252940);
+    final circleColor = isDark
+        ? Colors.white.withOpacity(0.05)
+        : const Color(0xFF252940).withOpacity(0.05);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -114,38 +161,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF252940).withOpacity(0.1),
-                    const Color(0xFF252940).withOpacity(0.05),
-                  ],
-                ),
+                color: circleColor,
                 borderRadius: BorderRadius.circular(60),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.notifications_none,
                 size: 60,
-                color: Color(0xFF252940),
+                color: iconColor,
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Nenhuma notificação',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1F2937),
+                color: textColor,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Você receberá notificações sobre\nnovos agendamentos e atualizações',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Color(0xFF6B7280),
+                color: secondary,
                 height: 1.5,
               ),
             ),
@@ -155,11 +195,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final isRead = notification['read'] == true;
+  Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDark) {
+    final isRead = notification['is_read'] == true || notification['read'] == true;
     final type = notification['type'] as String?;
     final priority = notification['priority'] as String?;
-    
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondary = ThemeService.getSecondaryTextColor(isDark);
+    final cardColor = isDark ? const Color(0xFF162031) : Colors.white;
+    final tertiary = isDark ? Colors.white60 : const Color(0xFF6B7280);
+    final borderColor = isRead
+        ? (isDark ? Colors.white24 : const Color(0xFFE5E7EB))
+        : _getNotificationColor(type, priority).withOpacity(isDark ? 0.6 : 0.2);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
@@ -173,17 +220,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isRead 
-                  ? const Color(0xFFE5E7EB)
-                  : const Color(0xFF252940).withOpacity(0.2),
+              color: borderColor,
               width: isRead ? 1 : 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF252940).withOpacity(0.05),
+                color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -220,7 +265,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
-                              color: const Color(0xFF1F2937),
+                              color: textColor,
                             ),
                           ),
                         ),
@@ -238,9 +283,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     const SizedBox(height: 8),
                     Text(
                       notification['message'] ?? '',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF6B7280),
+                        color: tertiary,
                         height: 1.4,
                       ),
                     ),
@@ -255,9 +300,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(width: 4),
                         Text(
                           _formatDate(notification['created_at']),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF9CA3AF),
+                            color: tertiary,
                           ),
                         ),
                         const Spacer(),

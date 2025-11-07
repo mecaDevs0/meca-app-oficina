@@ -5,7 +5,6 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
-import '../../widgets/theme_switch_widget.dart';
 
 class AgendaConfigScreen extends StatefulWidget {
   const AgendaConfigScreen({Key? key}) : super(key: key);
@@ -43,6 +42,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _schedule = _defaultSchedule();
     _loadSchedule();
   }
 
@@ -60,8 +60,12 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
       final result = await _apiService.getSchedule();
       
       if (result['success']) {
+        final normalized = _normalizeSchedule(result['data']);
+        // Debug para auditoria em testes
+        // ignore: avoid_print
+        print('DEBUG: Agenda carregada da API: ${result['data']}');
         setState(() {
-          _schedule = result['data'] ?? {};
+          _schedule = normalized;
         });
       } else {
         BeautifulErrorSnackbar.show(
@@ -86,9 +90,14 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
     
     try {
       await _apiService.loadToken();
-      final result = await _apiService.updateSchedule(_schedule);
+      final payload = _buildSchedulePayload();
+      // ignore: avoid_print
+      print('DEBUG: Enviando agenda para API: $payload');
+      final result = await _apiService.updateSchedule(payload);
       
       if (result['success']) {
+        // ignore: avoid_print
+        print('DEBUG: Agenda salva com sucesso na API: ${result['data']}');
         BeautifulErrorSnackbar.showSuccess(
           context,
           'Agenda salva com sucesso!',
@@ -96,6 +105,8 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         );
         Navigator.pop(context, true); // Passa true para indicar sucesso
       } else {
+        // ignore: avoid_print
+        print('DEBUG: Falha ao salvar agenda: ${result['error']}');
         BeautifulErrorSnackbar.show(
           context,
           'Erro: ${result['error']}',
@@ -103,6 +114,8 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         );
       }
     } catch (e) {
+      // ignore: avoid_print
+      print('DEBUG: Exceção ao salvar agenda: $e');
       BeautifulErrorSnackbar.show(
         context,
         'Erro: $e',
@@ -116,13 +129,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
   void _selectAllDays() {
     setState(() {
       for (String day in _days) {
-        _schedule[day] = {
-          'is_open': true,
-          'start_time': '08:00',
-          'end_time': '18:00',
-          'break_start': null,
-          'break_end': null,
-        };
+        _schedule[day] = _emptyDaySchedule(isOpen: true);
       }
     });
   }
@@ -130,13 +137,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
   void _deselectAllDays() {
     setState(() {
       for (String day in _days) {
-        _schedule[day] = {
-          'is_open': false,
-          'start_time': null,
-          'end_time': null,
-          'break_start': null,
-          'break_end': null,
-        };
+        _schedule[day] = _emptyDaySchedule(isOpen: false);
       }
     });
   }
@@ -157,7 +158,6 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         elevation: 0,
         foregroundColor: textColor,
         actions: [
-          const ThemeSwitchButton(),
           TextButton(
             onPressed: _isSaving ? null : _saveSchedule,
             child: _isSaving
@@ -292,12 +292,15 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
     final borderColor = ThemeService.getBorderColor(isDark);
     final textColor = ThemeService.getTextColor(isDark);
     
-    final dayData = _schedule[day] ?? {
-      'is_open': false,
-      'start_time': '08:00',
-      'end_time': '18:00',
-      'break_start': null,
-      'break_end': null,
+    final dayDataRaw = _schedule[day] ?? {};
+    final dayData = {
+      'is_open': dayDataRaw['is_open'] ?? false,
+      'start_time': dayDataRaw['start_time'] ?? '08:00',
+      'end_time': dayDataRaw['end_time'] ?? '18:00',
+      'break_start': dayDataRaw['break_start'],
+      'break_end': dayDataRaw['break_end'],
+      'lunch_start': dayDataRaw['lunch_start'],
+      'lunch_end': dayDataRaw['lunch_end'],
     };
 
     return Container(
@@ -327,9 +330,10 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
+                    final currentIsOpen = dayData['is_open'] as bool? ?? false;
                     _schedule[day] = {
                       ...dayData,
-                      'is_open': !dayData['is_open'],
+                      'is_open': !currentIsOpen,
                     };
                   });
                 },
@@ -337,18 +341,18 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: dayData['is_open'] 
+                    color: (dayData['is_open'] as bool? ?? false)
                         ? const Color(0xFF00C977) 
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: dayData['is_open'] 
+                      color: (dayData['is_open'] as bool? ?? false)
                           ? const Color(0xFF00C977) 
-                          : const Color(0xFF666666),
+                          : (isDark ? Colors.grey[600]! : Colors.grey[400]!),
                       width: 2,
                     ),
                   ),
-                  child: dayData['is_open']
+                  child: (dayData['is_open'] as bool? ?? false)
                       ? const Icon(
                           Icons.check,
                           color: Colors.white,
@@ -369,7 +373,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
             ],
           ),
 
-          if (dayData['is_open']) ...[
+          if (dayData['is_open'] as bool? ?? false) ...[
             const SizedBox(height: 20),
             
             // Time inputs
@@ -547,205 +551,89 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
       onChanged(timeString);
     }
   }
-}    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
 
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
+  Map<String, dynamic> _normalizeSchedule(dynamic rawData) {
+    final source = rawData is Map<String, dynamic> && rawData.containsKey('schedule')
+        ? rawData['schedule']
+        : rawData;
+    final normalized = <String, dynamic>{};
+    for (final day in _days) {
+      final dayRaw = source is Map<String, dynamic> ? source[day] : null;
+      normalized[day] = _normalizeDay(dayRaw);
     }
+    return normalized;
+  }
+
+  Map<String, dynamic> _normalizeDay(dynamic dayRaw) {
+    final map = dayRaw is Map ? Map<String, dynamic>.from(dayRaw) : <String, dynamic>{};
+    final isOpen = map['is_open'] == true;
+
+    String? startTime = _formatTime(map['start_time']);
+    String? endTime = _formatTime(map['end_time']);
+    startTime ??= '08:00';
+    endTime ??= '18:00';
+
+    return {
+      'is_open': isOpen,
+      'start_time': startTime,
+      'end_time': endTime,
+      'break_start': _formatTime(map['break_start']),
+      'break_end': _formatTime(map['break_end']),
+      'lunch_start': _formatTime(map['lunch_start']),
+      'lunch_end': _formatTime(map['lunch_end']),
+    };
+  }
+
+  Map<String, dynamic> _emptyDaySchedule({required bool isOpen}) {
+    return {
+      'is_open': isOpen,
+      'start_time': '08:00',
+      'end_time': '18:00',
+      'break_start': null,
+      'break_end': null,
+      'lunch_start': null,
+      'lunch_end': null,
+    };
+  }
+
+  String? _formatTime(dynamic value) {
+    if (value == null) return null;
+    final str = value.toString().trim();
+    if (str.isEmpty) return null;
+    final parts = str.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+
+  Map<String, dynamic> _defaultSchedule() {
+    final map = <String, dynamic>{};
+    for (final day in _days) {
+      map[day] = _emptyDaySchedule(isOpen: false);
+    }
+    return map;
+  }
+
+  Map<String, dynamic> _buildSchedulePayload() {
+    final payload = <String, dynamic>{};
+
+    for (final day in _days) {
+      final current = _schedule[day] as Map<String, dynamic>? ?? _emptyDaySchedule(isOpen: false);
+      final isOpen = current['is_open'] == true;
+
+      payload[day] = {
+        'is_open': isOpen,
+        'start_time': isOpen ? _formatTime(current['start_time']) ?? '08:00' : null,
+        'end_time': isOpen ? _formatTime(current['end_time']) ?? '18:00' : null,
+        'break_start': isOpen ? _formatTime(current['break_start']) : null,
+        'break_end': isOpen ? _formatTime(current['break_end']) : null,
+        'lunch_start': isOpen ? _formatTime(current['lunch_start']) : null,
+        'lunch_end': isOpen ? _formatTime(current['lunch_end']) : null,
+      };
+    }
+
+    return payload;
   }
 }
-
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }
-}    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }
-}
-
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }
-}    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }
-}
-
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }
-}    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: currentValue.isNotEmpty 
-          ? TimeOfDay(
-              hour: int.parse(currentValue.split(':')[0]),
-              minute: int.parse(currentValue.split(':')[1]),
-            )
-          : const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00C977),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1A1A1A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final timeString = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onChanged(timeString);
-    }
-  }

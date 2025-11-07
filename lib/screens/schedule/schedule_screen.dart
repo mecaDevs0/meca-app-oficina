@@ -5,7 +5,6 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
-import '../../widgets/theme_switch_widget.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -26,13 +25,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _loadBookings();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) {
+      _safeSetState(() {});
+    }
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
   }
 
   Widget _buildStatusTab(
@@ -50,75 +62,72 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? color.withOpacity(0.1)
+          color: isSelected
+              ? color.withOpacity(isDark ? 0.28 : 0.9)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isSelected 
-                ? color.withOpacity(0.3)
-                : Colors.transparent,
-            width: 1,
+            color: isSelected ? color.withOpacity(0.6) : ThemeService.getBorderColor(isDark).withOpacity(0.4),
+            width: isSelected ? 1.4 : 1,
           ),
+          boxShadow: isSelected && !isDark
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.35),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : [],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? color.withOpacity(0.2)
-                    : color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Icon(
+        child: Semantics(
+          label: '$title: $count agendamentos',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
                 icon,
-                size: 14,
-                color: isSelected ? color : secondaryTextColor,
+                size: 20,
+                color: isSelected ? Colors.white : secondaryTextColor,
               ),
-            ),
-            const SizedBox(width: 4),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? color : textColor,
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : textColor,
                 ),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? color : secondaryTextColor,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.white.withOpacity(0.9) : secondaryTextColor,
                 ),
-              ],
-            ),
-          ],
+                child: Text('$count'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _loadBookings() async {
-    setState(() => _isLoading = true);
+    _safeSetState(() => _isLoading = true);
     
     try {
       final token = await StorageService.getToken();
       if (token == null) {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
@@ -128,7 +137,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       // Carregar agendamentos pendentes
       final pendingResponse = await _apiService.getMyBookings(status: 'pendente_oficina');
       if (pendingResponse['success']) {
-        setState(() {
+        _safeSetState(() {
           _pendingBookings = List<Map<String, dynamic>>.from(pendingResponse['data']['bookings'] ?? []);
         });
       }
@@ -136,7 +145,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       // Carregar agendamentos confirmados
       final confirmedResponse = await _apiService.getMyBookings(status: 'confirmado');
       if (confirmedResponse['success']) {
-        setState(() {
+        _safeSetState(() {
           _confirmedBookings = List<Map<String, dynamic>>.from(confirmedResponse['data']['bookings'] ?? []);
         });
       }
@@ -144,7 +153,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       // Carregar agendamentos concluídos
       final completedResponse = await _apiService.getMyBookings(status: 'concluido');
       if (completedResponse['success']) {
-        setState(() {
+        _safeSetState(() {
           _completedBookings = List<Map<String, dynamic>>.from(completedResponse['data']['bookings'] ?? []);
         });
       }
@@ -152,7 +161,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     } catch (e) {
       print('Erro ao carregar agendamentos: $e');
     } finally {
-      setState(() => _isLoading = false);
+      _safeSetState(() => _isLoading = false);
     }
   }
 
@@ -162,116 +171,120 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     final bgColor = themeService.isDarkMode ? const Color(0xFF0A0A0A) : const Color(0xFFF5F7FA);
     final textColor = themeService.isDarkMode ? Colors.white : const Color(0xFF111827);
     
+    final secondaryText = ThemeService.getSecondaryTextColor(themeService.isDarkMode);
+    
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
-        title: const Text('Agenda'),
-        backgroundColor: bgColor,
-        elevation: 0,
-        foregroundColor: textColor,
-        actions: [
-          const ThemeSwitchButton(),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Agenda',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Gerencie seus agendamentos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: ThemeService.getSecondaryTextColor(themeService.isDarkMode),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Tabs
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: ThemeService.getCardColor(themeService.isDarkMode),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: ThemeService.getBorderColor(themeService.isDarkMode),
-                      width: 1,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Agenda',
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: textColor,
                     ),
                   ),
-                  child: Container(
-                    height: 44,
-                    child: Row(
+                  const SizedBox(height: 6),
+                  Text(
+                    'Visualize e controle seus agendamentos em tempo real.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildStatusToolbar(themeService.isDarkMode),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? AnimationWidgets.buildLoadingWidget(message: 'Carregando agenda...')
+                  : TabBarView(
+                      controller: _tabController,
+                      physics: const BouncingScrollPhysics(),
                       children: [
-                        Expanded(
-                          child: _buildStatusTab(
-                            'Pendentes',
-                            _pendingBookings.length,
-                            Icons.pending_actions,
-                            const Color(0xFFF59E0B),
-                            _tabController.index == 0,
-                            () => _tabController.animateTo(0),
-                            themeService.isDarkMode,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStatusTab(
-                            'Confirmados',
-                            _confirmedBookings.length,
-                            Icons.check_circle,
-                            const Color(0xFF10B981),
-                            _tabController.index == 1,
-                            () => _tabController.animateTo(1),
-                            themeService.isDarkMode,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStatusTab(
-                            'Concluídos',
-                            _completedBookings.length,
-                            Icons.done_all,
-                            const Color(0xFF6B7280),
-                            _tabController.index == 2,
-                            () => _tabController.animateTo(2),
-                            themeService.isDarkMode,
-                          ),
-                        ),
+                        _buildBookingsList(_pendingBookings, 'pending'),
+                        _buildBookingsList(_confirmedBookings, 'confirmed'),
+                        _buildBookingsList(_completedBookings, 'completed'),
                       ],
                     ),
-                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusToolbar(bool isDark) {
+    final items = [
+      {
+        'title': 'Pendentes',
+        'count': _pendingBookings.length,
+        'icon': Icons.pending_actions,
+        'color': const Color(0xFFF97316),
+      },
+      {
+        'title': 'Confirmados',
+        'count': _confirmedBookings.length,
+        'icon': Icons.check_circle_outline,
+        'color': const Color(0xFF22C55E),
+      },
+      {
+        'title': 'Concluídos',
+        'count': _completedBookings.length,
+        'icon': Icons.done_all,
+        'color': const Color(0xFF6B7280),
+      },
+    ];
+
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: borderColor.withOpacity(0.6), width: 1.2),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
               ],
+      ),
+      child: Row(
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: _buildStatusTab(
+                item['title'] as String,
+                item['count'] as int,
+                item['icon'] as IconData,
+                item['color'] as Color,
+                _tabController.index == index,
+                () => _tabController.animateTo(index),
+                isDark,
+              ),
             ),
-          ),
-          
-          // Content
-          Expanded(
-            child: _isLoading
-                ? AnimationWidgets.buildLoadingWidget(message: 'Carregando agenda...')
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildBookingsList(_pendingBookings, 'pending'),
-                      _buildBookingsList(_confirmedBookings, 'confirmed'),
-                      _buildBookingsList(_completedBookings, 'completed'),
-                    ],
-                  ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
@@ -738,12 +751,200 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   }
 
   Future<void> _suggestNewTime(Map<String, dynamic> booking) async {
-    // TODO: Implementar seleção de novo horário
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Funcionalidade de sugerir novo horário em desenvolvimento!'),
-        backgroundColor: Color(0xFFF59E0B),
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
+    final reasonController = TextEditingController();
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sugerir Novo Horário',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today, color: Color(0xFF00C977)),
+                      title: Text(
+                        selectedDate == null
+                            ? 'Selecionar data'
+                            : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      ),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.dark(
+                                  primary: const Color(0xFF00C977),
+                                  onPrimary: Colors.white,
+                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                  onSurface: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.access_time, color: Color(0xFF00C977)),
+                      title: Text(
+                        selectedTime == null
+                            ? 'Selecionar horário'
+                            : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      ),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.dark(
+                                  primary: const Color(0xFF00C977),
+                                  onPrimary: Colors.white,
+                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                  onSurface: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setState(() => selectedTime = picked);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Motivo (opcional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: (selectedDate != null && selectedTime != null)
+                                ? () {
+                                    final combined = DateTime(
+                                      selectedDate!.year,
+                                      selectedDate!.month,
+                                      selectedDate!.day,
+                                      selectedTime!.hour,
+                                      selectedTime!.minute,
+                                    ).toIso8601String();
+                                    Navigator.pop(context, {
+                                      'date': combined,
+                                      'reason': reasonController.text.trim(),
+                                    });
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00C977),
+                            ),
+                            child: const Text('Sugerir'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
+
+    reasonController.dispose();
+
+    if (result != null && result['date'] != null) {
+      try {
+        final apiResult = await _apiService.suggestNewTime(
+          booking['id'].toString(),
+          result['date'] as String,
+          (result['reason'] as String?) ?? '',
+        );
+
+        if (!mounted) return;
+
+        if (apiResult['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Novo horário sugerido com sucesso!'),
+              backgroundColor: Color(0xFF00C977),
+            ),
+          );
+          _loadBookings();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${apiResult['error']}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
   }
 }

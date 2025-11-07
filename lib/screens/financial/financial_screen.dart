@@ -5,7 +5,6 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
-import '../../widgets/theme_switch_widget.dart';
 
 class FinancialScreen extends StatefulWidget {
   const FinancialScreen({Key? key}) : super(key: key);
@@ -25,12 +24,18 @@ class _FinancialScreenState extends State<FinancialScreen> {
     _loadFinancialData();
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   Future<void> _loadFinancialData() async {
-    setState(() => _isLoading = true);
+    _safeSetState(() => _isLoading = true);
     
     try {
       final token = await StorageService.getToken();
       if (token == null) {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
@@ -39,7 +44,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
       
       final response = await _apiService.getFinancialSummary();
       if (response['success']) {
-        setState(() {
+        _safeSetState(() {
           _financialData = response['data'];
         });
       }
@@ -47,7 +52,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
     } catch (e) {
       print('Erro ao carregar dados financeiros: $e');
     } finally {
-      setState(() => _isLoading = false);
+      _safeSetState(() => _isLoading = false);
     }
   }
 
@@ -58,155 +63,140 @@ class _FinancialScreenState extends State<FinancialScreen> {
     final textColor = themeService.isDarkMode ? const Color(0xFFF9FAFB) : const Color(0xFF111827);
     final secondaryTextColor = themeService.isDarkMode ? const Color(0xFFD1D5DB) : const Color(0xFF6B7280);
     final cardColor = themeService.isDarkMode ? const Color(0xFF1A1A1A) : Colors.white;
+    final cardBorderColor = themeService.isDarkMode ? const Color(0xFF065F46) : const Color(0xFF00C977);
     
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: AppBar(
-        title: const Text('Financeiro'),
-        backgroundColor: bgColor,
-        elevation: 0,
-        foregroundColor: textColor,
-        actions: [
-          const ThemeSwitchButton(),
-        ],
-      ),
-      body: _isLoading
-          ? AnimationWidgets.buildLoadingWidget(message: 'Carregando dados financeiros...')
-          : RefreshIndicator(
-              onRefresh: _loadFinancialData,
-              child: CustomScrollView(
-                slivers: [
-                  // Header
-                  SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Financeiro',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
+      body: SafeArea(
+        bottom: false,
+        child: _isLoading
+            ? AnimationWidgets.buildLoadingWidget(message: 'Carregando dados financeiros...')
+            : RefreshIndicator(
+                onRefresh: _loadFinancialData,
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Financeiro',
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
+                                color: textColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Acompanhe seu faturamento',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: secondaryTextColor,
+                            const SizedBox(height: 6),
+                            Text(
+                              'Acompanhe faturamento, estatísticas e transações em tempo real.',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: secondaryTextColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                            const SizedBox(height: 24),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  // Financial Cards
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          _buildFinancialCard(
-                            title: 'Faturamento Total',
-                            amount: (_financialData?['total_revenue'] ?? 0).toDouble(),
-                            icon: Icons.attach_money,
-                            color: const Color(0xFF10B981),
-                            cardColor: cardColor,
-                            textColor: textColor,
-                            secondaryTextColor: secondaryTextColor,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFinancialCard(
-                            title: 'Este Mês',
-                            amount: (_financialData?['monthly_revenue'] ?? 0).toDouble(),
-                            icon: Icons.calendar_month,
-                            color: const Color(0xFF3B82F6),
-                            cardColor: cardColor,
-                            textColor: textColor,
-                            secondaryTextColor: secondaryTextColor,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildFinancialCard(
-                            title: 'Esta Semana',
-                            amount: (_financialData?['weekly_revenue'] ?? 0).toDouble(),
-                            icon: Icons.date_range,
-                            color: const Color(0xFF8B5CF6),
-                            cardColor: cardColor,
-                            textColor: textColor,
-                            secondaryTextColor: secondaryTextColor,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  // Statistics
-                  SliverToBoxAdapter(
-                    child: const SizedBox(height: 24),
-                  ),
-                  
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Estatísticas',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            _buildFinancialCard(
+                              title: 'Faturamento Total',
+                              amount: (_financialData?['total_revenue'] ?? 0).toDouble(),
+                              icon: Icons.attach_money,
+                              color: const Color(0xFF10B981),
+                              cardColor: cardColor,
+                              borderColor: cardBorderColor,
+                              textColor: textColor,
+                              secondaryTextColor: secondaryTextColor,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildStatsGrid(cardColor, textColor, secondaryTextColor),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  // Recent Transactions
-                  SliverToBoxAdapter(
-                    child: const SizedBox(height: 24),
-                  ),
-                  
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Transações Recentes',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
+                            const SizedBox(height: 16),
+                            _buildFinancialCard(
+                              title: 'Este Mês',
+                              amount: (_financialData?['monthly_revenue'] ?? 0).toDouble(),
+                              icon: Icons.calendar_month,
+                              color: const Color(0xFF3B82F6),
+                              cardColor: cardColor,
+                              borderColor: cardBorderColor,
+                              textColor: textColor,
+                              secondaryTextColor: secondaryTextColor,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                            const SizedBox(height: 16),
+                            _buildFinancialCard(
+                              title: 'Esta Semana',
+                              amount: (_financialData?['weekly_revenue'] ?? 0).toDouble(),
+                              icon: Icons.date_range,
+                              color: const Color(0xFF8B5CF6),
+                              cardColor: cardColor,
+                              borderColor: cardBorderColor,
+                              textColor: textColor,
+                              secondaryTextColor: secondaryTextColor,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  SliverToBoxAdapter(
-                    child: _buildTransactionsList(cardColor, textColor, secondaryTextColor),
-                  ),
-                  
-                  SliverToBoxAdapter(
-                    child: const SizedBox(height: 24),
-                  ),
-                ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Estatísticas',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildStatsGrid(cardColor, cardBorderColor, textColor, secondaryTextColor),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Transações Recentes',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _buildTransactionsList(cardColor, cardBorderColor, textColor, secondaryTextColor),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -216,6 +206,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
     required IconData icon,
     required Color color,
     required Color cardColor,
+    required Color borderColor,
     required Color textColor,
     required Color secondaryTextColor,
   }) {
@@ -225,7 +216,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE5E7EB),
+          color: borderColor,
           width: 1,
         ),
       ),
@@ -273,7 +264,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _buildStatsGrid(Color cardColor, Color textColor, Color secondaryTextColor) {
+  Widget _buildStatsGrid(Color cardColor, Color borderColor, Color textColor, Color secondaryTextColor) {
     final stats = [
       {
         'title': 'Serviços Realizados',
@@ -319,7 +310,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
             color: cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFFE5E7EB),
+              color: borderColor,
               width: 1,
             ),
           ),
@@ -358,7 +349,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _buildTransactionsList(Color cardColor, Color textColor, Color secondaryTextColor) {
+  Widget _buildTransactionsList(Color cardColor, Color borderColor, Color textColor, Color secondaryTextColor) {
     final transactions = _financialData?['recent_transactions'] as List<dynamic>? ?? [];
     
     if (transactions.isEmpty) {
@@ -368,7 +359,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
           color: cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFFE5E7EB),
+            color: borderColor,
             width: 1,
           ),
         ),
@@ -406,7 +397,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE5E7EB),
+          color: borderColor,
           width: 1,
         ),
       ),
