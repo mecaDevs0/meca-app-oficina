@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/page_transitions.dart';
-import '../config/bank_account_screen.dart';
 import '../config/agenda_config_screen.dart';
+import '../config/bank_account_screen.dart' show BankAccountScreen;
 import '../config/services_config_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -108,24 +110,52 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = bookingsResponse['data'];
         final bookingsList = data is Map ? (data['bookings'] ?? []) : data ?? [];
         final bookings = List<Map<String, dynamic>>.from(bookingsList);
+        final pendingCount = bookings.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          return status == 'pending' ||
+              status == 'pendente_oficina' ||
+              status == 'pending_oficina';
+        }).length;
+
+        final upcoming = bookings.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          return status == 'pending' ||
+              status == 'confirmed' ||
+              status == 'started' ||
+              status == 'in_progress' ||
+              status == 'pendente_oficina';
+        }).toList()
+          ..sort(
+            (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
+          );
+
+        final history = bookings.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          return status == 'completed' ||
+              status == 'finished' ||
+              status == 'concluido' ||
+              status == 'cancelled';
+        }).toList()
+          ..sort(
+            (a, b) => (b['sort_timestamp'] ?? 0).compareTo(a['sort_timestamp'] ?? 0),
+          );
+
         setState(() {
-          _upcomingBookings = bookings.where((b) => 
-            b['status'] == 'pending' || 
-            b['status'] == 'confirmed' || 
-            b['status'] == 'started' ||
-            b['status'] == 'pendente_oficina'
-          ).toList();
-          _historyBookings = bookings.where((b) => 
-            b['status'] == 'completed' || 
-            b['status'] == 'cancelled' || 
-            b['status'] == 'finished' ||
-            b['status'] == 'concluido'
-          ).toList();
+          _upcomingBookings = upcoming;
+          _historyBookings = history;
         });
+        if (mounted) {
+          final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+          notificationProvider.setPendingBookingsCount(pendingCount, resetBadge: pendingCount == 0);
+        }
       }
       
     } catch (e) {
       print('Erro ao carregar dados: $e');
+      if (mounted) {
+        final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+        notificationProvider.setPendingBookingsCount(0, resetBadge: true);
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -684,83 +714,278 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBookingCard(Map<String, dynamic> booking, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
-        ),
+    final customerName = (booking['customer_name'] ?? 'Cliente MECA').toString();
+    final vehicleLabel = (booking['vehicle_display'] ??
+            '${booking['vehicle_brand'] ?? ''} ${booking['vehicle_model'] ?? ''}')
+        .toString()
+        .trim();
+    final serviceName = (booking['service_name'] ?? 'Serviço').toString();
+    final notes = (booking['customer_notes'] ?? '').toString().trim();
+    final attachments = booking['customer_uploads'] is List
+        ? (booking['customer_uploads'] as List).length
+        : 0;
+    final appointment = _parseDate(booking['appointment_date'] ?? booking['scheduled_date']);
+    final dateLabel =
+        appointment != null ? DateFormat('dd/MM/yyyy').format(appointment) : 'Data não definida';
+    final timeLabel =
+        appointment != null ? DateFormat('HH:mm').format(appointment) : '--:--';
+    final initials = customerName.trim().isNotEmpty
+        ? customerName.trim().substring(0, 1).toUpperCase()
+        : 'C';
+    final secondaryText = isDark ? Colors.white60 : const Color(0xFF6B7280);
+
+    final boxDecoration = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? [const Color(0xFF111827), const Color(0xFF0F172A)]
+            : [Colors.white, Colors.white],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF00C977).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.calendar_today,
-              color: Color(0xFF00C977),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(
+        color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFE5E7EB),
+        width: 1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isDark
+              ? Colors.black.withOpacity(0.45)
+              : const Color(0xFF00C977).withOpacity(0.08),
+          blurRadius: 18,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    );
+
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.pushNamed(
+          context,
+          '/booking-detail',
+          arguments: booking,
+        );
+        if (result == true && mounted) {
+          _loadData();
+        }
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(18),
+        decoration: boxDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  booking['service_name'] ?? 'Serviço',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00C977), Color(0xFF0FBF9F)],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  booking['customer_name'] ?? 'Cliente',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vehicleLabel.isNotEmpty
+                            ? '$customerName · $vehicleLabel'
+                            : customerName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1F2937),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        serviceName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: secondaryText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                if (booking['appointment_date'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDate(booking['appointment_date']),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  color: isDark ? Colors.white30 : const Color(0xFF9CA3AF),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(isDark ? 0.05 : 0.4),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _buildIconChip(
+                  icon: Icons.calendar_today_outlined,
+                  label: dateLabel,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 10),
+                _buildIconChip(
+                  icon: Icons.access_time_outlined,
+                  label: '$timeLabel h',
+                  isDark: isDark,
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(booking['status'])
+                        .withOpacity(isDark ? 0.2 : 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _getStatusText(booking['status']),
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? Colors.grey[500] : Colors.grey[500],
+                      fontWeight: FontWeight.w600,
+                      color: _getStatusColor(booking['status']),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (notes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                notes,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: secondaryText,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            if (attachments > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.photo_camera_outlined,
+                    size: 16,
+                    color: secondaryText,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    attachments == 1
+                        ? '1 foto enviada'
+                        : '$attachments fotos enviadas',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: secondaryText,
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _getStatusColor(booking['status']).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              _getStatusText(booking['status']),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _getStatusColor(booking['status']),
               ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconChip({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
+          width: 0.6,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : const Color(0xFF1F2937),
             ),
           ),
         ],
       ),
     );
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value.toLocal();
+    if (value is int) {
+      try {
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: false);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      try {
+        return DateTime.parse(trimmed).toLocal();
+      } catch (_) {
+        try {
+          return DateTime.parse('${trimmed}Z').toLocal();
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+    return null;
   }
 
   Color _getStatusColor(String? status) {
@@ -803,13 +1028,5 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String _formatDate(String date) {
-    try {
-      final dateTime = DateTime.parse(date);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} às ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return date;
-    }
-  }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/notification_provider.dart';
 import 'providers/services_provider.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -38,6 +39,7 @@ class MecaOficinaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => ThemeService()),
         ChangeNotifierProvider(create: (context) => AuthProvider()),
         ChangeNotifierProvider(create: (context) => ServicesProvider()),
+        ChangeNotifierProvider(create: (context) => NotificationProvider()),
       ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, child) {

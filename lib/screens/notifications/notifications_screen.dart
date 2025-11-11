@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
@@ -21,6 +24,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      provider.markProfileBadgeSeen();
+    });
     _loadNotifications();
   }
 
@@ -43,11 +51,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         if (mounted) {
           setState(() {
             final data = response['data'] ?? {};
-            _notifications = List<Map<String, dynamic>>.from(data['notifications'] ?? data ?? []);
+            final rawList = List<Map<String, dynamic>>.from(
+              data['notifications'] ?? data ?? [],
+            );
+            _notifications = rawList.map(_normalizeNotification).toList();
             _unreadCount = data['unread_count'] is int
                 ? data['unread_count']
                 : int.tryParse('${data['unread_count']}') ?? 0;
           });
+          final provider = Provider.of<NotificationProvider>(context, listen: false);
+          provider.setUnreadNotifications(_unreadCount, resetBadge: _unreadCount == 0);
         }
       } else {
         if (mounted) {
@@ -200,7 +213,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final type = notification['type'] as String?;
     final priority = notification['priority'] as String?;
     final textColor = ThemeService.getTextColor(isDark);
-    final secondary = ThemeService.getSecondaryTextColor(isDark);
     final cardColor = isDark ? const Color(0xFF162031) : Colors.white;
     final tertiary = isDark ? Colors.white60 : const Color(0xFF6B7280);
     final borderColor = isRead
@@ -210,11 +222,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           if (!isRead) {
-            _markAsRead(notification['id']);
+            await _markAsRead(notification['id']);
           }
-          _handleNotificationTap(notification);
+          await _handleNotificationTap(notification);
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(
@@ -396,54 +408,110 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  void _handleNotificationTap(Map<String, dynamic> notification) {
-    final type = notification['type'] as String?;
-    final data = notification['data'] as Map<String, dynamic>?;
-    
+  Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
+    final type = (notification['type'] ?? '').toString();
+    final data = notification['data'] is Map
+        ? Map<String, dynamic>.from(notification['data'] as Map)
+        : <String, dynamic>{};
+    final bookingId = data['booking_id'] ?? notification['booking_id'];
+    final vehicleId = data['vehicle_id'] ?? notification['vehicle_id'];
+    final serviceId = data['service_id'] ?? notification['service_id'];
+    final route = data['route']?.toString();
+
+    if (route != null && route.isNotEmpty) {
+      Navigator.pushNamed(context, route, arguments: data['payload']);
+      return;
+    }
+
     switch (type) {
       case 'new_booking':
+      case 'booking_created':
       case 'booking_confirmed':
       case 'booking_cancelled':
-        if (data?['booking_id'] != null) {
-          // Navegar para detalhes do agendamento
-          Navigator.pushNamed(
-            context,
-            '/booking-detail',
-            arguments: {'id': data!['booking_id']},
-          );
+      case 'booking_updated':
+        if (bookingId != null) {
+          await _openBookingDetail(bookingId.toString());
+        } else {
+          Navigator.pushNamed(context, '/schedule');
         }
         break;
       case 'payment_received':
-        // Navegar para tela financeira
+      case 'payment_confirmed':
         Navigator.pushNamed(context, '/financial');
         break;
+      case 'vehicle_update':
+        if (vehicleId != null) {
+          Navigator.pushNamed(context, '/vehicle-detail', arguments: {'id': vehicleId});
+        }
+        break;
+      case 'service_update':
+        if (serviceId != null) {
+          Navigator.pushNamed(context, '/service-detail', arguments: {'id': serviceId});
+        }
+        break;
+      case 'agenda_reminder':
+      case 'schedule_update':
+        Navigator.pushNamed(context, '/schedule');
+        break;
+      case 'profile_alert':
+      case 'bank_account_required':
+        Navigator.pushNamed(context, '/profile');
+        break;
       default:
-        // Não fazer nada para outros tipos
+        Navigator.pushNamed(context, '/home');
         break;
     }
   }
+
+  Future<void> _openBookingDetail(String bookingId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final response = await _apiService.getBookingById(bookingId);
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (response['success'] == true && response['data'] != null) {
+      await Navigator.pushNamed(
+        context,
+        '/booking-detail',
+        arguments: Map<String, dynamic>.from(response['data'] as Map),
+      );
+      _loadNotifications();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['error']?.toString() ?? 'Não foi possível abrir o agendamento.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Map<String, dynamic> _normalizeNotification(Map<String, dynamic> notification) {
+    final normalized = Map<String, dynamic>.from(notification);
+    normalized['data'] = _decodeNotificationData(notification['data']);
+    return normalized;
+  }
+
+  Map<String, dynamic> _decodeNotificationData(dynamic raw) {
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {
+        return {'raw': raw};
+      }
+    }
+    return <String, dynamic>{};
+  }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

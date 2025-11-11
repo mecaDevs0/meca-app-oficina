@@ -367,7 +367,15 @@ class ApiService {
         bookings = bookings.where((b) => b['status'] == status).toList();
       }
       
-      return {'success': true, 'data': {'bookings': bookings}};
+      final normalized = bookings
+          .whereType<Map>()
+          .map((e) => _normalizeBooking(Map<String, dynamic>.from(e)))
+          .toList();
+
+      normalized.sort((a, b) =>
+          (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0));
+
+      return {'success': true, 'data': {'bookings': normalized}};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -378,7 +386,25 @@ class ApiService {
       await loadToken();
       // Usar endpoint real: /bookings/:id
       final response = await _dio.get('/bookings/$id');
-      return {'success': true, 'data': response.data['data'] ?? response.data};
+      final rawData = response.data['data'] ?? response.data;
+
+      if (rawData is List && rawData.isNotEmpty) {
+        return {
+          'success': true,
+          'data': _normalizeBooking(
+            Map<String, dynamic>.from(rawData.first as Map),
+          ),
+        };
+      }
+
+      if (rawData is Map) {
+        return {
+          'success': true,
+          'data': _normalizeBooking(Map<String, dynamic>.from(rawData)),
+        };
+      }
+
+      return {'success': false, 'error': 'Agendamento não encontrado'};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -424,33 +450,37 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> startService(String bookingId) async {
+  Future<Map<String, dynamic>> startService(
+    String bookingId, {
+    int? estimatedPriceCents,
+  }) async {
     try {
       await loadToken();
-      // Usar endpoint real: /bookings/:id/start
-      final response = await _dio.put('/bookings/$bookingId/start');
+      final payload = <String, dynamic>{};
+      if (estimatedPriceCents != null) {
+        payload['estimatedPrice'] = estimatedPriceCents;
+      }
+      final response = await _dio.put('/bookings/$bookingId/start', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
   }
 
-  Future<Map<String, dynamic>> finishService(String bookingId) async {
+  Future<Map<String, dynamic>> finishService(
+    String bookingId, {
+    required int finalPriceCents,
+    String? notes,
+  }) async {
     try {
       await loadToken();
-      // Usar endpoint real: /bookings/:id/finish
-      final response = await _dio.put('/bookings/$bookingId/finish');
-      return {'success': true, 'data': response.data['data'] ?? response.data};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  Future<Map<String, dynamic>> completeService(String bookingId) async {
-    try {
-      await loadToken();
-      // Usar endpoint real: /bookings/:id/finish (mesmo que finishService)
-      final response = await _dio.put('/bookings/$bookingId/finish');
+      final payload = <String, dynamic>{
+        'finalPrice': finalPriceCents,
+      };
+      if (notes != null && notes.trim().isNotEmpty) {
+        payload['notes'] = notes.trim();
+      }
+      final response = await _dio.put('/bookings/$bookingId/finish', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
@@ -534,6 +564,218 @@ class ApiService {
     }
 
     return [];
+  }
+
+  List<Map<String, dynamic>> _extractUploadsList(dynamic raw) {
+    if (raw == null) return [];
+
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    if (raw is Map) {
+      if (raw.containsKey('data')) {
+        return _extractUploadsList(raw['data']);
+      }
+      if (raw.containsKey('customer_uploads')) {
+        return _extractUploadsList(raw['customer_uploads']);
+      }
+      if (raw.containsKey('uploads')) {
+        return _extractUploadsList(raw['uploads']);
+      }
+      if (raw.containsKey('evidence')) {
+        return _extractUploadsList(raw['evidence']);
+      }
+      final nested = raw.values
+          .where((value) => value is Map || value is List)
+          .expand((value) => _extractUploadsList(value))
+          .toList();
+      if (nested.isNotEmpty) {
+        return nested;
+      }
+    }
+
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        return _extractUploadsList(decoded);
+      } catch (_) {
+        return [];
+      }
+    }
+
+    return [];
+  }
+
+  DateTime? _parseDate(dynamic raw) {
+    if (raw == null) return null;
+
+    if (raw is DateTime) {
+      return raw;
+    }
+
+    if (raw is int) {
+      try {
+        // Assume timestamp em milissegundos
+        return DateTime.fromMillisecondsSinceEpoch(raw, isUtc: false);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (raw is String) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
+        return null;
+      }
+      try {
+        return DateTime.parse(trimmed).toLocal();
+      } catch (_) {
+        // Tentar adicionar 'Z' se faltar timezone
+        try {
+          return DateTime.parse('${trimmed}Z').toLocal();
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String _composeCustomerName({
+    String? first,
+    String? last,
+    String? fallback,
+  }) {
+    final buffer = StringBuffer();
+    if (first != null && first.trim().isNotEmpty) {
+      buffer.write(first.trim());
+    }
+    if (last != null && last.trim().isNotEmpty) {
+      if (buffer.isNotEmpty) buffer.write(' ');
+      buffer.write(last.trim());
+    }
+    if (buffer.isEmpty && fallback != null && fallback.trim().isNotEmpty) {
+      buffer.write(fallback.trim());
+    }
+    final name = buffer.isEmpty ? 'Cliente MECA' : buffer.toString();
+    return name[0].toUpperCase() + name.substring(1);
+  }
+
+  String _composeVehicleLabel({String? brand, String? model, String? plate}) {
+    final parts = <String>[];
+    if (brand != null && brand.trim().isNotEmpty) {
+      parts.add(brand.trim());
+    }
+    if (model != null && model.trim().isNotEmpty) {
+      parts.add(model.trim());
+    }
+    final base = parts.isEmpty ? 'Veículo' : parts.join(' ');
+    if (plate != null && plate.trim().isNotEmpty) {
+      return '$base • ${plate.trim().toUpperCase()}';
+    }
+    return base;
+  }
+
+  Map<String, dynamic> _normalizeBooking(Map<String, dynamic> original) {
+    final booking = Map<String, dynamic>.from(original);
+
+    final customerMap = booking['customer'] is Map
+        ? Map<String, dynamic>.from(booking['customer'] as Map)
+        : <String, dynamic>{};
+
+    final firstName = booking['customer_first_name'] ??
+        customerMap['first_name'] ??
+        booking['customer_name'] ??
+        customerMap['name'];
+    final lastName = booking['customer_last_name'] ?? customerMap['last_name'];
+    final fallbackName = booking['customer_name'] ?? customerMap['full_name'];
+
+    booking['customer_first_name'] = firstName;
+    booking['customer_last_name'] = lastName;
+    booking['customer_name'] =
+        _composeCustomerName(first: firstName?.toString(), last: lastName?.toString(), fallback: fallbackName?.toString());
+    booking['customer_phone'] = booking['customer_phone'] ??
+        customerMap['phone'] ??
+        customerMap['phone_number'] ??
+        customerMap['mobile'];
+    booking['customer_email'] = booking['customer_email'] ?? customerMap['email'];
+
+    final vehicleMap = booking['vehicle'] is Map
+        ? Map<String, dynamic>.from(booking['vehicle'] as Map)
+        : <String, dynamic>{};
+    final vehicleBrand = booking['vehicle_brand'] ??
+        vehicleMap['brand'] ??
+        vehicleMap['make'] ??
+        booking['brand'];
+    final vehicleModel = booking['vehicle_model'] ??
+        vehicleMap['model'] ??
+        booking['model'];
+    final vehiclePlate = booking['vehicle_plate'] ??
+        vehicleMap['plate'] ??
+        vehicleMap['license_plate'] ??
+        booking['plate'];
+
+    booking['vehicle_brand'] = vehicleBrand;
+    booking['vehicle_model'] = vehicleModel;
+    booking['vehicle_plate'] = vehiclePlate;
+    booking['vehicle_display'] = _composeVehicleLabel(
+      brand: vehicleBrand?.toString(),
+      model: vehicleModel?.toString(),
+      plate: vehiclePlate?.toString(),
+    );
+
+    final serviceMap = booking['service'] is Map
+        ? Map<String, dynamic>.from(booking['service'] as Map)
+        : <String, dynamic>{};
+    final servicesList = booking['services'] is List
+        ? List<Map<String, dynamic>>.from(
+            (booking['services'] as List)
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e)),
+          )
+        : <Map<String, dynamic>>[];
+    final serviceName = booking['service_name'] ??
+        serviceMap['name'] ??
+        (servicesList.isNotEmpty
+            ? (servicesList.first['name'] ??
+                servicesList.first['title'] ??
+                servicesList.first['service_name'])
+            : null);
+    booking['service_name'] = serviceName ?? 'Serviço';
+
+    final appointment = _parseDate(
+      booking['appointment_date'] ??
+          booking['scheduled_date'] ??
+          booking['date'] ??
+          booking['appointment'],
+    );
+    if (appointment != null) {
+      booking['appointment_date'] = appointment.toIso8601String();
+      booking['sort_timestamp'] = appointment.millisecondsSinceEpoch;
+    } else {
+      booking['sort_timestamp'] =
+          DateTime.tryParse(booking['created_at']?.toString() ?? '')?.millisecondsSinceEpoch ?? 0;
+    }
+
+    booking['customer_notes'] = booking['customer_notes'] ??
+        booking['customer_observation'] ??
+        booking['notes'] ??
+        '';
+
+    final uploads = _extractUploadsList(
+      booking['customer_uploads'] ??
+          booking['customerUploads'] ??
+          booking['uploads'] ??
+          booking['observations_files'],
+    );
+    booking['customer_uploads'] = uploads;
+
+    return booking;
   }
 
   Map<String, dynamic>? _normalizeAddress(dynamic raw) {
@@ -956,6 +1198,23 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getCustomerUploads(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/bookings/$bookingId/images');
+
+      if (response.data != null && response.data['success'] == true) {
+        final uploads = _extractUploadsList(response.data['data']);
+        return {'success': true, 'data': uploads};
+      }
+
+      final errorMessage = response.data?['error']?.toString() ?? 'Erro ao buscar fotos do cliente.';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ============================================
   // BANKING - DADOS REAIS DA API EC2 AWS
   // ============================================
@@ -1029,6 +1288,41 @@ class ApiService {
 
       final response = await _dio.get('/workshop/$workshopId/pagbank');
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> startPagBankConnect({
+    String? redirectUri,
+    String? scope,
+  }) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final payload = <String, dynamic>{};
+      if (redirectUri != null && redirectUri.isNotEmpty) {
+        payload['redirectUri'] = redirectUri;
+      }
+      if (scope != null && scope.isNotEmpty) {
+        payload['scope'] = scope;
+      }
+
+      final response = await _dio.post(
+        '/workshop/$workshopId/pagbank/connect/start',
+        data: payload.isEmpty ? null : payload,
+      );
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao iniciar PagBank Connect';
+      return {'success': false, 'error': errorMessage};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

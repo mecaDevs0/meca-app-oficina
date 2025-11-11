@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../utils/colors.dart';
 import '../../providers/auth_provider.dart';
 import '../setup/bank_details_screen.dart';
 import '../setup/schedule_config_screen.dart';

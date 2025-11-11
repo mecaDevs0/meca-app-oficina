@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/theme_service.dart';
 import '../../widgets/custom_bottom_nav.dart';
+import '../../providers/notification_provider.dart';
 import '../financial/financial_screen.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
@@ -42,6 +43,13 @@ class _CoreScreenState extends State<CoreScreen> with SingleTickerProviderStateM
     setState(() {
       _currentIndex = index;
     });
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+    if (index == 1) {
+      notificationProvider.markAgendaBadgeSeen();
+    }
+    if (index == 3) {
+      notificationProvider.markProfileBadgeSeen();
+    }
   }
 
   void _onNavTap(int index) {
@@ -50,6 +58,15 @@ class _CoreScreenState extends State<CoreScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOutCubic,
     );
+    if (index == 1 || index == 3) {
+      final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+      if (index == 1) {
+        notificationProvider.markAgendaBadgeSeen();
+      }
+      if (index == 3) {
+        notificationProvider.markProfileBadgeSeen();
+      }
+    }
   }
 
   @override

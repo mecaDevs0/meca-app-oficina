@@ -4,10 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import 'edit_profile_screen.dart';
+import '../../providers/notification_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -21,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = true;
   bool _isUploadingLogo = false;
+  bool _isConnectingPagbank = false;
   Map<String, dynamic>? _workshopData;
   Map<String, dynamic>? _pagbankData;
   String? _logoUrl;
@@ -56,18 +59,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _handleConnectPagBank() async {
+    if (_isConnectingPagbank) return;
+
+    setState(() => _isConnectingPagbank = true);
+    String? feedback;
+
+    try {
+      final response = await _apiService.startPagBankConnect();
+      if (response['success'] == true) {
+        final data = Map<String, dynamic>.from(response['data'] ?? {});
+        final authorizeUrl = (data['authorize_url'] ?? data['url'] ?? data['redirect_url'])?.toString();
+        final expiresIn = data['expires_in_minutes'];
+
+        if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
+          final uri = Uri.parse(authorizeUrl);
+          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+          if (!launched) {
+            feedback = 'Não foi possível abrir a página de autorização do PagBank.';
+          } else {
+            feedback = expiresIn != null
+                ? 'Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
+                : 'Autorização PagBank aberta em uma nova janela.';
+          }
+        } else {
+          feedback = 'A API não retornou a URL de autorização do PagBank.';
+        }
+      } else {
+        feedback = response['error']?.toString() ?? 'Falha ao iniciar o fluxo PagBank Connect.';
+      }
+    } catch (e) {
+      feedback = 'Erro ao iniciar PagBank Connect: $e';
+    } finally {
+      if (mounted) {
+        setState(() => _isConnectingPagbank = false);
+        if (feedback != null && feedback.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(feedback)),
+          );
+        }
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeService>(
       builder: (context, themeService, child) {
         final isDark = themeService.isDarkMode;
-        final backgroundColor = isDark ? const Color(0xFF0B1120) : const Color(0xFFF5F7FA);
+        final bgColor = ThemeService.getBackgroundColor(isDark);
         final textColor = ThemeService.getTextColor(isDark);
         final secondaryText = ThemeService.getSecondaryTextColor(isDark);
-
+        final notificationProvider = Provider.of<NotificationProvider>(context);
+        final showNotificationsBadge = notificationProvider.showProfileBadge || notificationProvider.unreadNotifications > 0;
+        
         return Scaffold(
-          backgroundColor: backgroundColor,
+          backgroundColor: bgColor,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -131,6 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: 'Notificações',
                         subtitle: 'Configurar alertas e notificações',
                         isDark: isDark,
+                        showBadge: showNotificationsBadge,
                         onTap: () async {
                           await Navigator.pushNamed(context, '/notifications');
                           if (mounted) {
@@ -452,6 +502,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hasAccount = data['has_account'] == true;
     final status = (data['status'] ?? 'pending').toString();
     final bank = (data['bank_account'] as Map<String, dynamic>?) ?? const {};
+    final connect = (data['connect'] as Map<String, dynamic>?) ?? const {};
+    final connectAuthorized = connect['authorized'] == true;
+    final connectLastError = (connect['last_error'] ?? '').toString();
+    final connectAuthorizedAt = _formatDateTime(connect['authorized_at']);
+    final tokenExpiresAt = _formatDateTime(connect['token_expires_at']);
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -529,12 +584,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildKeyValueRow('Chave Pix', bank['pix_key'], textColor, secondaryText),
             if ((bank['pix_key_type'] ?? '').toString().isNotEmpty)
               _buildKeyValueRow('Tipo da chave', _translatePixType(bank['pix_key_type']), textColor, secondaryText),
+            if (connectAuthorizedAt != null)
+              _buildKeyValueRow('Autorizado em', connectAuthorizedAt, textColor, secondaryText),
+            if (tokenExpiresAt != null)
+              _buildKeyValueRow('Token expira em', tokenExpiresAt, textColor, secondaryText),
           ] else
             Text(
               'Nenhuma conta bancária vinculada ainda.',
               style: TextStyle(color: secondaryText, fontSize: 14),
             ),
+          if (!connectAuthorized)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Autorize o PagBank para que os pagamentos sejam direcionados automaticamente à sua conta.',
+                style: TextStyle(color: secondaryText, fontSize: 13),
+              ),
+            ),
+          if (connectLastError.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFB4B4)),
+                ),
+                child: Text(
+                  'Último erro: $connectLastError',
+                  style: const TextStyle(color: Color(0xFFD14343), fontSize: 13),
+                ),
+              ),
+            ),
           const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isConnectingPagbank ? null : _handleConnectPagBank,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C977),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: Icon(connectAuthorized ? Icons.refresh_outlined : Icons.link_outlined),
+              label: Text(connectAuthorized ? 'Reautorizar PagBank' : 'Conectar PagBank'),
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -583,6 +681,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  String? _formatDateTime(dynamic value) {
+    if (value == null) return null;
+    try {
+      final date = value is DateTime ? value : DateTime.parse(value.toString());
+      final local = date.toLocal();
+      final day = local.day.toString().padLeft(2, '0');
+      final month = local.month.toString().padLeft(2, '0');
+      final year = local.year.toString();
+      final hour = local.hour.toString().padLeft(2, '0');
+      final minute = local.minute.toString().padLeft(2, '0');
+      return '$day/$month/$year $hour:$minute';
+    } catch (_) {
+      return value.toString();
+    }
   }
 
   Color _statusColor(String status) {
@@ -748,6 +862,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required VoidCallback onTap,
     required bool isDark,
     bool isDestructive = false,
+    bool showBadge = false,
   }) {
     final cardColor = isDark ? const Color(0xFF101826) : Colors.white;
     final borderColor = isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE2E8F0);
@@ -808,6 +923,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
+                if (showBadge)
+                  Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                        color: isDark ? cardColor : Colors.white,
+                        width: 1,
+                      ),
+                    ),
+                  ),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,

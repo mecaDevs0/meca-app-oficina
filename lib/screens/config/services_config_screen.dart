@@ -59,7 +59,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
           body: _initialLoading || servicesProvider.isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
-                  children: [
+            children: [
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: TextField(
@@ -68,8 +68,8 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                           hintText: 'Buscar serviço por nome',
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                           suffixIcon: _searchController.text.isEmpty
                               ? null
                               : IconButton(
@@ -84,7 +84,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                       ),
                     ),
                     if (filteredServices.isEmpty)
-                      Expanded(
+                  Expanded(
                         child: Center(
                           child: Text(
                             _searchController.text.isEmpty
@@ -181,15 +181,15 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                                               if (isSelected && currentPrice != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 8),
-                                                  child: Text(
+                child: Text(
                                                     'Preço atual: R\$ ${_formatPrice(currentPrice)}',
                                                     style: TextStyle(
-                                                      fontSize: 14,
+                    fontSize: 14,
                                                       fontWeight: FontWeight.w600,
                                                       color: isDarkMode ? Colors.white : Colors.black87,
-                                                    ),
-                                                  ),
-                                                ),
+                  ),
+                ),
+              ),
                                               if (isSelected && currentDuration != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 4),
@@ -198,9 +198,9 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                                                     style: TextStyle(
                                                       fontSize: 13,
                                                       color: isDarkMode ? Colors.white70 : Colors.black54,
-                                                    ),
-                                                  ),
-                                                ),
+                  ),
+                ),
+              ),
                                             ],
                                           ),
                                         ),
@@ -242,10 +242,10 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                               ),
                             );
                           },
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                  ),
+                ],
+              ),
         );
       },
     );
@@ -396,12 +396,12 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
             content: Text('Erro ao atualizar preço/duração: $e'),
             backgroundColor: Colors.red,
-          ),
-        );
+        ),
+      );
       }
     } finally {
       setState(() {
@@ -434,7 +434,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
               title: Text('Configurar $serviceName'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
+                            children: [
                   TextField(
                     controller: priceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),

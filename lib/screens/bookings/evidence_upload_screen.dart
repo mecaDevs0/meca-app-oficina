@@ -22,7 +22,7 @@ class EvidenceUploadScreen extends StatefulWidget {
 class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
   final EvidenceService _evidenceService = EvidenceService();
   final ImagePicker _picker = ImagePicker();
-
+  
   bool _isLoading = true;
   bool _isUploading = false;
   String? _errorMessage;
@@ -51,7 +51,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
         _isLoading = false;
       });
     } else {
-      setState(() {
+        setState(() {
         _errorMessage = result['error']?.toString() ?? 'Erro ao carregar evidências.';
         _isLoading = false;
       });
@@ -105,7 +105,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
     });
 
     final result = await _evidenceService.uploadBookingEvidence(
-      widget.bookingId,
+          widget.bookingId,
       _selectedFile!,
     );
 
@@ -126,12 +126,12 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
       setState(() {
         _errorMessage = result['error']?.toString() ?? 'Falha ao enviar a evidência.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
           content: Text(_errorMessage ?? 'Falha ao enviar a evidência.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        backgroundColor: Colors.red,
+      ),
+    );
     }
 
     if (mounted) {
@@ -159,10 +159,10 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
               onRefresh: _loadEvidences,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                     if (_errorMessage != null)
                       Container(
                         width: double.infinity,
@@ -180,11 +180,11 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                       ),
                     _buildUploaderSection(),
                     const SizedBox(height: 24),
-                    const Text(
+          const Text(
                       'Evidências enviadas',
-                      style: TextStyle(
+            style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -227,9 +227,9 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                               child: const Text(
                                 'Arquivo não suportado',
                                 textAlign: TextAlign.center,
-                              ),
-                            );
-                          }
+      ),
+    );
+  }
 
                           return GestureDetector(
                             onTap: () => _showImagePreview(url, description),
@@ -237,7 +237,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                               borderRadius: BorderRadius.circular(12),
                               child: Stack(
                                 fit: StackFit.expand,
-                                children: [
+        children: [
                                   Image.network(
                                     url,
                                     fit: BoxFit.cover,
@@ -273,7 +273,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                   ],
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -397,7 +397,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                   imageUrl,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    return Container(
+    return Container(
                       color: Colors.black,
                       alignment: Alignment.center,
                       child: const Icon(Icons.broken_image, color: Colors.white, size: 48),
