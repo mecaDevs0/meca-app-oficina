@@ -398,24 +398,24 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: ThemeService.getCardColor(isDark),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: ThemeService.getBorderColor(isDark),
-            width: 1,
-          ),
-          boxShadow: isDark ? [] : [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: ThemeService.getCardColor(isDark),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ThemeService.getBorderColor(isDark),
+          width: 1,
         ),
-        child: Column(
+        boxShadow: isDark ? [] : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -725,8 +725,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               decoration: FormStyles.decorate(
                 context,
                 const InputDecoration(
-                  hintText: 'Motivo da recusa...',
-                ),
+                hintText: 'Motivo da recusa...',
+              ),
               ),
             ),
           ],
@@ -891,7 +891,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       decoration: FormStyles.decorate(
                         context,
                         const InputDecoration(
-                          labelText: 'Motivo (opcional)',
+                        labelText: 'Motivo (opcional)',
                         ),
                       ),
                     ),

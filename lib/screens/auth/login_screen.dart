@@ -144,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: FormStyles.decorate(
                               context,
                               const InputDecoration(
-                                labelText: 'Email',
+                              labelText: 'Email',
                                 prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
                               ),
                             ),
@@ -166,17 +166,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: FormStyles.decorate(
                               context,
                               InputDecoration(
-                                labelText: 'Senha',
-                                prefixIcon: const Icon(Icons.lock, color: AppColors.primaryColor),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                    color: Colors.grey[600],
-                                  ),
-                                  onPressed: () {
-                                    setState(() => _obscurePassword = !_obscurePassword);
-                                  },
+                              labelText: 'Senha',
+                              prefixIcon: const Icon(Icons.lock, color: AppColors.primaryColor),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  color: Colors.grey[600],
                                 ),
+                                onPressed: () {
+                                  setState(() => _obscurePassword = !_obscurePassword);
+                                },
+                              ),
                               ),
                             ),
                             validator: (value) {

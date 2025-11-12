@@ -55,9 +55,9 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Banco',
-                    prefixIcon: Icon(Icons.account_balance, color: AppColors.primary),
-                    hintText: 'Ex: 001 - Banco do Brasil',
+                  labelText: 'Banco',
+                  prefixIcon: Icon(Icons.account_balance, color: AppColors.primary),
+                  hintText: 'Ex: 001 - Banco do Brasil',
                   ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
@@ -70,9 +70,9 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Agência',
-                    prefixIcon: Icon(Icons.store, color: AppColors.primary),
-                    hintText: 'Ex: 1234-5',
+                  labelText: 'Agência',
+                  prefixIcon: Icon(Icons.store, color: AppColors.primary),
+                  hintText: 'Ex: 1234-5',
                   ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
@@ -85,9 +85,9 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Conta',
-                    prefixIcon: Icon(Icons.credit_card, color: AppColors.primary),
-                    hintText: 'Ex: 12345-6',
+                  labelText: 'Conta',
+                  prefixIcon: Icon(Icons.credit_card, color: AppColors.primary),
+                  hintText: 'Ex: 12345-6',
                   ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
@@ -100,9 +100,9 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Chave PIX (Opcional)',
-                    prefixIcon: Icon(Icons.qr_code, color: AppColors.primary),
-                    hintText: 'Email, CPF, CNPJ ou Telefone',
+                  labelText: 'Chave PIX (Opcional)',
+                  prefixIcon: Icon(Icons.qr_code, color: AppColors.primary),
+                  hintText: 'Email, CPF, CNPJ ou Telefone',
                   ),
                 ),
               ),

@@ -104,8 +104,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Nome do Banco',
-                    hintText: 'Ex: Banco do Brasil, Itaú, Santander',
+                  labelText: 'Nome do Banco',
+                  hintText: 'Ex: Banco do Brasil, Itaú, Santander',
                     prefixIcon: Icon(Icons.account_balance, color: AppColors.primaryColor),
                   ),
                 ),
@@ -140,8 +140,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Agência',
-                    hintText: '0000',
+                  labelText: 'Agência',
+                  hintText: '0000',
                     prefixIcon: Icon(Icons.business, color: AppColors.primaryColor),
                   ),
                 ),
@@ -159,8 +159,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                 decoration: FormStyles.decorate(
                   context,
                   const InputDecoration(
-                    labelText: 'Número da Conta',
-                    hintText: '00000-0',
+                  labelText: 'Número da Conta',
+                  hintText: '00000-0',
                     prefixIcon: Icon(Icons.credit_card, color: AppColors.primaryColor),
                   ),
                 ),

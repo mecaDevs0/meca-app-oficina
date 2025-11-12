@@ -156,9 +156,9 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                       decoration: FormStyles.decorate(
                         context,
                         const InputDecoration(
-                          labelText: 'Abertura',
-                          hintText: '08:00',
-                          prefixIcon: Icon(Icons.access_time, size: 20),
+                        labelText: 'Abertura',
+                        hintText: '08:00',
+                        prefixIcon: Icon(Icons.access_time, size: 20),
                         ),
                       ),
                       keyboardType: TextInputType.datetime,
@@ -176,9 +176,9 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                       decoration: FormStyles.decorate(
                         context,
                         const InputDecoration(
-                          labelText: 'Fechamento',
-                          hintText: '18:00',
-                          prefixIcon: Icon(Icons.access_time, size: 20),
+                        labelText: 'Fechamento',
+                        hintText: '18:00',
+                        prefixIcon: Icon(Icons.access_time, size: 20),
                         ),
                       ),
                       keyboardType: TextInputType.datetime,

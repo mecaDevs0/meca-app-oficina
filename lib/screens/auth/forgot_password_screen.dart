@@ -158,9 +158,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             decoration: FormStyles.decorate(
               context,
               const InputDecoration(
-                labelText: 'Email',
-                hintText: 'seu@email.com',
-                prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
+              labelText: 'Email',
+              hintText: 'seu@email.com',
+              prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
               ),
             ),
             keyboardType: TextInputType.emailAddress,

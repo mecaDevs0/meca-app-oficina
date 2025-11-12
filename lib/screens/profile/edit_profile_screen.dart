@@ -188,8 +188,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       decoration: FormStyles.decorate(
         context,
         InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         ),
       ),
     );

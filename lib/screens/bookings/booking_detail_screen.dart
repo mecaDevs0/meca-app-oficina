@@ -96,8 +96,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             decoration: FormStyles.decorate(
               context,
               const InputDecoration(
-                hintText: 'Informe o motivo...',
-              ),
+              hintText: 'Informe o motivo...',
+            ),
             ),
           ),
           actions: [
@@ -1288,8 +1288,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         decoration: FormStyles.decorate(
                           context,
                           const InputDecoration(
-                            labelText: 'Valor (R\$)',
-                            prefixText: 'R\$ ',
+                          labelText: 'Valor (R\$)',
+                          prefixText: 'R\$ ',
                           ),
                         ),
                         validator: priceValidator,
@@ -1304,7 +1304,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                           decoration: FormStyles.decorate(
                             context,
                             const InputDecoration(
-                              labelText: 'Observações da oficina (opcional)',
+                            labelText: 'Observações da oficina (opcional)',
                             ),
                           ),
                         ),
