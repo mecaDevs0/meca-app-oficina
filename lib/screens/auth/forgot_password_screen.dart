@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/theme_service.dart';
 import '../../core/app_colors.dart';
+import '../../utils/form_styles.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -152,10 +153,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
           TextFormField(
             controller: _emailController,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'seu@email.com',
-              prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
+            style: FormStyles.inputTextStyle(context),
+            cursorColor: AppColors.primaryColor,
+            decoration: FormStyles.decorate(
+              context,
+              const InputDecoration(
+                labelText: 'Email',
+                hintText: 'seu@email.com',
+                prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
+              ),
             ),
             keyboardType: TextInputType.emailAddress,
             validator: (value) {

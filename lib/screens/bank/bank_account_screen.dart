@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/bank_service.dart';
 import '../../core/app_colors.dart';
+import '../../utils/form_styles.dart';
 
 class BankAccountScreen extends StatefulWidget {
   const BankAccountScreen({Key? key}) : super(key: key);
@@ -98,23 +99,14 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
               // Bank Name
               TextFormField(
                 controller: _bankNameController,
-                decoration: InputDecoration(
-                  labelText: 'Nome do Banco',
-                  hintText: 'Ex: Banco do Brasil, Itaú, Santander',
-                  prefixIcon: const Icon(Icons.account_balance, color: AppColors.primaryColor),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primaryColor,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Nome do Banco',
+                    hintText: 'Ex: Banco do Brasil, Itaú, Santander',
+                    prefixIcon: Icon(Icons.account_balance, color: AppColors.primaryColor),
                   ),
                 ),
                 validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,
@@ -143,23 +135,14 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
               // Agência
               TextFormField(
                 controller: _agenciaController,
-                decoration: InputDecoration(
-                  labelText: 'Agência',
-                  hintText: '0000',
-                  prefixIcon: const Icon(Icons.business, color: AppColors.primaryColor),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primaryColor,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Agência',
+                    hintText: '0000',
+                    prefixIcon: Icon(Icons.business, color: AppColors.primaryColor),
                   ),
                 ),
                 keyboardType: TextInputType.number,
@@ -171,23 +154,14 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
               // Conta
               TextFormField(
                 controller: _contaController,
-                decoration: InputDecoration(
-                  labelText: 'Número da Conta',
-                  hintText: '00000-0',
-                  prefixIcon: const Icon(Icons.credit_card, color: AppColors.primaryColor),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primaryColor,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Número da Conta',
+                    hintText: '00000-0',
+                    prefixIcon: Icon(Icons.credit_card, color: AppColors.primaryColor),
                   ),
                 ),
                 validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,

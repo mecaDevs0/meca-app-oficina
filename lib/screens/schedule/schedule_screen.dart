@@ -5,6 +5,9 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
+import '../../utils/form_styles.dart';
+import '../../core/app_colors.dart';
+import '../bookings/booking_detail_screen.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -381,25 +384,38 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     final themeService = Provider.of<ThemeService>(context, listen: false);
     final isDark = themeService.isDarkMode;
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: ThemeService.getCardColor(isDark),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: ThemeService.getBorderColor(isDark),
-          width: 1,
-        ),
-        boxShadow: isDark ? [] : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return InkWell(
+      onTap: () async {
+        final result = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BookingDetailScreen(booking: booking),
           ),
-        ],
-      ),
-      child: Column(
+        );
+        if (result == true) {
+          _loadBookings();
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: ThemeService.getCardColor(isDark),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: ThemeService.getBorderColor(isDark),
+            width: 1,
+          ),
+          boxShadow: isDark ? [] : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -565,6 +581,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF10B981),
                       side: const BorderSide(color: Color(0xFF10B981)),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -580,6 +598,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
                       side: const BorderSide(color: Color(0xFFEF4444)),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -595,6 +615,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFF59E0B),
                       side: const BorderSide(color: Color(0xFFF59E0B)),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -605,6 +627,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             ),
           ],
         ],
+        ),
       ),
     );
   }
@@ -696,11 +719,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Motivo da recusa...',
-                border: OutlineInputBorder(),
-              ),
               maxLines: 3,
+              style: FormStyles.inputTextStyle(context),
+              cursorColor: AppColors.primaryColor,
+              decoration: FormStyles.decorate(
+                context,
+                const InputDecoration(
+                  hintText: 'Motivo da recusa...',
+                ),
+              ),
             ),
           ],
         ),
@@ -859,9 +886,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                     TextField(
                       controller: reasonController,
                       maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Motivo (opcional)',
-                        border: OutlineInputBorder(),
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primaryColor,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Motivo (opcional)',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),

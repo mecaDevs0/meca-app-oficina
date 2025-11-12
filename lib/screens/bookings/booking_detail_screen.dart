@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../utils/form_styles.dart';
 
 class BookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -58,25 +59,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   Future<void> _acceptBooking() async {
+    final bookingId = _booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+
     setState(() => _loading = true);
 
-    final result = await _apiService.confirmBooking(_booking['id']);
+    final result = await _apiService.confirmBooking(bookingId);
 
     if (result['success']) {
-      print('Agendamento aceito com sucesso!');
-    }
-
-    setState(() => _loading = false);
-
-    if (result['success']) {
-      Navigator.pop(context, true);
+      await _loadBooking();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Agendamento aceito com sucesso!'),
+          content: Text('Agendamento aprovado com sucesso!'),
           backgroundColor: AppColors.primaryColor,
         ),
       );
+      Navigator.pop(context, true);
     }
+
+    setState(() => _loading = false);
   }
 
   Future<void> _rejectBooking() async {
@@ -88,10 +90,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           title: const Text('Motivo da Rejeição'),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              hintText: 'Informe o motivo...',
-            ),
             maxLines: 3,
+            style: FormStyles.inputTextStyle(context),
+            cursorColor: AppColors.primaryColor,
+            decoration: FormStyles.decorate(
+              context,
+              const InputDecoration(
+                hintText: 'Informe o motivo...',
+              ),
+            ),
           ),
           actions: [
             TextButton(
@@ -109,14 +116,223 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     );
 
     if (reason != null && reason.isNotEmpty) {
+      final bookingId = _booking['id']?.toString() ?? '';
+      if (bookingId.isEmpty) return;
+
       setState(() => _loading = true);
 
-      final result = await _apiService.rejectBooking(_booking['id'], reason);
+      final result = await _apiService.rejectBooking(bookingId, reason);
 
       setState(() => _loading = false);
 
       if (result['success']) {
+        await _loadBooking();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Agendamento recusado com sucesso!'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
         Navigator.pop(context, true);
+      }
+    }
+  }
+
+  Future<void> _suggestNewTime() async {
+    final bookingId = _booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
+    final reasonController = TextEditingController();
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sugerir Novo Horário',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today, color: AppColors.primaryColor),
+                      title: Text(
+                        selectedDate == null
+                            ? 'Selecionar data'
+                            : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      ),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.dark(
+                                  primary: AppColors.primaryColor,
+                                  onPrimary: Colors.white,
+                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                  onSurface: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setModalState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.access_time, color: AppColors.primaryColor),
+                      title: Text(
+                        selectedTime == null
+                            ? 'Selecionar horário'
+                            : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                      ),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.dark(
+                                  primary: AppColors.primaryColor,
+                                  onPrimary: Colors.white,
+                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                  onSurface: isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setModalState(() => selectedTime = picked);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primaryColor,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Motivo (opcional)',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: (selectedDate != null && selectedTime != null)
+                                ? () {
+                                    final combined = DateTime(
+                                      selectedDate!.year,
+                                      selectedDate!.month,
+                                      selectedDate!.day,
+                                      selectedTime!.hour,
+                                      selectedTime!.minute,
+                                    ).toIso8601String();
+                                    Navigator.pop(context, {
+                                      'date': combined,
+                                      'reason': reasonController.text.trim(),
+                                    });
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryColor,
+                            ),
+                            child: const Text('Sugerir'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    reasonController.dispose();
+
+    if (!mounted) return;
+
+    if (result != null && result['date'] != null) {
+      setState(() => _loading = true);
+      final apiResult = await _apiService.suggestNewTime(
+        bookingId,
+        result['date'] as String,
+        (result['reason'] as String?) ?? '',
+      );
+      setState(() => _loading = false);
+
+      if (!mounted) return;
+
+      if (apiResult['success']) {
+        await _loadBooking();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Novo horário sugerido com sucesso!'),
+            backgroundColor: AppColors.primaryColor,
+          ),
+        );
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: ${apiResult['error']}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }
@@ -1067,9 +1283,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       TextFormField(
                         controller: priceController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Valor (R\$)',
-                          prefixText: 'R\$ ',
+                        style: FormStyles.inputTextStyle(context),
+                        cursorColor: AppColors.primaryColor,
+                        decoration: FormStyles.decorate(
+                          context,
+                          const InputDecoration(
+                            labelText: 'Valor (R\$)',
+                            prefixText: 'R\$ ',
+                          ),
                         ),
                         validator: priceValidator,
                       ),
@@ -1078,8 +1299,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         TextFormField(
                           controller: notesController,
                           maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: 'Observações da oficina (opcional)',
+                          style: FormStyles.inputTextStyle(context),
+                          cursorColor: AppColors.primaryColor,
+                          decoration: FormStyles.decorate(
+                            context,
+                            const InputDecoration(
+                              labelText: 'Observações da oficina (opcional)',
+                            ),
                           ),
                         ),
                       ],
@@ -1146,7 +1372,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   Widget? _buildActionButtons(String status) {
     final normalized = status.toLowerCase();
 
-    if (normalized == 'pending' || normalized == 'pendente_oficina' || normalized == 'pendente') {
+    if (normalized == 'pending' ||
+        normalized == 'pendente_oficina' ||
+        normalized == 'pendente' ||
+        normalized == 'pendente_cliente') {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -1162,26 +1391,46 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         child: Row(
           children: [
             Expanded(
-              child: OutlinedButton(
+              child: OutlinedButton.icon(
                 onPressed: _loading ? null : _rejectBooking,
+                icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                label: const Text('Recusar'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Rejeitar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: _loading ? null : _acceptBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : _suggestNewTime,
+                icon: const Icon(Icons.schedule, size: 18, color: Color(0xFFF59E0B)),
+                label: const Text('Sugerir'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFF59E0B),
+                  side: const BorderSide(color: Color(0xFFF59E0B)),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Aceitar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _loading ? null : _acceptBooking,
+                icon: const Icon(Icons.check, size: 18, color: Colors.white),
+                label: const Text('Aprovar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
           ],

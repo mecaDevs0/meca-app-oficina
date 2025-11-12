@@ -7,6 +7,7 @@ import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
+import '../../core/app_colors.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -94,6 +95,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _markAllAsRead() async {
+    if (_notifications.isEmpty) return;
+
+    try {
+      final response = await _apiService.markAllNotificationsAsRead();
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        await _loadNotifications();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Todas as notificações foram marcadas como lidas.'),
+            backgroundColor: AppColors.primaryColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['error'] ?? 'Não foi possível atualizar as notificações'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeService>(
@@ -117,6 +152,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             iconTheme: IconThemeData(color: textColor),
             actions: [
+              TextButton.icon(
+                onPressed: _notifications.isEmpty ? null : _markAllAsRead,
+                icon: Icon(
+                  Icons.done_all,
+                  color: _notifications.isEmpty
+                      ? ThemeService.getSecondaryTextColor(isDark)
+                      : AppColors.primaryColor,
+                ),
+                label: Text(
+                  'Ler tudo',
+                  style: TextStyle(
+                    color: _notifications.isEmpty
+                        ? ThemeService.getSecondaryTextColor(isDark)
+                        : AppColors.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               if (_unreadCount > 0)
                 Container(
                   margin: const EdgeInsets.only(right: 16),
@@ -134,6 +187,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(width: 4),
             ],
           ),
           body: _isLoading

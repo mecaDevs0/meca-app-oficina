@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../utils/colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/form_styles.dart';
 
 class ScheduleConfigScreen extends StatefulWidget {
   const ScheduleConfigScreen({super.key});
@@ -150,10 +151,15 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                   Expanded(
                     child: TextFormField(
                       initialValue: hours['inicio'],
-                      decoration: const InputDecoration(
-                        labelText: 'Abertura',
-                        hintText: '08:00',
-                        prefixIcon: Icon(Icons.access_time, size: 20),
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primary,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Abertura',
+                          hintText: '08:00',
+                          prefixIcon: Icon(Icons.access_time, size: 20),
+                        ),
                       ),
                       keyboardType: TextInputType.datetime,
                       onChanged: (value) {
@@ -165,10 +171,15 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                   Expanded(
                     child: TextFormField(
                       initialValue: hours['fim'],
-                      decoration: const InputDecoration(
-                        labelText: 'Fechamento',
-                        hintText: '18:00',
-                        prefixIcon: Icon(Icons.access_time, size: 20),
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primary,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Fechamento',
+                          hintText: '18:00',
+                          prefixIcon: Icon(Icons.access_time, size: 20),
+                        ),
                       ),
                       keyboardType: TextInputType.datetime,
                       onChanged: (value) {

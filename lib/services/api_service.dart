@@ -1025,6 +1025,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> markAllNotificationsAsRead() async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final response = await _dio.put('/workshop/$workshopId/notifications/read-all');
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ============================================
   // SCHEDULE - DADOS REAIS DA API EC2 AWS
   // ============================================

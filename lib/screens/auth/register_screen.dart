@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../../utils/form_styles.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -425,9 +426,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           
                           TextFormField(
                             controller: _cnpjController,
-                            decoration: InputDecoration(
-                              labelText: 'CNPJ *',
-                              hintText: '00.000.000/0000-00',
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'CNPJ *',
+                              hint: '00.000.000/0000-00',
                               prefixIcon: const Icon(Icons.badge, color: AppColors.primaryColor),
                               suffixIcon: _isSearchingCNPJ
                                   ? const Padding(
@@ -462,9 +466,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           TextFormField(
                             controller: _nomeController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nome da Oficina *',
-                              prefixIcon: Icon(Icons.business, color: AppColors.primaryColor),
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Nome da Oficina *',
+                              prefixIcon: const Icon(Icons.business, color: AppColors.primaryColor),
                             ),
                             validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,
                           ),
@@ -472,10 +479,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           TextFormField(
                             controller: _phoneController,
-                            decoration: const InputDecoration(
-                              labelText: 'Telefone/WhatsApp *',
-                              hintText: '(00) 00000-0000',
-                              prefixIcon: Icon(Icons.phone, color: AppColors.primaryColor),
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Telefone/WhatsApp *',
+                              hint: '(00) 00000-0000',
+                              prefixIcon: const Icon(Icons.phone, color: AppColors.primaryColor),
                             ),
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
@@ -494,9 +504,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           TextFormField(
                             controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email *',
-                              prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Email *',
+                              prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
                             ),
                             keyboardType: TextInputType.emailAddress,
                             validator: (value) {
@@ -513,9 +526,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // CEP (com busca automática)
                           TextFormField(
                             controller: _cepController,
-                            decoration: InputDecoration(
-                              labelText: 'CEP *',
-                              hintText: '00000-000',
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'CEP *',
+                              hint: '00000-000',
                               prefixIcon: const Icon(Icons.location_on, color: AppColors.primaryColor),
                               suffixIcon: _isSearchingCEP
                                   ? const Padding(
@@ -552,9 +568,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _logradouroController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Rua *',
-                                    prefixIcon: Icon(Icons.home, color: AppColors.primaryColor),
+                                  style: FormStyles.inputTextStyle(context),
+                                  cursorColor: AppColors.primaryColor,
+                                  decoration: _inputDecoration(
+                                    context,
+                                    label: 'Rua *',
+                                    prefixIcon: const Icon(Icons.home, color: AppColors.primaryColor),
                                   ),
                                   validator: (value) => value?.isEmpty ?? true ? 'Obrigatório' : null,
                                 ),
@@ -564,8 +583,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 flex: 1,
                                 child: TextFormField(
                                   controller: _numeroController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Nº *',
+                                  style: FormStyles.inputTextStyle(context),
+                                  cursorColor: AppColors.primaryColor,
+                                  decoration: _inputDecoration(
+                                    context,
+                                    label: 'Nº *',
                                   ),
                                   keyboardType: TextInputType.number,
                                   validator: (value) => value?.isEmpty ?? true ? 'Obrigatório' : null,
@@ -577,9 +599,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           TextFormField(
                             controller: _bairroController,
-                            decoration: const InputDecoration(
-                              labelText: 'Bairro *',
-                              prefixIcon: Icon(Icons.map, color: AppColors.primaryColor),
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Bairro *',
+                              prefixIcon: const Icon(Icons.map, color: AppColors.primaryColor),
                             ),
                             validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,
                           ),
@@ -591,9 +616,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _cidadeController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Cidade *',
-                                    prefixIcon: Icon(Icons.location_city, color: AppColors.primaryColor),
+                                  style: FormStyles.inputTextStyle(context),
+                                  cursorColor: AppColors.primaryColor,
+                                  decoration: _inputDecoration(
+                                    context,
+                                    label: 'Cidade *',
+                                    prefixIcon: const Icon(Icons.location_city, color: AppColors.primaryColor),
                                   ),
                                   validator: (value) => value?.isEmpty ?? true ? 'Obrigatório' : null,
                                 ),
@@ -603,9 +631,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 flex: 1,
                                 child: TextFormField(
                                   controller: _estadoController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'UF *',
-                                    hintText: 'SP',
+                                  style: FormStyles.inputTextStyle(context),
+                                  cursorColor: AppColors.primaryColor,
+                                  decoration: _inputDecoration(
+                                    context,
+                                    label: 'UF *',
+                                    hint: 'SP',
                                   ),
                                   textCapitalization: TextCapitalization.characters,
                                   maxLength: 2,
@@ -626,9 +657,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Senha *',
-                              hintText: 'Mínimo 6 caracteres',
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Senha *',
+                              hint: 'Mínimo 6 caracteres',
                               prefixIcon: const Icon(Icons.lock, color: AppColors.primaryColor),
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -734,6 +768,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+    BuildContext context, {
+    required String label,
+    String? hint,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return FormStyles.decorate(
+      context,
+      InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: prefixIcon,
+        suffixIcon: suffixIcon,
       ),
     );
   }

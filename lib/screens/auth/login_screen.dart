@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../widgets/animation_widgets.dart';
+import '../../utils/form_styles.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -138,22 +139,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Email
                           TextFormField(
                             controller: _emailController,
-                            decoration: InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide(color: Colors.grey[200]!),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: FormStyles.decorate(
+                              context,
+                              const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
                               ),
                             ),
                             keyboardType: TextInputType.emailAddress,
@@ -169,31 +161,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Senha',
-                              prefixIcon: const Icon(Icons.lock, color: AppColors.primaryColor),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                  color: Colors.grey[600],
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: FormStyles.decorate(
+                              context,
+                              InputDecoration(
+                                labelText: 'Senha',
+                                prefixIcon: const Icon(Icons.lock, color: AppColors.primaryColor),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                    color: Colors.grey[600],
+                                  ),
+                                  onPressed: () {
+                                    setState(() => _obscurePassword = !_obscurePassword);
+                                  },
                                 ),
-                                onPressed: () {
-                                  setState(() => _obscurePassword = !_obscurePassword);
-                                },
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: BorderSide(color: Colors.grey[200]!),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(15),
-                                borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
                               ),
                             ),
                             validator: (value) {

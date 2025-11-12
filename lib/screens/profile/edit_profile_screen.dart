@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../../utils/form_styles.dart';
+import '../../core/app_colors.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -181,9 +183,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+      style: FormStyles.inputTextStyle(context),
+      cursorColor: AppColors.primaryColor,
+      decoration: FormStyles.decorate(
+        context,
+        InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        ),
       ),
     );
   }

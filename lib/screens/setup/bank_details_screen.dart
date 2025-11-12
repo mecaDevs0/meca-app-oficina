@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../utils/colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/form_styles.dart';
 
 class BankDetailsScreen extends StatefulWidget {
   const BankDetailsScreen({super.key});
@@ -49,40 +50,60 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
               const SizedBox(height: 32),
               TextFormField(
                 controller: _bancoController,
-                decoration: const InputDecoration(
-                  labelText: 'Banco',
-                  prefixIcon: Icon(Icons.account_balance, color: AppColors.primary),
-                  hintText: 'Ex: 001 - Banco do Brasil',
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primary,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Banco',
+                    prefixIcon: Icon(Icons.account_balance, color: AppColors.primary),
+                    hintText: 'Ex: 001 - Banco do Brasil',
+                  ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _agenciaController,
-                decoration: const InputDecoration(
-                  labelText: 'Agência',
-                  prefixIcon: Icon(Icons.store, color: AppColors.primary),
-                  hintText: 'Ex: 1234-5',
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primary,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Agência',
+                    prefixIcon: Icon(Icons.store, color: AppColors.primary),
+                    hintText: 'Ex: 1234-5',
+                  ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _contaController,
-                decoration: const InputDecoration(
-                  labelText: 'Conta',
-                  prefixIcon: Icon(Icons.credit_card, color: AppColors.primary),
-                  hintText: 'Ex: 12345-6',
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primary,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Conta',
+                    prefixIcon: Icon(Icons.credit_card, color: AppColors.primary),
+                    hintText: 'Ex: 12345-6',
+                  ),
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _pixController,
-                decoration: const InputDecoration(
-                  labelText: 'Chave PIX (Opcional)',
-                  prefixIcon: Icon(Icons.qr_code, color: AppColors.primary),
-                  hintText: 'Email, CPF, CNPJ ou Telefone',
+                style: FormStyles.inputTextStyle(context),
+                cursorColor: AppColors.primary,
+                decoration: FormStyles.decorate(
+                  context,
+                  const InputDecoration(
+                    labelText: 'Chave PIX (Opcional)',
+                    prefixIcon: Icon(Icons.qr_code, color: AppColors.primary),
+                    hintText: 'Email, CPF, CNPJ ou Telefone',
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
