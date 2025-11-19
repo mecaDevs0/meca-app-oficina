@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../services/service_control_service.dart';
+import '../../services/api_service.dart';
+import '../../services/evidence_service.dart';
 import 'evidence_upload_screen.dart';
 
 class ServiceControlScreen extends StatefulWidget {
@@ -20,8 +24,12 @@ class ServiceControlScreen extends StatefulWidget {
 
 class _ServiceControlScreenState extends State<ServiceControlScreen> {
   final ServiceControlService _serviceControlService = ServiceControlService();
+  final ApiService _apiService = ApiService();
+  final EvidenceService _evidenceService = EvidenceService();
+  final ImagePicker _picker = ImagePicker();
   bool _loading = false;
   String _error = '';
+  List<File> _selectedImages = [];
 
   @override
   Widget build(BuildContext context) {
@@ -603,25 +611,50 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
   }
 
   Future<void> _finishService() async {
+    // Mostrar dialog para inserir preço, notas e imagens
+    final result = await _showFinishServiceDialog();
+    
+    if (result == null || !result['confirmed']) {
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = '';
     });
 
     try {
-      final result = await _serviceControlService.updateBookingStatus(widget.bookingId, 'completed');
+      // Primeiro, fazer upload das imagens se houver
+      if (result['images'] != null && (result['images'] as List<File>).isNotEmpty) {
+        for (final imageFile in result['images'] as List<File>) {
+          try {
+            await _evidenceService.uploadEvidence(widget.bookingId, imageFile);
+          } catch (e) {
+            // Continuar mesmo se houver erro no upload de imagem
+          }
+        }
+      }
+
+      // Depois, finalizar o serviço com preço e notas
+      final finishResult = await _apiService.finishService(
+        widget.bookingId,
+        finalPriceCents: result['priceCents'] as int,
+        notes: result['notes'] as String?,
+      );
       
-      if (result['success']) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Serviço finalizado! O cliente será redirecionado para o pagamento.'),
-            backgroundColor: Color(0xFF00C977),
-          ),
-        );
+      if (finishResult['success'] == true) {
+        if (mounted) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Serviço finalizado! O cliente receberá uma notificação para aprovar o orçamento.'),
+              backgroundColor: Color(0xFF00C977),
+            ),
+          );
+        }
       } else {
         setState(() {
-          _error = result['error'] ?? 'Erro ao finalizar serviço';
+          _error = finishResult['error']?.toString() ?? 'Erro ao finalizar serviço';
         });
         _showError(_error);
       }
@@ -633,8 +666,211 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
     } finally {
       setState(() {
         _loading = false;
+        _selectedImages = [];
       });
     }
+  }
+
+  Future<Map<String, dynamic>?> _showFinishServiceDialog() async {
+    final priceController = TextEditingController();
+    final notesController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    List<File> selectedImages = [];
+
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Finalizar Serviço'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Informe o valor final do serviço e, se desejar, adicione observações e imagens:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Valor Final (R\$) *',
+                      prefixText: 'R\$ ',
+                      border: OutlineInputBorder(),
+                      helperText: 'Valor cobrado ao cliente',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Informe o valor final';
+                      }
+                      final price = double.tryParse(value.replaceAll(',', '.'));
+                      if (price == null || price <= 0) {
+                        return 'Valor inválido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: notesController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Observações (opcional)',
+                      border: OutlineInputBorder(),
+                      helperText: 'Observações sobre o serviço realizado',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Imagens do Serviço (opcional)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final source = await showDialog<ImageSource>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Selecionar Imagem'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.camera_alt),
+                                      title: const Text('Câmera'),
+                                      onTap: () => Navigator.pop(context, ImageSource.camera),
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.photo_library),
+                                      title: const Text('Galeria'),
+                                      onTap: () => Navigator.pop(context, ImageSource.gallery),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                            
+                            if (source != null) {
+                              try {
+                                final picked = await _picker.pickImage(
+                                  source: source,
+                                  imageQuality: 75,
+                                );
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    selectedImages.add(File(picked.path));
+                                  });
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erro ao selecionar imagem: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.add_photo_alternate),
+                          label: const Text('Adicionar Imagem'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (selectedImages.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 100,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: selectedImages.length,
+                        itemBuilder: (context, index) {
+                          return Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    selectedImages[index],
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: Colors.red,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    iconSize: 16,
+                                    icon: const Icon(Icons.close, color: Colors.white),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        selectedImages.removeAt(index);
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  final price = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0;
+                  final priceCents = (price * 100).round();
+                  final notes = notesController.text.trim().isEmpty 
+                      ? null 
+                      : notesController.text.trim();
+                  
+                  Navigator.of(context).pop({
+                    'confirmed': true,
+                    'priceCents': priceCents,
+                    'notes': notes,
+                    'images': selectedImages,
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C977),
+              ),
+              child: const Text('Finalizar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _uploadEvidence() {

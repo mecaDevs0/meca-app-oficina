@@ -6,10 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
-import '../../providers/notification_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -53,7 +54,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (e) {
-      print('Erro ao carregar dados da oficina: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -64,39 +64,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _isConnectingPagbank = true);
     String? feedback;
+    Color? snackBarColor;
 
     try {
       final response = await _apiService.startPagBankConnect();
+      
       if (response['success'] == true) {
         final data = Map<String, dynamic>.from(response['data'] ?? {});
         final authorizeUrl = (data['authorize_url'] ?? data['url'] ?? data['redirect_url'])?.toString();
         final expiresIn = data['expires_in_minutes'];
 
-        if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
-          final uri = Uri.parse(authorizeUrl);
-          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-          if (!launched) {
-            feedback = 'Não foi possível abrir a página de autorização do PagBank.';
-          } else {
-            feedback = expiresIn != null
-                ? 'Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
-                : 'Autorização PagBank aberta em uma nova janela.';
+        if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
+          // Validar se a URL é válida
+          try {
+            final uri = Uri.parse(authorizeUrl);
+            
+            // Verificar se a URL contém os parâmetros necessários
+            if (!uri.queryParameters.containsKey('client_id')) {
+              feedback = '⚠️ URL de autorização inválida: falta client_id';
+              snackBarColor = Colors.orange;
+            } else if (!uri.queryParameters.containsKey('redirect_uri')) {
+              feedback = '⚠️ URL de autorização inválida: falta redirect_uri';
+              snackBarColor = Colors.orange;
+            } else {
+              final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+              if (!launched) {
+                feedback = '❌ Não foi possível abrir a página de autorização do PagBank. Verifique se há um navegador instalado.';
+                snackBarColor = Colors.red;
+              } else {
+                feedback = expiresIn != null
+                    ? '✅ Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
+                    : '✅ Autorização PagBank aberta em uma nova janela.';
+                snackBarColor = Colors.green;
+              }
+            }
+          } catch (e) {
+            feedback = '❌ URL de autorização inválida: $e';
+            snackBarColor = Colors.red;
           }
         } else {
-          feedback = 'A API não retornou a URL de autorização do PagBank.';
+          feedback = '❌ A API não retornou a URL de autorização do PagBank. Verifique os logs do servidor.';
+          snackBarColor = Colors.red;
         }
       } else {
-        feedback = response['error']?.toString() ?? 'Falha ao iniciar o fluxo PagBank Connect.';
+        final errorMsg = response['error']?.toString() ?? 'Falha ao iniciar o fluxo PagBank Connect.';
+        feedback = '❌ Erro: $errorMsg';
+        snackBarColor = Colors.red;
       }
     } catch (e) {
-      feedback = 'Erro ao iniciar PagBank Connect: $e';
+      feedback = '❌ Erro ao iniciar PagBank Connect: $e';
+      snackBarColor = Colors.red;
     } finally {
       if (mounted) {
         setState(() => _isConnectingPagbank = false);
         if (feedback != null && feedback.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(feedback)),
+            SnackBar(
+              content: Text(feedback),
+              backgroundColor: snackBarColor,
+              duration: const Duration(seconds: 5),
+            ),
           );
         }
       }
@@ -198,6 +227,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (mounted) {
                             await _loadWorkshopData();
                           }
+                        },
+                      ),
+                      _buildMenuOption(
+                        icon: Icons.lock_outline,
+                        title: 'Alterar Senha',
+                        subtitle: 'Alterar sua senha de acesso',
+                        isDark: isDark,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditPasswordScreen(),
+                            ),
+                          );
                         },
                       ),
                       _buildMenuOption(

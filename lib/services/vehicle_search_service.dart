@@ -24,7 +24,6 @@ class VehicleSearchService {
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('VehicleSearchService API Error: ${error.message}');
         return handler.next(error);
       },
     ));

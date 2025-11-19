@@ -36,21 +36,18 @@ class TwilioService {
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        print('SMS sent successfully: ${data['sid']}');
         return {
           'success': true,
           'message': 'SMS enviado com sucesso',
           'data': data,
         };
       } else {
-        print('Failed to send SMS: ${response.statusCode} - ${response.body}');
         return {
           'success': false,
           'error': 'Falha ao enviar SMS: ${response.statusCode}',
         };
       }
     } catch (e) {
-      print('Error sending SMS: $e');
       return {
         'success': false,
         'error': 'Erro ao enviar SMS: $e',
@@ -204,21 +201,18 @@ MECA - Sua oficina digital
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        print('Call initiated successfully: ${data['sid']}');
         return {
           'success': true,
           'message': 'Chamada iniciada com sucesso',
           'data': data,
         };
       } else {
-        print('Failed to initiate call: ${response.statusCode} - ${response.body}');
         return {
           'success': false,
           'error': 'Falha ao iniciar chamada: ${response.statusCode}',
         };
       }
     } catch (e) {
-      print('Error initiating call: $e');
       return {
         'success': false,
         'error': 'Erro ao iniciar chamada: $e',
@@ -253,7 +247,6 @@ MECA - Sua oficina digital
         };
       }
     } catch (e) {
-      print('Error verifying phone number: $e');
       return {
         'success': false,
         'error': 'Erro ao verificar número: $e',

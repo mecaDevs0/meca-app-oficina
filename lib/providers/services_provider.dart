@@ -22,7 +22,6 @@ class ServicesProvider extends ChangeNotifier {
         _masterServices = _normalizeServices(data);
       }
     } catch (e) {
-      print('Erro ao carregar serviços: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -38,7 +37,6 @@ class ServicesProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('Erro ao carregar meus serviços: $e');
     }
   }
   
@@ -63,7 +61,6 @@ class ServicesProvider extends ChangeNotifier {
         await loadMyServices();
       }
     } catch (e) {
-      print('Erro ao adicionar serviço: $e');
     }
   }
   
@@ -79,7 +76,6 @@ class ServicesProvider extends ChangeNotifier {
         await loadMyServices();
       }
     } catch (e) {
-      print('Erro ao remover serviço: $e');
     }
   }
 

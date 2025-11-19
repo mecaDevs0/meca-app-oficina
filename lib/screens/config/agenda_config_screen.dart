@@ -63,7 +63,6 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         final normalized = _normalizeSchedule(result['data']);
         // Debug para auditoria em testes
         // ignore: avoid_print
-        print('DEBUG: Agenda carregada da API: ${result['data']}');
         setState(() {
           _schedule = normalized;
         });
@@ -92,12 +91,10 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
       await _apiService.loadToken();
       final payload = _buildSchedulePayload();
       // ignore: avoid_print
-      print('DEBUG: Enviando agenda para API: $payload');
       final result = await _apiService.updateSchedule(payload);
       
       if (result['success']) {
         // ignore: avoid_print
-        print('DEBUG: Agenda salva com sucesso na API: ${result['data']}');
         BeautifulErrorSnackbar.showSuccess(
           context,
           'Agenda salva com sucesso!',
@@ -106,7 +103,6 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         Navigator.pop(context, true); // Passa true para indicar sucesso
       } else {
         // ignore: avoid_print
-        print('DEBUG: Falha ao salvar agenda: ${result['error']}');
         BeautifulErrorSnackbar.show(
           context,
           'Erro: ${result['error']}',
@@ -115,7 +111,6 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
       }
     } catch (e) {
       // ignore: avoid_print
-      print('DEBUG: Exceção ao salvar agenda: $e');
       BeautifulErrorSnackbar.show(
         context,
         'Erro: $e',

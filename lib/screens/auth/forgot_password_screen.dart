@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/theme_service.dart';
+import '../../services/api_service.dart';
 import '../../core/app_colors.dart';
 import '../../utils/form_styles.dart';
 
@@ -14,21 +15,42 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final ApiService _apiService = ApiService();
   bool _isLoading = false;
   bool _emailSent = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleSendEmail() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Simular envio de email
-    await Future.delayed(const Duration(seconds: 2));
+    final result = await _apiService.forgotPassword(_emailController.text);
 
-    setState(() {
-      _isLoading = false;
-      _emailSent = true;
-    });
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result['success']) {
+      setState(() => _emailSent = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Código de acesso enviado por email!'),
+          backgroundColor: AppColors.primaryColor,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error'] ?? 'Erro ao enviar email'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -153,7 +175,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
           TextFormField(
             controller: _emailController,
-            style: FormStyles.inputTextStyle(context),
+            style: const TextStyle(color: Colors.black),
             cursorColor: AppColors.primaryColor,
             decoration: FormStyles.decorate(
               context,
@@ -224,7 +246,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         const SizedBox(height: 15),
         
         Text(
-          'Enviamos as instruções para:\n${_emailController.text}',
+          'Enviamos um código de acesso para:\n${_emailController.text}',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,
@@ -245,7 +267,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Verifique sua caixa de entrada e spam.',
+                  'O código é sua senha temporária. Use-o para fazer login e depois altere sua senha no perfil.',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.blue[900],
@@ -281,10 +303,5 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
-  }
 }
 

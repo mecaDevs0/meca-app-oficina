@@ -81,7 +81,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     } catch (e) {
-      print('Erro ao buscar CNPJ: $e');
       // Não mostrar erro ao usuário, apenas não preenche
     }
 
@@ -122,7 +121,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     } catch (e) {
-      print('Erro ao buscar CEP: $e');
     }
 
     setState(() => _isSearchingCEP = false);
@@ -786,6 +784,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
+        fillColor: AppColors.primaryBlueColor,
       ),
     );
   }

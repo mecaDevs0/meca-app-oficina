@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/api_service.dart';
@@ -17,6 +18,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _financialData;
   final ApiService _apiService = ApiService();
+  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
   @override
   void initState() {
@@ -50,7 +52,6 @@ class _FinancialScreenState extends State<FinancialScreen> {
       }
       
     } catch (e) {
-      print('Erro ao carregar dados financeiros: $e');
     } finally {
       _safeSetState(() => _isLoading = false);
     }
@@ -109,59 +110,19 @@ class _FinancialScreenState extends State<FinancialScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           children: [
-                            _buildFinancialCard(
-                              title: 'Faturamento Total',
-                              amount: (_financialData?['total_revenue'] ?? 0).toDouble(),
-                              icon: Icons.attach_money,
-                              color: const Color(0xFF10B981),
+                            _buildSummarySection(
                               cardColor: cardColor,
                               borderColor: cardBorderColor,
                               textColor: textColor,
                               secondaryTextColor: secondaryTextColor,
                             ),
                             const SizedBox(height: 16),
-                            _buildFinancialCard(
-                              title: 'Este Mês',
-                              amount: (_financialData?['monthly_revenue'] ?? 0).toDouble(),
-                              icon: Icons.calendar_month,
-                              color: const Color(0xFF3B82F6),
+                            _buildStatsGrid(
                               cardColor: cardColor,
                               borderColor: cardBorderColor,
                               textColor: textColor,
                               secondaryTextColor: secondaryTextColor,
                             ),
-                            const SizedBox(height: 16),
-                            _buildFinancialCard(
-                              title: 'Esta Semana',
-                              amount: (_financialData?['weekly_revenue'] ?? 0).toDouble(),
-                              icon: Icons.date_range,
-                              color: const Color(0xFF8B5CF6),
-                              cardColor: cardColor,
-                              borderColor: cardBorderColor,
-                              textColor: textColor,
-                              secondaryTextColor: secondaryTextColor,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Estatísticas',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildStatsGrid(cardColor, cardBorderColor, textColor, secondaryTextColor),
                           ],
                         ),
                       ),
@@ -189,7 +150,12 @@ class _FinancialScreenState extends State<FinancialScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildTransactionsList(cardColor, cardBorderColor, textColor, secondaryTextColor),
+                        child: _buildTransactionsList(
+                          cardColor: cardColor,
+                          borderColor: cardBorderColor,
+                          textColor: textColor,
+                          secondaryTextColor: secondaryTextColor,
+                        ),
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -200,16 +166,136 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
+  Widget _buildSummarySection({
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color secondaryTextColor,
+  }) {
+    final totals = (_financialData?['totals'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    final summaryItems = [
+      {
+        'title': 'Receita líquida',
+        'value': totals['net'],
+        'icon': Icons.payments,
+        'color': const Color(0xFF10B981),
+        'subtitle': 'Valores disponíveis após taxas',
+      },
+      {
+        'title': 'Receita bruta',
+        'value': totals['gross'],
+        'icon': Icons.request_quote,
+        'color': const Color(0xFF2563EB),
+        'subtitle': 'Somatório dos pagamentos aprovados',
+      },
+      {
+        'title': 'Taxas MECA',
+        'value': totals['meca_fee'],
+        'icon': Icons.fact_check,
+        'color': const Color(0xFF8B5CF6),
+        'subtitle': 'Comissão da plataforma',
+      },
+      {
+        'title': 'Taxas PagBank',
+        'value': totals['pagbank_fee'],
+        'icon': Icons.account_balance,
+        'color': const Color(0xFFF59E0B),
+        'subtitle': 'Custos de processamento',
+        'trailingLabel': 'Pendências',
+        'trailingValue': totals['pending_gross'],
+      },
+    ];
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildFinancialCard(
+                title: summaryItems[0]['title'] as String,
+                amount: summaryItems[0]['value'],
+                icon: summaryItems[0]['icon'] as IconData,
+                color: summaryItems[0]['color'] as Color,
+                cardColor: cardColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                secondaryTextColor: secondaryTextColor,
+                subtitle: summaryItems[0]['subtitle'] as String,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildFinancialCard(
+                title: summaryItems[1]['title'] as String,
+                amount: summaryItems[1]['value'],
+                icon: summaryItems[1]['icon'] as IconData,
+                color: summaryItems[1]['color'] as Color,
+                cardColor: cardColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                secondaryTextColor: secondaryTextColor,
+                subtitle: summaryItems[1]['subtitle'] as String,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFinancialCard(
+                title: summaryItems[2]['title'] as String,
+                amount: summaryItems[2]['value'],
+                icon: summaryItems[2]['icon'] as IconData,
+                color: summaryItems[2]['color'] as Color,
+                cardColor: cardColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                secondaryTextColor: secondaryTextColor,
+                subtitle: summaryItems[2]['subtitle'] as String,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildFinancialCard(
+                title: summaryItems[3]['title'] as String,
+                amount: summaryItems[3]['value'],
+                icon: summaryItems[3]['icon'] as IconData,
+                color: summaryItems[3]['color'] as Color,
+                cardColor: cardColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                secondaryTextColor: secondaryTextColor,
+                subtitle: summaryItems[3]['subtitle'] as String,
+                trailingLabel: 'Pendências',
+                trailingValue: summaryItems[3]['trailingValue'],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildFinancialCard({
     required String title,
-    required double amount,
+    required dynamic amount,
     required IconData icon,
     required Color color,
     required Color cardColor,
     required Color borderColor,
     required Color textColor,
     required Color secondaryTextColor,
+    String? subtitle,
+    String? trailingLabel,
+    dynamic trailingValue,
   }) {
+    final amountLabel = _formatCurrency(amount, fallback: 'R\$ 0,00');
+    final trailing = trailingLabel != null
+        ? _formatCurrency(trailingValue, fallback: 'R\$ 0,00')
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -219,76 +305,122 @@ class _FinancialScreenState extends State<FinancialScreen> {
           color: borderColor,
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          )
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
                   title,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            amountLabel,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: secondaryTextColor,
+              ),
+            ),
+          ],
+          if (trailing != null) ...[
+            const SizedBox(height: 14),
+            Divider(color: secondaryTextColor.withOpacity(0.2)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  trailingLabel!,
+                  style: TextStyle(
+                    fontSize: 12,
                     color: secondaryTextColor,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  'R\$ ${(amount / 100).toStringAsFixed(2)}',
+                  trailing,
                   style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                     color: textColor,
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatsGrid(Color cardColor, Color borderColor, Color textColor, Color secondaryTextColor) {
+  Widget _buildStatsGrid({
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color secondaryTextColor,
+  }) {
+    final totals = (_financialData?['totals'] as Map?)?.cast<String, dynamic>() ?? {};
+    final metrics = (_financialData?['metrics'] as Map?)?.cast<String, dynamic>() ?? {};
+
     final stats = [
       {
-        'title': 'Serviços Realizados',
-        'value': _financialData?['completed_services'] ?? 0,
-        'icon': Icons.build,
+        'title': 'Transações pagas',
+        'value': (metrics['paid_transactions'] ?? 0).toString(),
+        'icon': Icons.check_circle,
         'color': const Color(0xFF10B981),
       },
       {
-        'title': 'Agendamentos',
-        'value': _financialData?['total_bookings'] ?? 0,
-        'icon': Icons.calendar_today,
-        'color': const Color(0xFF3B82F6),
+        'title': 'Ticket médio',
+        'value': _formatCurrency(metrics['average_ticket'], fallback: '—'),
+        'icon': Icons.show_chart,
+        'color': const Color(0xFF2563EB),
       },
       {
-        'title': 'Ticket Médio',
-        'value': _financialData?['average_ticket'] ?? 0,
-        'icon': Icons.trending_up,
+        'title': 'Taxa MECA efetiva',
+        'value': _formatPercent(metrics['effective_meca_fee']),
+        'icon': Icons.percent,
         'color': const Color(0xFF8B5CF6),
       },
       {
-        'title': 'Avaliação',
-        'value': _financialData?['average_rating'] ?? 0,
-        'icon': Icons.star,
-        'color': const Color(0xFFF59E0B),
+        'title': 'Pendências',
+        'value': _formatCurrency(totals['pending_gross'], fallback: 'R\$ 0,00'),
+        'icon': Icons.pending_actions,
+        'color': const Color(0xFFF97316),
       },
     ];
 
@@ -308,7 +440,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: cardColor,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: borderColor,
               width: 1,
@@ -331,11 +463,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   color: secondaryTextColor,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
-                stat['title'] == 'Ticket Médio' || stat['title'] == 'Avaliação'
-                    ? stat['value'].toString()
-                    : stat['value'].toString(),
+                stat['value'] as String,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -349,9 +479,16 @@ class _FinancialScreenState extends State<FinancialScreen> {
     );
   }
 
-  Widget _buildTransactionsList(Color cardColor, Color borderColor, Color textColor, Color secondaryTextColor) {
-    final transactions = _financialData?['recent_transactions'] as List<dynamic>? ?? [];
-    
+  Widget _buildTransactionsList({
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color secondaryTextColor,
+  }) {
+    final transactions = (_financialData?['recent_transactions'] as List?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
+
     if (transactions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(32),
@@ -381,7 +518,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Suas transações aparecerão aqui',
+              'Assim que os clientes efetuarem pagamentos, eles aparecerão aqui.',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: secondaryTextColor,
@@ -401,85 +539,212 @@ class _FinancialScreenState extends State<FinancialScreen> {
           width: 1,
         ),
       ),
-      child: ListView.builder(
+      child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: transactions.length,
-        itemBuilder: (context, index) {
-          final transaction = transactions[index];
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: index < transactions.length - 1
-                  ? Border(
-                      bottom: BorderSide(
-                        color: secondaryTextColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    )
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.payment,
-                    color: Color(0xFF10B981),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction['description'] ?? 'Serviço',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                      Text(
-                        _formatDate(transaction['date']),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: secondaryTextColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  'R\$ ${(transaction['amount'] / 100).toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF10B981),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          color: secondaryTextColor.withOpacity(0.15),
+        ),
+        itemBuilder: (context, index) => _buildTransactionCard(
+          transactions[index],
+          textColor,
+          secondaryTextColor,
+        ),
       ),
     );
   }
 
-  String _formatDate(String? date) {
-    if (date == null) return 'Data não informada';
-    
+  Widget _buildTransactionCard(
+    Map<String, dynamic> transaction,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
+    final status = (transaction['status'] ?? 'pending').toString();
+    final serviceName = (transaction['service_name'] ?? 'Serviço').toString();
+    final method = (transaction['payment_method'] ?? 'Desconhecido').toString().toUpperCase();
+    final installments = transaction['installments'] ?? 1;
+    final createdAt = _formatDate(transaction['created_at']);
+
+    final netAmount = _formatCurrency(transaction['net_amount'], fallback: '—');
+    final mecaFeeAmount = _formatCurrency(transaction['meca_fee_amount'], fallback: '—');
+    final pagbankFeeAmount = _formatCurrency(transaction['pagbank_fee_amount'], fallback: '—');
+    final grossAmount = _formatCurrency(transaction['gross_amount'], fallback: 'R\$ 0,00');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      serviceName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$method${installments is num && installments > 1 ? ' • ${installments}x' : ''}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      createdAt,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: secondaryTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                grossAmount,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildStatusChip(status, secondaryTextColor, textColor),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildAmountDetail('Taxa MECA', mecaFeeAmount, secondaryTextColor, textColor),
+              const SizedBox(width: 12),
+              _buildAmountDetail('Taxa PagBank', pagbankFeeAmount, secondaryTextColor, textColor),
+              const SizedBox(width: 12),
+              _buildAmountDetail('Líquido', netAmount, secondaryTextColor, textColor,
+                  highlight: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status, Color secondaryTextColor, Color textColor) {
+    Color background;
+    Color foreground;
+    String label;
+
+    switch (status) {
+      case 'approved':
+        background = const Color(0xFFDCFCE7);
+        foreground = const Color(0xFF15803D);
+        label = 'Pago';
+        break;
+      case 'pending':
+        background = const Color(0xFFFFF7ED);
+        foreground = const Color(0xFFB45309);
+        label = 'Pendente';
+        break;
+      case 'cancelled':
+        background = const Color(0xFFFEE2E2);
+        foreground = const Color(0xFFB91C1C);
+        label = 'Cancelado';
+        break;
+      default:
+        background = secondaryTextColor.withOpacity(0.12);
+        foreground = textColor;
+        label = status.toUpperCase();
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: foreground,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountDetail(
+    String label,
+    String value,
+    Color labelColor,
+    Color textColor, {
+    bool highlight = false,
+  }) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: labelColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
+              color: highlight ? textColor : textColor.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final normalized = value.replaceAll(RegExp(r'[^0-9,.-]'), '').replaceAll(',', '.');
+      return double.tryParse(normalized);
+    }
+    return null;
+  }
+
+  String _formatCurrency(dynamic value, {String fallback = '—'}) {
+    final parsed = _toDouble(value);
+    if (parsed == null) return fallback;
+    return _currencyFormat.format(parsed);
+  }
+
+  String _formatPercent(dynamic value, {String fallback = '—'}) {
+    final parsed = _toDouble(value);
+    if (parsed == null) return fallback;
+    return '${(parsed * 100).toStringAsFixed(2)}%';
+  }
+
+  String _formatDate(dynamic value) {
+    if (value == null) return 'Data não informada';
     try {
-      final dateTime = DateTime.parse(date);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    } catch (e) {
-      return date;
+      final dateTime = value is DateTime ? value : DateTime.parse(value.toString());
+      return DateFormat('dd/MM/yyyy HH:mm', 'pt_BR').format(dateTime.toLocal());
+    } catch (_) {
+      return value.toString();
     }
   }
 }

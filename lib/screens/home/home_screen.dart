@@ -60,10 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
         
         hasBankData = bankCode.isNotEmpty && agency.isNotEmpty && account.isNotEmpty;
         
-        print('DEBUG: Validação dados bancários - bank_code: "$bankCode", agency: "$agency", account: "$account"');
-        print('DEBUG: hasBankData: $hasBankData');
       } else {
-        print('DEBUG: Erro ao buscar dados bancários: ${bankResponse['error']}');
       }
       
       // Buscar agenda diretamente da API
@@ -120,10 +117,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final upcoming = bookings.where((b) {
           final status = (b['status'] ?? '').toString().toLowerCase();
           return status == 'pending' ||
+              status == 'pendente_oficina' ||
               status == 'confirmed' ||
+              status == 'confirmado' ||
               status == 'started' ||
               status == 'in_progress' ||
-              status == 'pendente_oficina';
+              status == 'em_andamento';
         }).toList()
           ..sort(
             (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
@@ -151,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       
     } catch (e) {
-      print('Erro ao carregar dados: $e');
       if (mounted) {
         final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
         notificationProvider.setPendingBookingsCount(0, resetBadge: true);
@@ -989,19 +987,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Color _getStatusColor(String? status) {
-    switch (status) {
+    if (status == null) return Colors.grey;
+    
+    final normalized = status.toString().toLowerCase().trim();
+    
+    switch (normalized) {
       case 'pending':
       case 'pendente_oficina':
+      case 'pendente':
         return Colors.orange;
       case 'confirmed':
+      case 'confirmado':
         return const Color(0xFF00C977);
       case 'started':
+      case 'in_progress':
+      case 'em_andamento':
         return const Color(0xFF3B82F6);
+      case 'pendente_cliente':
+        return Colors.amber;
+      case 'finalizado_aguardando_pagamento':
+      case 'finalizado_cliente':
+        return Colors.blue;
+      case 'pago':
+      case 'paid':
+      case 'approved':
+        return Colors.green;
       case 'completed':
       case 'finished':
       case 'concluido':
+      case 'concluído':
         return Colors.green;
       case 'cancelled':
+      case 'cancelado':
         return Colors.red;
       default:
         return Colors.grey;
@@ -1009,21 +1026,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getStatusText(String? status) {
-    switch (status) {
+    if (status == null) return 'Desconhecido';
+    
+    final normalized = status.toString().toLowerCase().trim();
+    
+    switch (normalized) {
       case 'pending':
       case 'pendente_oficina':
+      case 'pendente':
         return 'Pendente';
       case 'confirmed':
+      case 'confirmado':
         return 'Confirmado';
       case 'started':
+      case 'in_progress':
+      case 'em_andamento':
         return 'Em Andamento';
+      case 'pendente_cliente':
+        return 'Aguardando Cliente';
+      case 'finalizado_aguardando_pagamento':
+      case 'finalizado_cliente':
+        return 'Aguardando Pagamento';
+      case 'pago':
+      case 'paid':
+      case 'approved':
+        return 'Pago';
       case 'completed':
       case 'finished':
       case 'concluido':
+      case 'concluído':
         return 'Concluído';
       case 'cancelled':
+      case 'cancelado':
         return 'Cancelado';
       default:
+        // Debug para identificar status não mapeados
+        debugPrint('⚠️ [Home] Status não mapeado: $status (normalized: $normalized)');
         return 'Desconhecido';
     }
   }

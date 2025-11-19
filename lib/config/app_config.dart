@@ -36,8 +36,8 @@ class AppConfig {
   /// Chave pública PagBank
   static const String pagBankPublicKey = 'YOUR_PUBLIC_KEY_HERE'; // TODO: Adicionar chave real
   
-  /// Taxa da plataforma MECA (5%)
-  static const double mecaPlatformFee = 0.05; // 5%
+  /// Taxa da plataforma MECA (7%)
+  static const double mecaPlatformFee = 0.07; // 7%
   
   // ========================================
   // GOOGLE MAPS
@@ -48,6 +48,25 @@ class AppConfig {
   
   /// Google Maps API Key (iOS)
   static const String googleMapsApiKeyIos = 'YOUR_IOS_KEY_HERE'; // TODO: Adicionar chave real
+
+  // ========================================
+  // LOGIN SOCIAL
+  // ========================================
+
+  /// OAuth Client ID do Google para Android (meca oficina)
+  static const String googleClientIdAndroid =
+      '767232279794-jkfqe8qa17m2lg7hcgp0qepn801olbns.apps.googleusercontent.com';
+
+  /// OAuth Client ID do Google para iOS (meca oficina)
+  static const String googleClientIdIos =
+      '767232279794-n1gj11jqlaj6j49kjchdl3l43jioskil.apps.googleusercontent.com';
+
+  /// OAuth Client ID do Google usado como serverClientId (web)
+  static const String googleClientIdWeb =
+      '767232279794-tn09hsoednrtm3vonkfep0ec1qrob6v1.apps.googleusercontent.com';
+
+  /// Service ID configurado no Apple Developer
+  static const String appleServiceId = 'com.meca.app.service';
   
   // ========================================
   // FIREBASE / NOTIFICAÇÕES
@@ -79,13 +98,6 @@ class AppConfig {
   
   /// Imprime as configurações atuais
   static void printConfig() {
-    print('========================================');
-    print('MECA Oficina - Configurações');
-    print('========================================');
-    print('API Base URL: $apiBaseUrl');
-    print('App Version: $appVersion ($buildNumber)');
-    print('MECA Platform Fee: ${mecaPlatformFee * 100}%');
-    print('========================================');
   }
 }
 

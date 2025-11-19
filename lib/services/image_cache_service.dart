@@ -30,7 +30,6 @@ class ImageCacheService {
       
       await prefs.setString(_cacheKey, jsonEncode(cache));
     } catch (e) {
-      print('Erro ao salvar imagem em cache: $e');
     }
   }
 
@@ -58,7 +57,6 @@ class ImageCacheService {
       
       return null;
     } catch (e) {
-      print('Erro ao recuperar imagem do cache: $e');
       return null;
     }
   }
@@ -97,7 +95,6 @@ class ImageCacheService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_cacheKey);
     } catch (e) {
-      print('Erro ao limpar cache: $e');
     }
   }
 
@@ -130,7 +127,6 @@ class ImageCacheService {
         'maxAge': _maxCacheAge,
       };
     } catch (e) {
-      print('Erro ao obter estatísticas do cache: $e');
       return {};
     }
   }
@@ -221,7 +217,6 @@ class ImageCacheService {
       
       await prefs.setString(_cacheKey, jsonEncode(cache));
     } catch (e) {
-      print('Erro ao otimizar cache: $e');
     }
   }
 

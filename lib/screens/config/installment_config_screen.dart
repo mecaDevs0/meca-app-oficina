@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_config.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
@@ -47,7 +49,6 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
         });
       }
     } catch (e) {
-      print('Erro ao carregar configuração: $e');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -91,6 +92,15 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mecaFeePercent = AppConfig.mecaPlatformFee * 100;
+    final mecaFeeLabel = mecaFeePercent % 1 == 0
+        ? mecaFeePercent.toStringAsFixed(0)
+        : mecaFeePercent.toStringAsFixed(2);
+    final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    const exampleBaseAmount = 100.0;
+    final exampleMecaFee = exampleBaseAmount * AppConfig.mecaPlatformFee;
+    final exampleNetAmount = exampleBaseAmount - exampleMecaFee;
+
     return Consumer<ThemeService>(
       builder: (context, themeService, child) {
         return Scaffold(
@@ -281,7 +291,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'MECA gerencia automaticamente a configuração de parcelamento. Você receberá o valor total menos a taxa de 5% da MECA.',
+                                        'MECA gerencia automaticamente a configuração de parcelamento. Você receberá o valor total menos a taxa de ${mecaFeeLabel}% da MECA.',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: themeService.isDarkMode 
@@ -338,7 +348,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'A MECA cobra uma taxa de 5% sobre todos os pagamentos processados. Esta taxa é automaticamente deduzida do valor recebido pela oficina.',
+                              'A MECA cobra uma taxa de ${mecaFeeLabel}% sobre todos os pagamentos processados. Esta taxa é automaticamente deduzida do valor recebido pela oficina.',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: themeService.isDarkMode 
@@ -352,15 +362,15 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                 Expanded(
                                   child: _buildFeeInfo(
                                     'Valor do Serviço',
-                                    'R\$ 100,00',
+                                    currencyFormat.format(exampleBaseAmount),
                                     themeService.isDarkMode,
                                   ),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: _buildFeeInfo(
-                                    'Taxa MECA (5%)',
-                                    'R\$ 5,00',
+                                    'Taxa MECA (${mecaFeeLabel}%)',
+                                    currencyFormat.format(exampleMecaFee),
                                     themeService.isDarkMode,
                                   ),
                                 ),
@@ -368,7 +378,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                 Expanded(
                                   child: _buildFeeInfo(
                                     'Valor Líquido',
-                                    'R\$ 95,00',
+                                    currencyFormat.format(exampleNetAmount),
                                     themeService.isDarkMode,
                                     isHighlight: true,
                                   ),

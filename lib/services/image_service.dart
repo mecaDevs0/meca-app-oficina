@@ -35,7 +35,6 @@ class ImageService {
       );
       return image;
     } catch (e) {
-      print('Erro ao selecionar imagem da galeria: $e');
       return null;
     }
   }
@@ -51,7 +50,6 @@ class ImageService {
       );
       return image;
     } catch (e) {
-      print('Erro ao capturar imagem da câmera: $e');
       return null;
     }
   }
@@ -64,7 +62,6 @@ class ImageService {
       final mimeType = _getMimeType(file.path);
       return 'data:$mimeType;base64,$base64String';
     } catch (e) {
-      print('Erro ao converter arquivo para base64: $e');
       return null;
     }
   }
@@ -267,7 +264,6 @@ class ImageService {
       );
       return result;
     } catch (e) {
-      print('Erro ao comprimir imagem: $e');
       return imageBytes;
     }
   }
@@ -289,7 +285,6 @@ class ImageService {
       );
       return result;
     } catch (e) {
-      print('Erro ao redimensionar e comprimir imagem: $e');
       return imageBytes;
     }
   }

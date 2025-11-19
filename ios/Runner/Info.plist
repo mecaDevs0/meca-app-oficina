@@ -20,6 +20,17 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.767232279794-n1gj11jqlaj6j49kjchdl3l43jioskil</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -51,6 +62,8 @@
 	<string>Este app precisa acessar a câmera para tirar fotos dos serviços e perfil.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Este app precisa acessar a galeria para selecionar imagens dos serviços e perfil.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilizamos o Face ID para facilitar o login com Apple.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

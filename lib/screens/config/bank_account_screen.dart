@@ -136,7 +136,6 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       }
       
     } catch (e) {
-      print('Erro ao carregar dados bancários: $e');
     } finally {
       _safeSetState(() => _isLoading = false);
     }

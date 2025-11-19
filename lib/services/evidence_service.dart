@@ -23,7 +23,6 @@ class EvidenceService {
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('Evidence Service Error: ${error.message}');
         return handler.next(error);
       },
     ));
@@ -71,7 +70,6 @@ class EvidenceService {
         return {'success': false, 'error': 'Erro no upload da evidência'};
       }
     } catch (e) {
-      print('Erro no upload de evidência: $e');
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
     }
   }
@@ -89,7 +87,6 @@ class EvidenceService {
         return {'success': false, 'error': 'Erro ao buscar evidências'};
       }
     } catch (e) {
-      print('Erro ao buscar evidências: $e');
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
     }
   }

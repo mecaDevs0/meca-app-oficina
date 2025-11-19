@@ -76,7 +76,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       
     } catch (e) {
       if (mounted) {
-        print('Erro ao carregar notificações: $e');
       }
     } finally {
       if (mounted) {
@@ -91,7 +90,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (!mounted) return;
       _loadNotifications();
     } catch (e) {
-      print('Erro ao marcar notificação como lida: $e');
     }
   }
 

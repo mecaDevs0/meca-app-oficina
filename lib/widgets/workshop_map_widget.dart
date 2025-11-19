@@ -46,7 +46,6 @@ class _WorkshopMapWidgetState extends State<WorkshopMapWidget> {
         await _getCurrentLocation();
       }
     } catch (e) {
-      print('Erro ao inicializar localização: $e');
       // Usar localização padrão (São Paulo)
       _selectedLocation = const LatLng(-23.5505, -46.6333);
       _updateMarkers();
@@ -80,7 +79,6 @@ class _WorkshopMapWidgetState extends State<WorkshopMapWidget> {
       _selectedLocation = LatLng(position.latitude, position.longitude);
       _updateMarkers();
     } catch (e) {
-      print('Erro ao obter localização atual: $e');
       _showLocationError('Erro ao obter localização atual');
     }
   }

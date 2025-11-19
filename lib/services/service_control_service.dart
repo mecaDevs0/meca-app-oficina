@@ -21,7 +21,6 @@ class ServiceControlService {
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('Service Control Error: ${error.message}');
         return handler.next(error);
       },
     ));
@@ -53,11 +52,14 @@ class ServiceControlService {
         return {'success': false, 'error': 'Erro ao atualizar status'};
       }
     } catch (e) {
-      print('Erro ao atualizar status: $e');
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
     }
   }
 }
+
+
+
+
 
 
 

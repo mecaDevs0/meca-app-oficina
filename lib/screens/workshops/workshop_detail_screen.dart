@@ -33,7 +33,6 @@ class _WorkshopDetailScreenState extends State<WorkshopDetailScreen> {
         });
       }
     } catch (e) {
-      print('Erro ao carregar serviços: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -341,6 +340,10 @@ class _WorkshopDetailScreenState extends State<WorkshopDetailScreen> {
     );
   }
 }
+
+
+
+
 
 
 

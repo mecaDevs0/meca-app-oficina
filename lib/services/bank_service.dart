@@ -20,7 +20,6 @@ class BankService {
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('Bank Service Error: ${error.message}');
         return handler.next(error);
       },
     ));
@@ -64,7 +63,6 @@ class BankService {
         return {'success': false, 'error': 'Erro ao atualizar dados bancários'};
       }
     } catch (e) {
-      print('Bank Service Error updateBankDetails: $e');
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
     }
   }
@@ -82,11 +80,14 @@ class BankService {
         return {'success': false, 'error': 'Erro ao obter dados bancários'};
       }
     } catch (e) {
-      print('Bank Service Error getBankDetails: $e');
       return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
     }
   }
 }
+
+
+
+
 
 
 

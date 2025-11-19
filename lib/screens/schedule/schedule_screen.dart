@@ -162,7 +162,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       }
       
     } catch (e) {
-      print('Erro ao carregar agendamentos: $e');
     } finally {
       _safeSetState(() => _isLoading = false);
     }

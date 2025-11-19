@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../config/app_config.dart';
 
 class ApiService {
@@ -16,34 +18,73 @@ class ApiService {
     _dio.options.connectTimeout = Duration(seconds: AppConfig.connectionTimeout);
     _dio.options.receiveTimeout = Duration(seconds: AppConfig.receiveTimeout);
     
+    // Carregar token na inicialização
+    loadToken();
+    
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        if (_token == null) {
+        // Sempre garantir que o token está carregado
+        if (_token == null || _token!.isEmpty) {
           await loadToken();
         }
-        if (_token != null) {
+        
+        // Adicionar token ao header se disponível
+        if (_token != null && _token!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_token';
         }
+        
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('API Error: ${error.message}');
+        if (error.response?.statusCode == 401) {
+          // Limpar token inválido
+          saveToken('');
+        }
         return handler.next(error);
       },
     ));
   }
 
+  Future<Map<String, dynamic>> _handleAuthResponse(
+    Response response, {
+    String fallbackError = 'Erro ao autenticar',
+  }) async {
+    final payload = response.data;
+    if (payload != null && payload['success'] == true) {
+      final token = payload['data']?['token'] ?? payload['token'];
+      if (token is String && token.isNotEmpty) {
+        await saveToken(token);
+      }
+      return {'success': true, 'data': payload['data'] ?? payload};
+    }
+    final errorMessage = _extractErrorMessage(payload, fallbackError);
+    return {'success': false, 'error': errorMessage};
+  }
+
+  String _extractErrorMessage(dynamic payload, String fallback) {
+    if (payload is Map && payload['error'] != null) {
+      return payload['error'].toString();
+    }
+    return fallback;
+  }
+
   Future<void> loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('auth_token');
-    
-    if (_token != null) {
-      _dio.options.headers['Authorization'] = 'Bearer $_token';
-      // Decodificar JWT para obter workshopId
-      _workshopId = _decodeJWT(_token!);
-    } else {
-      _dio.options.headers.remove('Authorization');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _token = prefs.getString('auth_token');
+      
+      if (_token != null && _token!.isNotEmpty) {
+        _dio.options.headers['Authorization'] = 'Bearer $_token';
+        // Decodificar JWT para obter workshopId
+        _workshopId = _decodeJWT(_token!);
+      } else {
+        _dio.options.headers.remove('Authorization');
+        _workshopId = null;
+      }
+    } catch (e) {
+      _token = null;
       _workshopId = null;
+      _dio.options.headers.remove('Authorization');
     }
   }
 
@@ -71,10 +112,9 @@ class ApiService {
       final decoded = utf8.decode(base64Url.decode(payload));
       final Map<String, dynamic> payloadMap = json.decode(decoded);
       
-      // Retornar workshopId ou userId (a API pode usar qualquer um)
+      // Retornar workshopId ou userId (a API pode usar qualquer one)
       return payloadMap['workshopId'] ?? payloadMap['userId'] ?? payloadMap['id'];
     } catch (e) {
-      print('Erro ao decodificar JWT: $e');
       return null;
     }
   }
@@ -94,19 +134,23 @@ class ApiService {
         return _workshopId;
       }
     } catch (e) {
-      print('Erro ao obter workshopId do perfil: $e');
+      // Erro silencioso
     }
     
     return null;
   }
 
   Future<void> saveToken(String token) async {
-    _token = token;
-    _workshopId = _decodeJWT(token);
+    _token = token.isNotEmpty ? token : null;
+    _workshopId = token.isNotEmpty ? _decodeJWT(token) : null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-    if (_token != null) {
-      _dio.options.headers['Authorization'] = 'Bearer $_token';
+    
+    if (token.isNotEmpty) {
+      await prefs.setString('auth_token', token);
+      _dio.options.headers['Authorization'] = 'Bearer $token';
+    } else {
+      await prefs.remove('auth_token');
+      _dio.options.headers.remove('Authorization');
     }
   }
 
@@ -259,15 +303,67 @@ class ApiService {
         'password': password,
       });
       
-      if (response.data['data']?['token'] != null) {
-        await saveToken(response.data['data']['token']);
-      } else if (response.data['token'] != null) {
-        await saveToken(response.data['token']);
-      }
-      
-      return {'success': true, 'data': response.data};
+      return await _handleAuthResponse(
+        response,
+        fallbackError: 'Erro ao fazer login',
+      );
+    } on DioException catch (e) {
+      final message = _extractErrorMessage(e.response?.data, 'Erro ao fazer login');
+      return {'success': false, 'error': message};
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': 'Erro desconhecido ao fazer login'};
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle({
+    required String idToken,
+    String? email,
+    String? name,
+  }) async {
+    try {
+      final response = await _dio.post('/auth/workshop/social/google', data: {
+        'idToken': idToken,
+        'emailOverride': email,
+        'name': name,
+      });
+
+      return await _handleAuthResponse(
+        response,
+        fallbackError: 'Erro ao autenticar com o Google',
+      );
+    } on DioException catch (e) {
+      final message = _extractErrorMessage(
+        e.response?.data,
+        'Erro ao autenticar com o Google',
+      );
+      return {'success': false, 'error': message};
+    } catch (e) {
+      return {'success': false, 'error': 'Erro ao autenticar com o Google'};
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    String? email,
+  }) async {
+    try {
+      final response = await _dio.post('/auth/workshop/social/apple', data: {
+        'identityToken': identityToken,
+        'emailOverride': email,
+      });
+
+      return await _handleAuthResponse(
+        response,
+        fallbackError: 'Erro ao autenticar com a Apple',
+      );
+    } on DioException catch (e) {
+      final message = _extractErrorMessage(
+        e.response?.data,
+        'Erro ao autenticar com a Apple',
+      );
+      return {'success': false, 'error': message};
+    } catch (e) {
+      return {'success': false, 'error': 'Erro ao autenticar com a Apple'};
     }
   }
 
@@ -347,6 +443,46 @@ class ApiService {
   // ============================================
   // BOOKINGS - DADOS REAIS DA API EC2 AWS
   // ============================================
+
+  Future<Map<String, dynamic>> getBookingDetails(String bookingId) async {
+    try {
+      await loadToken();
+      
+      if (_token == null || _token!.isEmpty) {
+        return {'success': false, 'error': 'Token de autenticação não encontrado. Faça login novamente.'};
+      }
+      
+      final response = await _dio.get('/bookings/$bookingId');
+      
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        
+        // Garantir que data é um Map, não uma List
+        Map<String, dynamic> bookingData;
+        if (data is List && data.isNotEmpty) {
+          bookingData = Map<String, dynamic>.from(data[0]);
+        } else if (data is Map) {
+          bookingData = Map<String, dynamic>.from(data);
+        } else {
+          return {'success': false, 'error': 'Formato de dados inválido'};
+        }
+        
+        return {'success': true, 'data': bookingData};
+      } else {
+        return {'success': false, 'error': response.data?['error'] ?? 'Erro ao buscar agendamento'};
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        // Token inválido ou expirado
+        await saveToken('');
+        return {'success': false, 'error': 'Sessão expirada. Faça login novamente.', 'unauthorized': true};
+      }
+      
+      return {'success': false, 'error': e.response?.data?['error'] ?? e.message ?? 'Erro ao buscar agendamento'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 
   Future<Map<String, dynamic>> getMyBookings({String? status}) async {
     try {
@@ -462,6 +598,32 @@ class ApiService {
       }
       final response = await _dio.put('/bookings/$bookingId/start', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data?['error']?.toString() ?? 
+                          e.message ?? 
+                          'Erro ao iniciar o serviço';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> sendQuote(
+    String bookingId, {
+    required int finalPriceCents,
+  }) async {
+    try {
+      await loadToken();
+      final payload = <String, dynamic>{
+        'finalPrice': finalPriceCents,
+      };
+      final response = await _dio.put('/bookings/$bookingId/send-quote', data: payload);
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data?['error']?.toString() ?? 
+                          e.message ?? 
+                          'Erro ao enviar orçamento';
+      return {'success': false, 'error': errorMessage};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -930,61 +1092,11 @@ class ApiService {
       if (workshopId == null) {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
-      
-      // Buscar agendamentos completados para calcular receita
-      final bookingsResponse = await getMyBookings();
-      if (!bookingsResponse['success']) {
-        return bookingsResponse;
-      }
-      
-      final bookings = bookingsResponse['data']?['bookings'] as List? ?? [];
-      final completedBookings = bookings.where((b) => 
-        b['status'] == 'completed' || b['status'] == 'finished'
-      ).toList();
-      
-      // Calcular receitas
-      double totalRevenue = 0.0;
-      double monthlyRevenue = 0.0;
-      double pendingPayments = 0.0;
-      double completedPayments = 0.0;
-      
-      final now = DateTime.now();
-      for (var booking in completedBookings) {
-        final price = booking['final_price'] ?? booking['estimated_price'] ?? 0;
-        final priceValue = price is num ? price.toDouble() : 0.0;
-        
-        totalRevenue += priceValue;
-        
-        // Verificar se é do mês atual
-        final completedAt = booking['completed_at'] ?? booking['appointment_date'];
-        if (completedAt != null) {
-          try {
-            final date = DateTime.parse(completedAt.toString());
-            if (date.month == now.month && date.year == now.year) {
-              monthlyRevenue += priceValue;
-            }
-          } catch (e) {
-            // Ignorar erro de parsing
-          }
-        }
-        
-        // Verificar status de pagamento
-        final paymentStatus = booking['payment_status'] ?? 'pending';
-        if (paymentStatus == 'pending' || paymentStatus == 'pending') {
-          pendingPayments += priceValue;
-        } else if (paymentStatus == 'paid' || paymentStatus == 'completed') {
-          completedPayments += priceValue;
-        }
-      }
-      
+
+      final response = await _dio.get('/workshop/$workshopId/financial-summary');
       return {
         'success': true,
-        'data': {
-          'total_revenue': totalRevenue,
-          'monthly_revenue': monthlyRevenue,
-          'pending_payments': pendingPayments,
-          'completed_payments': completedPayments,
-        }
+        'data': response.data['data'] ?? response.data,
       };
     } catch (e) {
       return {'success': false, 'error': e.toString()};
@@ -1092,7 +1204,6 @@ class ApiService {
       
       // Usar endpoint real: /workshop/:id/banking
       final response = await _dio.get('/workshop/$workshopId/banking');
-      print('DEBUG: getBanking response: ${response.data}');
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
@@ -1132,23 +1243,17 @@ class ApiService {
         'account_type': accountType,
       };
       
-      print('DEBUG: Enviando dados bancários para API: $apiData');
-      
       // Usar endpoint real: /workshop/:id/banking
-      final response = await _dio.put('/workshop/$workshopId/banking', data: apiData);
-      
-      print('DEBUG: Resposta da API: ${response.data}');
+      await _dio.put('/workshop/$workshopId/banking', data: apiData);
       
       // Aguardar um pouco para garantir que o banco foi atualizado
       await Future.delayed(const Duration(milliseconds: 500));
       
       // Após salvar, buscar novamente para confirmar
       final verifyResponse = await _dio.get('/workshop/$workshopId/banking');
-      print('DEBUG: Verificação após salvar: ${verifyResponse.data}');
       
       return {'success': true, 'data': verifyResponse.data['data'] ?? verifyResponse.data};
     } catch (e) {
-      print('DEBUG: Erro ao atualizar dados bancários: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -1517,6 +1622,43 @@ class ApiService {
       // Usar endpoint real: DELETE /workshop/:id/services/:serviceId
       final response = await _dio.delete('/workshop/$workshopId/services/$serviceId');
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Recuperar senha (oficina)
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await _dio.post('/auth/workshop/forgot-password', data: {'email': email});
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'message': response.data['message'] ?? 'Email enviado com sucesso'};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao enviar email'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Alterar senha no perfil (oficina)
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await loadToken();
+      final response = await _dio.put('/workshop/profile/password', data: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      });
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'message': response.data['message'] ?? 'Senha alterada com sucesso'};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao alterar senha'};
+      }
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

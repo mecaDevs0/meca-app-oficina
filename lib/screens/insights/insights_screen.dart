@@ -127,7 +127,6 @@ class _InsightsScreenState extends State<InsightsScreen> with TickerProviderStat
       });
       
     } catch (e) {
-      print('Erro ao carregar insights: $e');
       // Em caso de erro, mostrar dados vazios (nunca mock)
       setState(() {
         _insightsData = {};

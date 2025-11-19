@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
-import 'booking_detail_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({Key? key}) : super(key: key);
@@ -20,7 +19,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadBookings();
   }
 
@@ -41,7 +40,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         });
       }
     } catch (e) {
-      print('Erro ao carregar agendamentos: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -80,6 +78,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
               tabs: const [
                 Tab(text: 'Pendentes'),
                 Tab(text: 'Confirmados'),
+                Tab(text: 'Aguardando Cliente'),
                 Tab(text: 'Histórico'),
               ],
             ),
@@ -93,6 +92,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
               children: [
                 _buildBookingsList(_getBookingsByStatus('pending')),
                 _buildBookingsList(_getBookingsByStatus('confirmed')),
+                _buildBookingsList(_getBookingsByStatus('pending_client')),
                 _buildBookingsList(_getBookingsByStatus('completed')),
               ],
             ),
@@ -101,11 +101,33 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
 
   List<Map<String, dynamic>> _getBookingsByStatus(String status) {
     if (status == 'pending') {
-      return _bookings.where((b) => b['status'] == 'pending').toList();
+      return _bookings.where((b) {
+        final s = (b['status'] ?? '').toLowerCase();
+        return s == 'pending' || s == 'pendente' || s == 'pendente_oficina';
+      }).toList();
     } else if (status == 'confirmed') {
-      return _bookings.where((b) => b['status'] == 'confirmed' || b['status'] == 'in_progress').toList();
+      return _bookings.where((b) {
+        final s = (b['status'] ?? '').toLowerCase();
+        // IMPORTANTE: pendente_cliente NÃO deve aparecer em "Confirmados"
+        // pendente_cliente é quando a oficina finalizou e está aguardando aprovação do cliente
+        // Deve aparecer apenas em "Confirmados" os que estão realmente confirmados ou em andamento
+        return s == 'confirmed' || s == 'confirmado' || 
+               s == 'in_progress' || s == 'em_andamento';
+        // REMOVIDO: s == 'pendente_cliente' - este status deve ter tratamento separado
+      }).toList();
+    } else if (status == 'pending_client') {
+      // Nova aba específica para agendamentos aguardando aprovação do cliente
+      return _bookings.where((b) {
+        final s = (b['status'] ?? '').toLowerCase();
+        return s == 'pendente_cliente';
+      }).toList();
     } else {
-      return _bookings.where((b) => b['status'] == 'completed' || b['status'] == 'cancelled').toList();
+      return _bookings.where((b) {
+        final s = (b['status'] ?? '').toLowerCase();
+        return s == 'completed' || s == 'concluido' || s == 'concluído' ||
+               s == 'finalizado_aguardando_pagamento' || s == 'pago' || s == 'paid' ||
+               s == 'cancelled' || s == 'cancelado';
+      }).toList();
     }
   }
 
@@ -163,13 +185,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         ],
       ),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          // Aguardar retorno da tela de detalhes e recarregar lista
+          final result = await Navigator.pushNamed(
             context,
-            MaterialPageRoute(
-              builder: (context) => BookingDetailScreen(booking: booking),
-            ),
+            '/booking-detail',
+            arguments: booking,
           );
+          // Recarregar lista quando voltar para garantir que o status está atualizado
+          if (result == true || mounted) {
+            await _loadBookings();
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -208,6 +234,34 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                   ),
                 ],
               ),
+              // Aviso especial para status aguardando aprovação
+              if ((booking['status'] ?? '').toLowerCase() == 'pendente_cliente') ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 20, color: Colors.amber.shade800),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Aguardando aprovação do cliente. O cliente precisa aprovar o orçamento antes do pagamento.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               
               // Cliente
@@ -298,16 +352,32 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
+    final normalizedStatus = (status ?? '').toLowerCase();
+    switch (normalizedStatus) {
       case 'pending':
+      case 'pendente':
+      case 'pendente_oficina':
         return Colors.orange;
       case 'confirmed':
+      case 'confirmado':
         return Colors.blue;
       case 'in_progress':
+      case 'em_andamento':
+      case 'em andamento':
         return Colors.purple;
+      case 'pendente_cliente':
+        return Colors.amber.shade700;
+      case 'finalizado_aguardando_pagamento':
+      case 'finalizado_aguardando_pagamento':
+        return Colors.blue.shade700;
+      case 'pago':
+      case 'paid':
       case 'completed':
+      case 'concluido':
+      case 'concluído':
         return Colors.green;
       case 'cancelled':
+      case 'cancelado':
         return Colors.red;
       default:
         return Colors.grey;
@@ -315,19 +385,35 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   }
 
   String _getStatusText(String status) {
-    switch (status) {
+    final normalizedStatus = (status ?? '').toLowerCase();
+    switch (normalizedStatus) {
       case 'pending':
+      case 'pendente':
+      case 'pendente_oficina':
         return 'Pendente';
       case 'confirmed':
+      case 'confirmado':
         return 'Confirmado';
       case 'in_progress':
+      case 'em_andamento':
+      case 'em andamento':
         return 'Em Andamento';
+      case 'pendente_cliente':
+        return 'Aguardando Aprovação';
+      case 'finalizado_aguardando_pagamento':
+        return 'Aguardando Pagamento';
+      case 'pago':
+      case 'paid':
+        return 'Pago';
       case 'completed':
+      case 'concluido':
+      case 'concluído':
         return 'Concluído';
       case 'cancelled':
+      case 'cancelado':
         return 'Cancelado';
       default:
-        return 'Desconhecido';
+        return status ?? 'Desconhecido';
     }
   }
 
@@ -342,3 +428,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     }
   }
 }
+
+
+
+
+
+
