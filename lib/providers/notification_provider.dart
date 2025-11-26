@@ -5,11 +5,13 @@ class NotificationProvider extends ChangeNotifier {
   bool _showProfileBadge = false;
   int _pendingBookings = 0;
   bool _showAgendaBadge = false;
+  bool _showFinancialBadge = false;
 
   int get unreadNotifications => _unreadNotifications;
   bool get showProfileBadge => _showProfileBadge;
   int get pendingBookings => _pendingBookings;
   bool get showAgendaBadge => _showAgendaBadge;
+  bool get showFinancialBadge => _showFinancialBadge;
 
   void setUnreadNotifications(int count, {bool resetBadge = false}) {
     final normalized = count.clamp(0, 9999).toInt();
@@ -45,6 +47,48 @@ class NotificationProvider extends ChangeNotifier {
       _showAgendaBadge = false;
       notifyListeners();
     }
+  }
+
+  void setFinancialBadge(bool show, {bool resetBadge = false}) {
+    if (!resetBadge) {
+      _showFinancialBadge = show;
+    } else if (!show) {
+      _showFinancialBadge = false;
+    }
+    notifyListeners();
+  }
+
+  void markFinancialBadgeSeen() {
+    if (_showFinancialBadge) {
+      _showFinancialBadge = false;
+      notifyListeners();
+    }
+  }
+
+  // Verificar se há notificações de pagamento não lidas
+  bool hasUnreadPaymentNotifications(List<Map<String, dynamic>> notifications) {
+    for (final notification in notifications) {
+      final isRead = notification['read'] == true || notification['is_read'] == true;
+      if (isRead) continue;
+
+      final type = (notification['type'] ?? '').toString().toLowerCase();
+      final title = (notification['title'] ?? '').toString().toLowerCase();
+      final message = (notification['message'] ?? '').toString().toLowerCase();
+
+      final bool paymentKeyword = type.contains('payment') ||
+          type.contains('pagamento') ||
+          title.contains('pagamento') ||
+          title.contains('recebido') ||
+          title.contains('payment') ||
+          message.contains('pagamento') ||
+          message.contains('recebido') ||
+          message.contains('payment');
+
+      if (paymentKeyword) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

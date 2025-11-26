@@ -23,6 +23,7 @@ class CustomBottomNav extends StatelessWidget {
     final borderColor = isDark ? const Color(0xFF333333) : const Color(0xFFE0E0E0);
     final showAgendaBadge = notificationProvider.showAgendaBadge;
     final showProfileBadge = notificationProvider.showProfileBadge;
+    final showFinancialBadge = notificationProvider.showFinancialBadge;
     
     return Container(
       height: 100,
@@ -49,7 +50,7 @@ class CustomBottomNav extends StatelessWidget {
           children: [
             _buildNavItem(context, 0, Icons.home_outlined, Icons.home, 'Início'),
             _buildNavItem(context, 1, Icons.schedule_outlined, Icons.schedule, 'Agenda', showBadge: showAgendaBadge),
-            _buildNavItem(context, 2, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Financeiro'),
+            _buildNavItem(context, 2, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Financeiro', showBadge: showFinancialBadge),
             _buildNavItem(context, 3, Icons.person_outline, Icons.person, 'Perfil', showBadge: showProfileBadge),
           ],
         ),

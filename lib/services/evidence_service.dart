@@ -64,13 +64,36 @@ class EvidenceService {
         ),
       );
       
-      if (response.statusCode == 200) {
-        return {'success': true, 'data': response.data};
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+        if (responseData is Map && responseData['success'] == true) {
+          return {
+            'success': true,
+            'data': responseData['data'] ?? responseData,
+            'message': responseData['message'] ?? 'Evidência enviada com sucesso'
+          };
+        }
+        return {'success': true, 'data': responseData};
       } else {
         return {'success': false, 'error': 'Erro no upload da evidência'};
       }
     } catch (e) {
-      return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
+      String errorMessage = 'Erro de conexão';
+      if (e is DioException) {
+        if (e.response != null) {
+          final errorData = e.response?.data;
+          if (errorData is Map && errorData['error']) {
+            errorMessage = errorData['error'].toString();
+          } else {
+            errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';
+          }
+        } else {
+          errorMessage = 'Erro de conexão: ${e.message ?? e.toString()}';
+        }
+      } else {
+        errorMessage = 'Erro: ${e.toString()}';
+      }
+      return {'success': false, 'error': errorMessage};
     }
   }
 
@@ -82,12 +105,42 @@ class EvidenceService {
       final response = await _dio.get('/store/booking/$bookingId/evidence');
       
       if (response.statusCode == 200) {
-        return {'success': true, 'data': response.data};
+        final responseData = response.data;
+        if (responseData is Map && responseData['success'] == true) {
+          return {
+            'success': true,
+            'data': responseData['data'] ?? []
+          };
+        }
+        // Se não tem estrutura {success, data}, assumir que responseData é a lista
+        if (responseData is List) {
+          return {'success': true, 'data': responseData};
+        }
+        return {'success': true, 'data': responseData};
       } else {
         return {'success': false, 'error': 'Erro ao buscar evidências'};
       }
     } catch (e) {
-      return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
+      String errorMessage = 'Erro de conexão';
+      if (e is DioException) {
+        if (e.response != null) {
+          if (e.response?.statusCode == 404) {
+            // Se 404, retornar lista vazia ao invés de erro
+            return {'success': true, 'data': []};
+          }
+          final errorData = e.response?.data;
+          if (errorData is Map && errorData['error']) {
+            errorMessage = errorData['error'].toString();
+          } else {
+            errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';
+          }
+        } else {
+          errorMessage = 'Erro de conexão: ${e.message ?? e.toString()}';
+        }
+      } else {
+        errorMessage = 'Erro: ${e.toString()}';
+      }
+      return {'success': false, 'error': errorMessage};
     }
   }
 }

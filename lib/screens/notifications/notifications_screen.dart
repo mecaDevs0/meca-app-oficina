@@ -62,6 +62,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           });
           final provider = Provider.of<NotificationProvider>(context, listen: false);
           provider.setUnreadNotifications(_unreadCount, resetBadge: _unreadCount == 0);
+          
+          // Verificar se há notificações de pagamento não lidas
+          final hasUnreadPayments = provider.hasUnreadPaymentNotifications(_notifications);
+          provider.setFinancialBadge(hasUnreadPayments, resetBadge: !hasUnreadPayments);
         }
       } else {
         if (mounted) {
@@ -475,12 +479,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
+    // Verificar se é notificação de agendamento/orçamento (por tipo ou título)
+    final typeLower = type.toLowerCase();
+    final title = (notification['title'] ?? '').toString().toLowerCase();
+    final message = (notification['message'] ?? '').toString().toLowerCase();
+    
+    final isBookingRelated = typeLower.contains('booking') ||
+        typeLower.contains('agendamento') ||
+        typeLower.contains('orcamento') ||
+        typeLower.contains('budget') ||
+        typeLower.contains('quote') ||
+        title.contains('agendamento') ||
+        title.contains('orcamento') ||
+        title.contains('orçamento') ||
+        message.contains('agendamento') ||
+        message.contains('orcamento') ||
+        message.contains('orçamento');
+    
+    // Se for relacionado a agendamento e tiver booking_id, abrir detalhes
+    if (isBookingRelated && bookingId != null) {
+      await _openBookingDetail(bookingId.toString());
+      return;
+    }
+    
     switch (type) {
       case 'new_booking':
       case 'booking_created':
       case 'booking_confirmed':
       case 'booking_cancelled':
       case 'booking_updated':
+      case 'booking_approved':
+      case 'budget_approved':
+      case 'quote_approved':
+      case 'orcamento_aprovado':
+      case 'orçamento_aprovado':
         if (bookingId != null) {
           await _openBookingDetail(bookingId.toString());
         } else {
@@ -489,6 +521,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
       case 'payment_received':
       case 'payment_confirmed':
+      case 'pagamento_recebido':
+      case 'pagamento_confirmado':
         Navigator.pushNamed(context, '/financial');
         break;
       case 'vehicle_update':
@@ -510,7 +544,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.pushNamed(context, '/profile');
         break;
       default:
-        Navigator.pushNamed(context, '/home');
+        // Se não identificou o tipo mas tem booking_id, tentar abrir detalhes
+        if (bookingId != null) {
+          await _openBookingDetail(bookingId.toString());
+        } else {
+          Navigator.pushNamed(context, '/home');
+        }
         break;
     }
   }

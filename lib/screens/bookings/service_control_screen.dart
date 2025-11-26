@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../services/evidence_service.dart';
+import '../../services/service_control_service.dart';
 import 'evidence_upload_screen.dart';
 
 class ServiceControlScreen extends StatefulWidget {
@@ -628,7 +629,7 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
       if (result['images'] != null && (result['images'] as List<File>).isNotEmpty) {
         for (final imageFile in result['images'] as List<File>) {
           try {
-            await _evidenceService.uploadEvidence(widget.bookingId, imageFile);
+            await _evidenceService.uploadBookingEvidence(widget.bookingId, imageFile);
           } catch (e) {
             // Continuar mesmo se houver erro no upload de imagem
           }

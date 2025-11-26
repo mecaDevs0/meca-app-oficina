@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -47,10 +48,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
 
-      final pagbankResponse = await _apiService.getPagBankAccount();
-      if (pagbankResponse['success']) {
+      // Buscar dados PagBank (account-status retorna email, name, status)
+      final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
+      if (pagbankStatusResponse['success']) {
         setState(() {
-          _pagbankData = pagbankResponse['data'] as Map<String, dynamic>?;
+          _pagbankData = pagbankStatusResponse['data'] as Map<String, dynamic>?;
         });
       }
     } catch (e) {
@@ -78,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
           // Validar se a URL é válida
           try {
-            final uri = Uri.parse(authorizeUrl);
+          final uri = Uri.parse(authorizeUrl);
             
             // Verificar se a URL contém os parâmetros necessários
             if (!uri.queryParameters.containsKey('client_id')) {
@@ -88,13 +90,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               feedback = '⚠️ URL de autorização inválida: falta redirect_uri';
               snackBarColor = Colors.orange;
             } else {
-              final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-              if (!launched) {
+          if (!launched) {
                 feedback = '❌ Não foi possível abrir a página de autorização do PagBank. Verifique se há um navegador instalado.';
                 snackBarColor = Colors.red;
-              } else {
-                feedback = expiresIn != null
+          } else {
+            feedback = expiresIn != null
                     ? '✅ Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
                     : '✅ Autorização PagBank aberta em uma nova janela.';
                 snackBarColor = Colors.green;
@@ -449,7 +451,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAvatar(bool isDark) {
-    final hasLogo = _logoUrl != null && _logoUrl!.isNotEmpty;
+    // Verificar se logo_url existe e é uma URL válida
+    final hasLogo = _logoUrl != null && 
+                    _logoUrl!.isNotEmpty && 
+                    (_logoUrl!.startsWith('http://') || _logoUrl!.startsWith('https://'));
     final borderColor = Colors.white.withOpacity(isDark ? 0.25 : 0.45);
 
     return Stack(
@@ -507,28 +512,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
           bottom: 0,
           right: 0,
           child: Container(
-            width: 38,
-            height: 38,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
+              border: Border.all(
+                color: const Color(0xFF00C977),
+                width: 2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: const Color(0xFF00C977).withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 6,
-                  offset: const Offset(0, 3),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: BorderRadius.circular(19),
+                borderRadius: BorderRadius.circular(21),
                 onTap: _isUploadingLogo ? null : _showLogoPicker,
-                child: const Icon(
-                  Icons.camera_alt_outlined,
-                  size: 18,
-                  color: Color(0xFF10B981),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (_isUploadingLogo)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.camera_alt,
+                        size: 20,
+                        color: Color(0xFF00C977),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -542,14 +571,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cardColor = ThemeService.getCardColor(isDark);
     final borderColor = secondaryText.withOpacity(0.18);
     final data = _pagbankData ?? const {};
-    final hasAccount = data['has_account'] == true;
-    final status = (data['status'] ?? 'pending').toString();
-    final bank = (data['bank_account'] as Map<String, dynamic>?) ?? const {};
-    final connect = (data['connect'] as Map<String, dynamic>?) ?? const {};
-    final connectAuthorized = connect['authorized'] == true;
-    final connectLastError = (connect['last_error'] ?? '').toString();
-    final connectAuthorizedAt = _formatDateTime(connect['authorized_at']);
-    final tokenExpiresAt = _formatDateTime(connect['token_expires_at']);
+    final accountId = data['account_id'];
+    final status = (data['status'] ?? 'not_created').toString().toLowerCase();
+    final email = data['email']?.toString();
+    final name = data['name']?.toString();
+    final statusMessage = data['status_message']?.toString() ?? '';
+    final warningBackground = isDark ? const Color(0xFF2C1B0E) : const Color(0xFFFFF4E5);
+    final warningBorder = isDark ? const Color(0xFF5A3414) : const Color(0xFFFFD9B0);
+    final warningTitleColor = isDark ? const Color(0xFFFFC58F) : const Color(0xFF8A4B16);
+    final warningBodyColor = isDark ? Colors.white70 : const Color(0xFF5F3B10);
+
+    // Determinar estado: not_created, pending, approved
+    final pagbankState = accountId == null || accountId.toString().isEmpty
+        ? 'not_created'
+        : (status == 'approved' ? 'approved' : 'pending');
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -580,7 +615,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Método de pagamento',
+                      'Recebimentos PagBank',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -589,24 +624,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      hasAccount
-                          ? 'Pagamentos ativos pelo PagBank usando sua conta bancária.'
-                          : 'Cadastre sua conta bancária para ativar os pagamentos.',
+                      pagbankState == 'not_created'
+                          ? 'Para receber pagamentos via MECA Marketplace, você precisa criar uma conta PagBank Seller.'
+                          : pagbankState == 'pending'
+                              ? 'Conta PagBank criada, pendente de validação'
+                              : 'PagBank aprovado',
                       style: TextStyle(color: secondaryText, fontSize: 14),
                     ),
                   ],
                 ),
               ),
+              if (pagbankState != 'not_created')
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _statusColor(status).withOpacity(isDark ? 0.15 : 0.18),
+                    color: _pagbankStatusColor(pagbankState).withOpacity(isDark ? 0.15 : 0.18),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  _statusLabel(status),
+                    _pagbankStatusLabel(pagbankState),
                   style: TextStyle(
-                    color: _statusColor(status),
+                      color: _pagbankStatusColor(pagbankState),
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
                   ),
@@ -615,83 +653,263 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          if (hasAccount) ...[
-            _buildKeyValueRow('Banco', _formatBank(bank), textColor, secondaryText),
-            _buildKeyValueRow('Agência', bank['agency_number'] ?? '-', textColor, secondaryText),
-            _buildKeyValueRow('Conta', bank['account_number'] ?? '-', textColor, secondaryText),
-            _buildKeyValueRow('Tipo', _translateAccountType(bank['account_type']), textColor, secondaryText),
-            _buildKeyValueRow('Titular', bank['holder_name'] ?? '-', textColor, secondaryText),
-            if ((bank['holder_document'] ?? '').toString().isNotEmpty)
-              _buildKeyValueRow('Documento', bank['holder_document'], textColor, secondaryText),
-            if ((bank['pix_key'] ?? '').toString().isNotEmpty)
-              _buildKeyValueRow('Chave Pix', bank['pix_key'], textColor, secondaryText),
-            if ((bank['pix_key_type'] ?? '').toString().isNotEmpty)
-              _buildKeyValueRow('Tipo da chave', _translatePixType(bank['pix_key_type']), textColor, secondaryText),
-            if (connectAuthorizedAt != null)
-              _buildKeyValueRow('Autorizado em', connectAuthorizedAt, textColor, secondaryText),
-            if (tokenExpiresAt != null)
-              _buildKeyValueRow('Token expira em', tokenExpiresAt, textColor, secondaryText),
-          ] else
+          
+          // ESTADO 1: Não cadastrado
+          if (pagbankState == 'not_created') ...[
             Text(
-              'Nenhuma conta bancária vinculada ainda.',
+              'Para começar a receber pagamentos, você precisa criar uma conta PagBank Seller.',
               style: TextStyle(color: secondaryText, fontSize: 14),
             ),
-          if (!connectAuthorized)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Autorize o PagBank para que os pagamentos sejam direcionados automaticamente à sua conta.',
-                style: TextStyle(color: secondaryText, fontSize: 13),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await Navigator.pushNamed(context, '/config/pagbank');
+                  if (mounted) {
+                    await _loadWorkshopData();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C977),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Cadastrar PagBank'),
               ),
             ),
-          if (connectLastError.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF2F2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFB4B4)),
-                ),
-                child: Text(
-                  'Último erro: $connectLastError',
-                  style: const TextStyle(color: Color(0xFFD14343), fontSize: 13),
-                ),
+          ]
+          
+          // ESTADO 2: Cadastrado mas não validado
+          else if (pagbankState == 'pending') ...[
+            if (name != null && name.isNotEmpty)
+              _buildKeyValueRow('Nome', name, textColor, secondaryText),
+            if (email != null && email.isNotEmpty)
+              _buildKeyValueRow('Email', email, textColor, secondaryText),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: warningBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: warningBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFFF97316), size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Status: Verificação pendente',
+                          style: TextStyle(
+                            color: warningTitleColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    statusMessage.isNotEmpty
+                        ? statusMessage
+                        : 'Para validar sua conta e começar a receber pagamentos, você precisa entrar no app PagBank.',
+                    style: TextStyle(color: warningBodyColor, fontSize: 13, height: 1.4),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isConnectingPagbank ? null : _handleConnectPagBank,
+                onPressed: _openPagBankAppStore,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00C977),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              icon: Icon(connectAuthorized ? Icons.refresh_outlined : Icons.link_outlined),
-              label: Text(connectAuthorized ? 'Reautorizar PagBank' : 'Conectar PagBank'),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Abrir app PagBank'),
             ),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () async {
-                await Navigator.pushNamed(context, '/config/pagbank');
-                if (mounted) {
-                  await _loadWorkshopData();
-                }
-              },
-              icon: const Icon(Icons.edit_outlined),
-              label: Text(hasAccount ? 'Editar dados bancários' : 'Adicionar dados bancários'),
+                onPressed: _checkAccountStatus,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Já validei minha conta'),
+              ),
             ),
-          ),
+          ]
+          
+          // ESTADO 3: Validado
+          else if (pagbankState == 'approved') ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PagBank aprovado',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sua conta foi aprovada pelo PagBank. Agora você pode receber pagamentos normalmente.',
+                          style: TextStyle(color: secondaryText, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (email != null && email.isNotEmpty)
+              _buildKeyValueRow('Email cadastrado', email, textColor, secondaryText),
+            if (name != null && name.isNotEmpty)
+              _buildKeyValueRow('Nome da empresa', name, textColor, secondaryText),
+          ],
         ],
       ),
     );
+  }
+
+  Color _pagbankStatusColor(String state) {
+    switch (state) {
+      case 'approved':
+        return const Color(0xFF22C55E);
+      case 'pending':
+        return const Color(0xFFF97316);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  String _pagbankStatusLabel(String state) {
+    switch (state) {
+      case 'approved':
+        return 'Aprovado';
+      case 'pending':
+        return 'Pendente';
+      default:
+        return 'Não cadastrado';
+    }
+  }
+
+  Future<void> _openPagBankAppStore() async {
+    try {
+      // Detectar plataforma e abrir loja apropriada
+      final package = 'com.pagseguro.app';
+      // App Store: usar ID correto do PagBank (precisa verificar o ID real)
+      final appStoreUrl = 'https://apps.apple.com/br/app/pagbank/id1455236751';
+      final playStoreUrl = 'https://play.google.com/store/apps/details?id=$package';
+      
+      // Detectar plataforma usando import 'dart:io'
+      final uri = Uri.parse(
+        Theme.of(context).platform == TargetPlatform.iOS 
+            ? appStoreUrl 
+            : playStoreUrl
+      );
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      
+      if (!launched) {
+                if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Não foi possível abrir a loja de aplicativos.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao abrir loja: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _checkAccountStatus() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      final response = await _apiService.getPagBankAccountStatus();
+      
+      if (response['success']) {
+        setState(() {
+          _pagbankData = response['data'] as Map<String, dynamic>?;
+        });
+        
+        final status = (response['data']?['status'] ?? '').toString().toLowerCase();
+        
+        if (mounted) {
+          if (status == 'approved') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Conta PagBank aprovada!'),
+                backgroundColor: Color(0xFF22C55E),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('⏳ Conta ainda está em análise. Tente novamente mais tarde.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${response['error'] ?? 'Erro ao verificar status'}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao verificar status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildKeyValueRow(String label, dynamic value, Color primary, Color secondary) {
@@ -1063,38 +1281,204 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _showLogoPicker() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              // Título
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C977).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.image,
+                        color: Color(0xFF00C977),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Atualizar Logo da Oficina',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const Divider(height: 1),
+              
+              // Opções de upload
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    // Galeria
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Escolher da galeria'),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C977).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.photo_library,
+                          color: Color(0xFF00C977),
+                          size: 24,
+                        ),
+                      ),
+                      title: const Text(
+                        'Escolher da galeria',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: const Text('Selecione uma imagem já salva no seu dispositivo'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
               },
             ),
+                    
+                    // Câmera
             ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tirar foto'),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.blue,
+                          size: 24,
+                        ),
+                      ),
+                      title: const Text(
+                        'Tirar foto',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: const Text('Capture uma nova imagem com a câmera'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
               },
             ),
-            if (_logoUrl != null && _logoUrl!.isNotEmpty)
+                    
+                    // Remover logo (se existir)
+                    if (_logoUrl != null && _logoUrl!.isNotEmpty) ...[
+                      const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Remover logo', style: TextStyle(color: Colors.red)),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                        ),
+                        title: const Text(
+                          'Remover logo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.red,
+                          ),
+                        ),
+                        subtitle: const Text('Remover a logo atual da oficina'),
                 onTap: () {
                   Navigator.pop(context);
                   _removeLogo();
                 },
               ),
-          ],
+                    ],
+                  ],
+                ),
+              ),
+              
+              // Informações sobre o upload
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.blue.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Recomendações:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '• Dimensões recomendadas: 512x512px\n• Formatos: JPG, PNG ou WebP\n• Tamanho máximo: 2MB\n• Use uma imagem quadrada para melhor resultado',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -1102,9 +1486,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? image = await _imagePicker.pickImage(source: source);
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 90,
+      );
+      
       if (image != null) {
-        await _uploadLogo(image.path);
+        // Validar tipo de arquivo
+        if (!ImageService.validateImageType(image.path)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tipo de arquivo não suportado. Use JPG, PNG ou WebP'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+        
+        // Validar tamanho
+        final isValidSize = await ImageService.validateImageSize(image, 'logo');
+        if (!isValidSize) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Imagem muito grande. Tamanho máximo: 2MB'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+        
+        await _uploadLogo(image);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1116,33 +1529,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _uploadLogo(String imagePath) async {
+  Future<void> _uploadLogo(XFile imageFile) async {
     setState(() => _isUploadingLogo = true);
 
     try {
-      final workshopId = await _apiService.getWorkshopId();
-      if (workshopId == null) {
-        throw Exception('Workshop ID não encontrado');
-      }
+      // Comprimir e converter para base64 usando ImageService
+      final uploadResult = await ImageService.uploadImage(
+        imageType: 'logo',
+        imageFile: imageFile,
+      );
 
-      final result = await _apiService.uploadLogo(imagePath);
-
-      if (result['success']) {
+      if (uploadResult['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Logo atualizado com sucesso!'),
-            backgroundColor: Color(0xFF00C977),
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Logo atualizado com sucesso!')),
+              ],
+            ),
+            backgroundColor: const Color(0xFF00C977),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
           ),
         );
         await _loadWorkshopData();
       } else {
-        throw Exception(result['error'] ?? 'Erro ao fazer upload');
+        throw Exception(uploadResult['error'] ?? 'Erro ao fazer upload');
       }
     } catch (e) {
+      String errorMessage = 'Erro ao fazer upload da logo';
+      if (e.toString().contains('Formato')) {
+        errorMessage = 'Formato de imagem inválido. Use JPG ou PNG';
+      } else if (e.toString().contains('grande') || e.toString().contains('tamanho')) {
+        errorMessage = 'Imagem muito grande. Tamanho máximo: 2MB';
+      } else if (e.toString().contains('permissão')) {
+        errorMessage = 'Você não tem permissão para atualizar esta oficina';
+      } else {
+        errorMessage = e.toString();
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro ao fazer upload: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text(errorMessage)),
+            ],
+          ),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -1151,13 +1592,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _removeLogo() async {
-    // TODO: Implementar remoção de logo na API
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Funcionalidade de remoção de logo em desenvolvimento'),
-        backgroundColor: Colors.orange,
+    // Confirmar remoção
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remover Logo'),
+        content: const Text('Tem certeza que deseja remover a logo da sua oficina?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Remover'),
+          ),
+        ],
       ),
     );
+    
+    if (confirm != true) return;
+    
+    setState(() => _isUploadingLogo = true);
+    
+    try {
+      final result = await _apiService.removeLogo();
+      
+      if (result['success']) {
+    ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Logo removida com sucesso!')),
+              ],
+            ),
+            backgroundColor: const Color(0xFF00C977),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        await _loadWorkshopData();
+      } else {
+        throw Exception(result['error'] ?? 'Erro ao remover logo');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Erro ao remover logo: ${e.toString()}')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      setState(() => _isUploadingLogo = false);
+    }
   }
 
   void _logout() {

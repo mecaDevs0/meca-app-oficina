@@ -112,7 +112,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         // pendente_cliente é quando a oficina finalizou e está aguardando aprovação do cliente
         // Deve aparecer apenas em "Confirmados" os que estão realmente confirmados ou em andamento
         return s == 'confirmed' || s == 'confirmado' || 
-               s == 'in_progress' || s == 'em_andamento';
+               s == 'in_progress' || s == 'em_andamento' ||
+               s == 'started';
         // REMOVIDO: s == 'pendente_cliente' - este status deve ter tratamento separado
       }).toList();
     } else if (status == 'pending_client') {

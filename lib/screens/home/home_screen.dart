@@ -7,7 +7,7 @@ import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/page_transitions.dart';
 import '../config/agenda_config_screen.dart';
-import '../config/bank_account_screen.dart' show BankAccountScreen;
+import '../config/pagbank_account_screen.dart' show PagBankAccountScreen;
 import '../config/services_config_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -49,18 +49,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
       
-      // Buscar dados bancários diretamente da API
-      final bankResponse = await _apiService.getBankAccount();
-      bool hasBankData = false;
-      if (bankResponse['success'] && bankResponse['data'] != null) {
-        final bankData = bankResponse['data'];
-        final bankCode = bankData['bank_code']?.toString().trim() ?? '';
-        final agency = bankData['agency']?.toString().trim() ?? '';
-        final account = bankData['account']?.toString().trim() ?? '';
-        
-        hasBankData = bankCode.isNotEmpty && agency.isNotEmpty && account.isNotEmpty;
-        
-      } else {
+      // Buscar status da conta PagBank
+      final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
+      bool hasPagBankAccount = false;
+      if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
+        final statusData = pagbankStatusResponse['data'];
+        final status = statusData['status']?.toString() ?? 'not_created';
+        // Conta está configurada se foi criada e aprovada
+        hasPagBankAccount = status != 'not_created' && status != 'rejected';
       }
       
       // Buscar agenda diretamente da API
@@ -96,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       
       // Atualizar flags de validação
       setState(() {
-        _isDataBankInvalid = !hasBankData;
+        _isDataBankInvalid = !hasPagBankAccount;
         _isAgendaInvalid = !hasSchedule;
         _isServiceInvalid = !hasServices;
       });
@@ -387,15 +383,15 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         if (_isDataBankInvalid)
           _buildConfigCard(
-            title: 'Conta Bancária',
-            description: 'Configure sua conta para receber pagamentos',
-            icon: Icons.account_balance_outlined,
+            title: 'Dados para Cadastro PagBank',
+            description: 'Preencha os dados para criar sua conta PagBank',
+            icon: Icons.account_balance_wallet_outlined,
             iconColor: const Color(0xFF3B82F6),
             bgColor: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDBEAFE),
             onTap: () async {
               final result = await Navigator.push(
                 context,
-                PageTransitions.slideFromRight(const BankAccountScreen()),
+                PageTransitions.slideFromRight(const PagBankAccountScreen()),
               );
               // Recarregar dados se salvou com sucesso
               if (result == true) {
@@ -848,37 +844,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildIconChip(
                   icon: Icons.calendar_today_outlined,
                   label: dateLabel,
                   isDark: isDark,
                 ),
-                const SizedBox(width: 10),
                 _buildIconChip(
                   icon: Icons.access_time_outlined,
                   label: '$timeLabel h',
                   isDark: isDark,
                 ),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(booking['status'])
-                        .withOpacity(isDark ? 0.2 : 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _getStatusText(booking['status']),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _getStatusColor(booking['status']),
-                    ),
-                  ),
-                ),
+                _buildStatusChip(booking['status'], isDark),
               ],
             ),
             if (notes.isNotEmpty) ...[
@@ -956,6 +938,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String? status, bool isDark) {
+    final Color color = _getStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.22 : 0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(isDark ? 0.5 : 0.3)),
+      ),
+      child: Text(
+        _getStatusText(status),
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+          color: color,
+        ),
       ),
     );
   }

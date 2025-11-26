@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
@@ -26,7 +27,41 @@ import 'services/theme_service.dart';
 import 'utils/page_transitions.dart';
 
 void main() {
-  runApp(const MecaOficinaApp());
+  // Wrapper para capturar erros não tratados
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) {
+      print('Flutter Error: ${details.exception}');
+      print('Stack: ${details.stack}');
+    }
+  };
+  
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+  } catch (e) {
+    if (kDebugMode) {
+      print('Erro ao inicializar Flutter binding: $e');
+    }
+  }
+  
+  try {
+    runApp(const MecaOficinaApp());
+  } catch (e, stackTrace) {
+    if (kDebugMode) {
+      print('Erro crítico ao iniciar app: $e');
+      print('Stack trace: $stackTrace');
+    }
+    // Tentar rodar app básico em caso de erro
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Erro ao inicializar app. Por favor, reinstale o aplicativo.'),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MecaOficinaApp extends StatelessWidget {

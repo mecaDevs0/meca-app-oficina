@@ -47,6 +47,9 @@ class _CoreScreenState extends State<CoreScreen> with SingleTickerProviderStateM
     if (index == 1) {
       notificationProvider.markAgendaBadgeSeen();
     }
+    if (index == 2) {
+      notificationProvider.markFinancialBadgeSeen();
+    }
     if (index == 3) {
       notificationProvider.markProfileBadgeSeen();
     }
@@ -58,14 +61,15 @@ class _CoreScreenState extends State<CoreScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOutCubic,
     );
-    if (index == 1 || index == 3) {
-      final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-      if (index == 1) {
-        notificationProvider.markAgendaBadgeSeen();
-      }
-      if (index == 3) {
-        notificationProvider.markProfileBadgeSeen();
-      }
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+    if (index == 1) {
+      notificationProvider.markAgendaBadgeSeen();
+    }
+    if (index == 2) {
+      notificationProvider.markFinancialBadgeSeen();
+    }
+    if (index == 3) {
+      notificationProvider.markProfileBadgeSeen();
     }
   }
 

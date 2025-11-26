@@ -100,8 +100,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               const SizedBox(height: 6),
               Text(
                 title,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: isSelected ? Colors.white : textColor,
                 ),
@@ -648,19 +650,31 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   }
 
   String _getStatusText(String? status) {
-    switch (status) {
+    final normalized = (status ?? '').toLowerCase();
+    switch (normalized) {
       case 'pendente_oficina':
+      case 'pending':
+      case 'pendente':
         return 'Pendente';
       case 'confirmado':
+      case 'confirmed':
         return 'Confirmado';
+      case 'in_progress':
+      case 'em_andamento':
+      case 'em andamento':
+      case 'started':
+        return 'Em Andamento';
       case 'concluido':
+      case 'concluído':
+      case 'completed':
         return 'Concluído';
       case 'cancelado':
+      case 'cancelled':
         return 'Cancelado';
       case 'recusado':
         return 'Recusado';
       default:
-        return 'Desconhecido';
+        return status ?? 'Desconhecido';
     }
   }
 

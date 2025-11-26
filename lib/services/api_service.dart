@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import 'image_service.dart';
 
 class ApiService {
   // API configurada no AppConfig (EC2 AWS) - DADOS REAIS
@@ -315,57 +317,6 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> loginWithGoogle({
-    required String idToken,
-    String? email,
-    String? name,
-  }) async {
-    try {
-      final response = await _dio.post('/auth/workshop/social/google', data: {
-        'idToken': idToken,
-        'emailOverride': email,
-        'name': name,
-      });
-
-      return await _handleAuthResponse(
-        response,
-        fallbackError: 'Erro ao autenticar com o Google',
-      );
-    } on DioException catch (e) {
-      final message = _extractErrorMessage(
-        e.response?.data,
-        'Erro ao autenticar com o Google',
-      );
-      return {'success': false, 'error': message};
-    } catch (e) {
-      return {'success': false, 'error': 'Erro ao autenticar com o Google'};
-    }
-  }
-
-  Future<Map<String, dynamic>> loginWithApple({
-    required String identityToken,
-    String? email,
-  }) async {
-    try {
-      final response = await _dio.post('/auth/workshop/social/apple', data: {
-        'identityToken': identityToken,
-        'emailOverride': email,
-      });
-
-      return await _handleAuthResponse(
-        response,
-        fallbackError: 'Erro ao autenticar com a Apple',
-      );
-    } on DioException catch (e) {
-      final message = _extractErrorMessage(
-        e.response?.data,
-        'Erro ao autenticar com a Apple',
-      );
-      return {'success': false, 'error': message};
-    } catch (e) {
-      return {'success': false, 'error': 'Erro ao autenticar com a Apple'};
-    }
-  }
 
   Future<Map<String, dynamic>> logout() async {
     try {
@@ -498,9 +449,44 @@ class ApiService {
       
       List<dynamic> bookings = response.data['data'] ?? response.data ?? [];
       
-      // Filtrar por status se fornecido
+      // Filtrar por status se fornecido (mapeando sinônimos)
       if (status != null) {
-        bookings = bookings.where((b) => b['status'] == status).toList();
+        final target = status.toString().toLowerCase().trim();
+        bookings = bookings.where((b) {
+          final s = (b['status'] ?? '').toString().toLowerCase().trim();
+          
+          if (target == 'pendente_oficina' || target == 'pending') {
+            return s == 'pending' ||
+                s == 'pendente' ||
+                s == 'pendente_oficina' ||
+                s == 'pending_oficina';
+          }
+          
+          if (target == 'confirmado' || target == 'confirmed') {
+            return s == 'confirmed' ||
+                s == 'confirmado' ||
+                s == 'started' ||
+                s == 'in_progress' ||
+                s == 'em_andamento';
+          }
+          
+          if (target == 'concluido' || target == 'completed') {
+            return s == 'completed' ||
+                s == 'finished' ||
+                s == 'concluido' ||
+                s == 'concluído' ||
+                s == 'finalizado_aguardando_pagamento' ||
+                s == 'pago' ||
+                s == 'paid' ||
+                s == 'approved';
+          }
+          
+          if (target == 'pendente_cliente' || target == 'pending_client') {
+            return s == 'pendente_cliente';
+          }
+          
+          return s == target;
+        }).toList();
       }
       
       final normalized = bookings
@@ -1046,9 +1032,18 @@ class ApiService {
       
       // Calcular métricas reais
       final totalBookings = bookings.length;
-      final pendingBookings = bookings.where((b) => b['status'] == 'pendente_oficina' || b['status'] == 'pending').length;
-      final confirmedBookings = bookings.where((b) => b['status'] == 'confirmed' || b['status'] == 'in_progress').length;
-      final completedBookings = bookings.where((b) => b['status'] == 'completed' || b['status'] == 'finished').length;
+      final pendingBookings = bookings.where((b) {
+        final s = (b['status'] ?? '').toString().toLowerCase();
+        return s == 'pending' || s == 'pendente' || s == 'pendente_oficina' || s == 'pending_oficina';
+      }).length;
+      final confirmedBookings = bookings.where((b) {
+        final s = (b['status'] ?? '').toString().toLowerCase();
+        return s == 'confirmed' || s == 'confirmado' || s == 'started' || s == 'in_progress' || s == 'em_andamento';
+      }).length;
+      final completedBookings = bookings.where((b) {
+        final s = (b['status'] ?? '').toString().toLowerCase();
+        return s == 'completed' || s == 'finished' || s == 'concluido' || s == 'concluído';
+      }).length;
       
       // Calcular receita mensal (dos bookings completados)
       final now = DateTime.now();
@@ -1262,7 +1257,8 @@ class ApiService {
   // LOGO/FACADE - DADOS REAIS DA API EC2 AWS
   // ============================================
 
-  Future<Map<String, dynamic>> uploadLogo(String filePath) async {
+  // Remover logo da oficina
+  Future<Map<String, dynamic>> removeLogo() async {
     try {
       await loadToken();
       final workshopId = await getWorkshopId();
@@ -1270,13 +1266,73 @@ class ApiService {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
       
-      // Usar endpoint real: /workshop/:id/logo
-      final formData = FormData.fromMap({
-        'logo': await MultipartFile.fromFile(filePath),
-      });
-      
-      final response = await _dio.post('/workshop/$workshopId/logo', data: formData);
+      // Usar endpoint DELETE: /workshop/:id/logo
+      final response = await _dio.delete('/workshop/$workshopId/logo');
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      final errorMessage = e.toString();
+      if (errorMessage.contains('403')) {
+        return {'success': false, 'error': 'Você não tem permissão para remover esta logo'};
+      } else if (errorMessage.contains('404')) {
+        return {'success': false, 'error': 'Oficina não encontrada'};
+      }
+      return {'success': false, 'error': errorMessage};
+    }
+  }
+
+  // Upload de logo usando base64 (NOVO - preferido)
+  Future<Map<String, dynamic>> uploadLogo(String base64DataUrl) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+      
+      // Validar formato base64
+      if (!base64DataUrl.startsWith('data:image/')) {
+        return {'success': false, 'error': 'Formato inválido. Use data:image/jpeg;base64,... ou data:image/png;base64,...'};
+      }
+      
+      // Usar endpoint novo: /workshop/:id/logo com base64
+      final response = await _dio.post(
+        '/workshop/$workshopId/logo',
+        data: {'logo_base64': base64DataUrl},
+      );
+      
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      final errorMessage = e.toString();
+      // Extrair mensagem de erro mais amigável
+      if (errorMessage.contains('400')) {
+        return {'success': false, 'error': 'Formato de imagem inválido. Use JPG ou PNG'};
+      } else if (errorMessage.contains('403')) {
+        return {'success': false, 'error': 'Você não tem permissão para atualizar esta oficina'};
+      } else if (errorMessage.contains('413') || errorMessage.contains('muito grande')) {
+        return {'success': false, 'error': 'Imagem muito grande. Tamanho máximo: 5MB'};
+      }
+      return {'success': false, 'error': errorMessage};
+    }
+  }
+  
+  // Upload de logo usando file path (LEGADO - mantido para compatibilidade)
+  Future<Map<String, dynamic>> uploadLogoFromFile(String filePath) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+      
+      // Converter para base64 primeiro
+      final file = XFile(filePath);
+      final base64String = await ImageService.fileToBase64(file);
+      if (base64String == null) {
+        return {'success': false, 'error': 'Erro ao converter imagem para base64'};
+      }
+      
+      // Usar método base64
+      return await uploadLogo(base64String);
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1413,6 +1469,93 @@ class ApiService {
     }
   }
 
+  // GET /workshop/:id/pagbank/account-status - Verificar status da conta PagBank
+  Future<Map<String, dynamic>> getPagBankAccountStatus() async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final response = await _dio.get('/workshop/$workshopId/pagbank/account-status');
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao verificar status da conta PagBank';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // POST /workshop/:id/pagbank/create-account - Criar conta PagBank
+  Future<Map<String, dynamic>> createPagBankAccount(Map<String, dynamic> registrationData) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final response = await _dio.post(
+        '/workshop/$workshopId/pagbank/create-account',
+        data: registrationData,
+      );
+      return {'success': true, 'data': response.data['data'] ?? response.data, 'message': response.data['message']};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao criar conta PagBank';
+      return {'success': false, 'error': errorMessage, 'needs_authorization': errorData is Map && errorData['needs_authorization'] == true};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // PUT /workshop/:id/pagbank/confirm-approval - Confirmar aprovação da conta
+  Future<Map<String, dynamic>> confirmPagBankApproval() async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final response = await _dio.put('/workshop/$workshopId/pagbank/confirm-approval');
+      return {'success': true, 'data': response.data['data'] ?? response.data, 'message': response.data['message']};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao confirmar aprovação';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // GET CEP data (usando API externa viacep.com.br)
+  Future<Map<String, dynamic>> getCepData(String cep) async {
+    try {
+      final cleanCep = cep.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanCep.length != 8) {
+        return {'success': false, 'error': 'CEP inválido'};
+      }
+
+      final response = await _dio.get('https://viacep.com.br/ws/$cleanCep/json/');
+      if (response.data['erro'] == true) {
+        return {'success': false, 'error': 'CEP não encontrado'};
+      }
+      return {'success': true, 'data': response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> startPagBankConnect({
     String? redirectUri,
     String? scope,
@@ -1501,14 +1644,19 @@ class ApiService {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
       
-      // Usar endpoint real: /workshop/:id/logo ou similar
+      // Se for logo, usar endpoint específico de logo com base64
+      if (imageType == 'logo') {
+        return await uploadLogo(imageData);
+      }
+      
+      // Para outros tipos, usar endpoint genérico (se existir)
       final formData = FormData.fromMap({
         'image': imageData,
         if (imageType != null) 'type': imageType,
         if (serviceId != null) 'service_id': serviceId,
       });
       
-      final response = await _dio.post('/workshop/$workshopId/logo', data: formData);
+      final response = await _dio.post('/workshop/$workshopId/images', data: formData);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};

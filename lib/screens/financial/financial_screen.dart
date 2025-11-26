@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
+import '../../providers/notification_provider.dart';
 
 class FinancialScreen extends StatefulWidget {
   const FinancialScreen({Key? key}) : super(key: key);
@@ -24,6 +25,12 @@ class _FinancialScreenState extends State<FinancialScreen> {
   void initState() {
     super.initState();
     _loadFinancialData();
+    // Marcar badge financeiro como visto ao abrir a tela
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = Provider.of<NotificationProvider>(context, listen: false);
+      provider.markFinancialBadgeSeen();
+    });
   }
 
   void _safeSetState(VoidCallback fn) {
@@ -202,8 +209,6 @@ class _FinancialScreenState extends State<FinancialScreen> {
         'icon': Icons.account_balance,
         'color': const Color(0xFFF59E0B),
         'subtitle': 'Custos de processamento',
-        'trailingLabel': 'Pendências',
-        'trailingValue': totals['pending_gross'],
       },
     ];
 
@@ -268,8 +273,6 @@ class _FinancialScreenState extends State<FinancialScreen> {
                 textColor: textColor,
                 secondaryTextColor: secondaryTextColor,
                 subtitle: summaryItems[3]['subtitle'] as String,
-                trailingLabel: 'Pendências',
-                trailingValue: summaryItems[3]['trailingValue'],
               ),
             ),
           ],

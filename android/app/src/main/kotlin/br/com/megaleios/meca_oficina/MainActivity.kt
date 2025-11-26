@@ -1,4 +1,4 @@
-package com.example.meca_app_oficina
+package br.com.megaleios.meca_oficina
 
 import io.flutter.embedding.android.FlutterActivity
 

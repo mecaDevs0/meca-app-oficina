@@ -51,8 +51,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final pendingBookings = _bookings.where((b) => b['status'] == 'pending').toList();
-    final confirmedBookings = _bookings.where((b) => b['status'] == 'confirmed' || b['status'] == 'in_progress').toList();
+    final pendingBookings = _bookings.where((b) {
+      final s = (b['status'] ?? '').toString().toLowerCase();
+      return s == 'pending' || s == 'pendente' || s == 'pendente_oficina' || s == 'pending_oficina';
+    }).toList();
+    final confirmedBookings = _bookings.where((b) {
+      final s = (b['status'] ?? '').toString().toLowerCase();
+      return s == 'confirmed' || s == 'confirmado' || s == 'started' || s == 'in_progress' || s == 'em_andamento';
+    }).toList();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
