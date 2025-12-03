@@ -9,6 +9,10 @@ import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/form_styles.dart';
+import '../../utils/cnpj_formatter.dart';
+import '../../utils/phone_formatter.dart';
+import '../../utils/email_formatter.dart';
+import '../../utils/cep_formatter.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -444,8 +448,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(14),
+                              CnpjFormatter(),
+                              LengthLimitingTextInputFormatter(18),
                             ],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';
@@ -487,8 +491,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(11),
+                              PhoneInputFormatter(),
                             ],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';
@@ -510,6 +513,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
                             ),
                             keyboardType: TextInputType.emailAddress,
+                            inputFormatters: [EmailFormatter()],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';
                               if (!value!.contains('@')) return 'Email inválido';
@@ -544,8 +548,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(8),
+                              CepFormatter(),
+                              LengthLimitingTextInputFormatter(9),
                             ],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';

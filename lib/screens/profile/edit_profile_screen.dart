@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/form_styles.dart';
+import '../../utils/phone_formatter.dart';
 import '../../core/app_colors.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -41,8 +42,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (response['success'] == true) {
         final data = response['data'] as Map<String, dynamic>? ?? {};
         _nameController.text = data['name']?.toString() ?? '';
-        _emailController.text = data['email']?.toString() ?? '';
-        _phoneController.text = data['phone']?.toString() ?? '';
+        // Formatar email ao carregar
+        final emailValue = data['email']?.toString() ?? '';
+        _emailController.text = emailValue.trim().toLowerCase();
+        // Formatar telefone ao carregar
+        final phoneValue = data['phone']?.toString() ?? '';
+        if (phoneValue.isNotEmpty) {
+          final phoneDigits = phoneValue.replaceAll(RegExp(r'\D'), '');
+          if (phoneDigits.isNotEmpty) {
+            _phoneController.text = PhoneInputFormatter().formatEditUpdate(
+              const TextEditingValue(),
+              TextEditingValue(text: phoneDigits),
+            ).text;
+          } else {
+            _phoneController.text = phoneValue;
+          }
+        }
         _logoUrl = data['logo_url'] ?? data['logo'];
       }
     } catch (_) {

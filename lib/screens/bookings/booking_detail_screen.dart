@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../bookings/evidence_upload_screen.dart';
+import '../bookings/build_quote_screen.dart';
 
 class BookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -332,182 +333,240 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   Future<void> _showFinishServiceDialog(Map<String, dynamic> booking) async {
-    final priceController = TextEditingController();
-    final notesController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    // Buscar items existentes do orçamento (se houver)
+    final existingItems = booking['quote_items'] as List<dynamic>?;
+    final existingDiagnostic = booking['diagnostic_value'] as int?;
     
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Finalizar Serviço'),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Informe o valor final do serviço e observações (opcional):'),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Valor Final (R\$)',
-                    prefixText: 'R\$ ',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Informe o valor final';
-                    }
-                    final price = double.tryParse(value.replaceAll(',', '.'));
-                    if (price == null || price <= 0) {
-                      return 'Valor inválido';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: notesController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Observações (opcional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    // Navegar para tela de montar orçamento final
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BuildQuoteScreen(
+          bookingId: booking['id'] ?? '',
+          existingItems: existingItems?.map((item) => {
+            'description': item['description'] ?? '',
+            'quantity': item['quantity'] ?? 1,
+            'unit_price': item['unit_price'] ?? 0,
+          }).toList(),
+          existingDiagnosticValue: existingDiagnostic,
+          isEditMode: false,
+          isFinishMode: true, // Modo de finalização
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(context).pop(true);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C977),
-            ),
-            child: const Text('Finalizar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
     
-    if (result != true) return;
-    
-    final price = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0;
-    if (price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Valor inválido'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    
-    final priceCents = (price * 100).round();
-    final notes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
-    
-    try {
-      final bookingId = booking['id']?.toString() ?? '';
-      if (bookingId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro: ID do agendamento não encontrado.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
-      final result = await _apiService.finishService(
-        bookingId,
-        finalPriceCents: priceCents,
-        notes: notes,
-      );
-      
-      if (!mounted) return;
-      
-      if (result['success'] == true) {
-        await _loadBookingDetails();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Serviço finalizado com sucesso! O cliente receberá uma notificação para aprovar o orçamento.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error']?.toString() ?? 'Erro ao finalizar serviço.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (result == true) {
+      // A BuildQuoteScreen já chamou finishService, apenas recarregar detalhes
+      await _loadBookingDetails();
     }
   }
 
   Future<void> _showRejectDialog(Map<String, dynamic> booking) async {
-    final reasonController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode ? const Color(0xFF2A2A2A) : Colors.white;
+    final borderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[300]!;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final secondaryTextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     
-    final result = await showDialog<bool>(
+    final reasonController = TextEditingController();
+    
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recusar Agendamento'),
-        content: Form(
-          key: formKey,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: borderColor.withOpacity(0.3), width: 1),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Informe o motivo da recusa (opcional):'),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: reasonController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Motivo',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('Recusar', style: TextStyle(color: Colors.white)),
+                  // Header com ícone
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.cancel_outlined,
+                          color: Color(0xFFEF4444),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Recusar Agendamento',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'O cliente será notificado sobre a recusa',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: secondaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: secondaryTextColor),
+                        onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
+                  const SizedBox(height: 24),
+                  
+                  // Card informativo
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: const Color(0xFFEF4444),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Ao recusar, o agendamento será cancelado e o cliente receberá uma notificação.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textColor,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Campo de motivo
+                  Text(
+                    'Motivo da Recusa',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 4,
+                    style: TextStyle(color: textColor),
+                    cursorColor: const Color(0xFF00C977),
+                    decoration: InputDecoration(
+                      hintText: 'Ex: Horário não disponível, falta de peças, agenda lotada...',
+                      hintStyle: TextStyle(color: secondaryTextColor),
+                      filled: true,
+                      fillColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF00C977), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Botões
+                  Row(
+              children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: BorderSide(color: borderColor),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+            onPressed: () {
+                            Navigator.pop(context, reasonController.text.trim().isEmpty ? 'Sem motivo informado' : reasonController.text.trim());
+            },
+            style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Confirmar Recusa',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
     
-    if (result != true) return;
-    
+    if (result != null) {
     try {
       final bookingId = booking['id']?.toString() ?? '';
       if (bookingId.isEmpty) {
@@ -520,14 +579,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         return;
       }
       
-      final result = await _apiService.rejectBooking(
+        final apiResult = await _apiService.rejectBooking(
         bookingId,
-        reasonController.text.trim().isEmpty ? 'Sem motivo informado' : reasonController.text.trim(),
+          result,
       );
       
       if (!mounted) return;
       
-      if (result['success'] == true) {
+        if (apiResult['success'] == true) {
         await _loadBookingDetails();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -539,7 +598,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['error']?.toString() ?? 'Erro ao recusar agendamento.'),
+              content: Text(apiResult['error']?.toString() ?? 'Erro ao recusar agendamento.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -552,258 +611,631 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           backgroundColor: Colors.red,
         ),
       );
+      }
     }
   }
 
   Future<void> _showSuggestTimeDialog(Map<String, dynamic> booking) async {
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-    final reasonController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sugerir Outro Horário'),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Selecione uma nova data e horário:'),
-                const SizedBox(height: 16),
-                Builder(
-                  builder: (context) => ListTile(
-                    title: const Text('Data'),
-                    subtitle: Text(selectedDate == null ? 'Selecione uma data' : DateFormat('dd/MM/yyyy').format(selectedDate!)),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now().add(const Duration(days: 1)),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (date != null) {
-                        selectedDate = date;
-                        Navigator.of(context).pop();
-                        _showSuggestTimeDialog(booking);
-                      }
-                    },
-                  ),
-                ),
-                ListTile(
-                  title: const Text('Horário'),
-                  subtitle: Text(selectedTime == null ? 'Selecione um horário' : selectedTime!.format(context)),
-                  trailing: const Icon(Icons.access_time),
-                  onTap: () async {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
-                    if (time != null) {
-                      selectedTime = time;
-                      Navigator.of(context).pop();
-                      _showSuggestTimeDialog(booking);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: reasonController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Observação (opcional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (selectedDate == null || selectedTime == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Selecione data e horário'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                return;
-              }
-              Navigator.of(context).pop(true);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Sugerir', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    
-    if (result != true || selectedDate == null || selectedTime == null) return;
-    
-    final suggestedDateTime = DateTime(
-      selectedDate!.year,
-      selectedDate!.month,
-      selectedDate!.day,
-      selectedTime!.hour,
-      selectedTime!.minute,
-    );
-    
-    try {
-      final bookingId = booking['id']?.toString() ?? '';
-      if (bookingId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro: ID do agendamento não encontrado.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
-      final result = await _apiService.suggestNewTime(
-        bookingId,
-        suggestedDateTime.toIso8601String(),
-        reasonController.text.trim().isEmpty ? 'Horário sugerido pela oficina' : reasonController.text.trim(),
-      );
-      
-      if (!mounted) return;
-      
-      if (result['success'] == true) {
-        await _loadBookingDetails();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Nova sugestão de horário enviada com sucesso! O cliente foi notificado.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error']?.toString() ?? 'Erro ao sugerir novo horário.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDarkMode ? const Color(0xFF2A2A2A) : Colors.white;
+    final borderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[300]!;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final secondaryTextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
-  Future<void> _showSendQuoteDialog(Map<String, dynamic> booking) async {
-    final priceController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enviar Orçamento'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Informe o valor do orçamento que será enviado ao cliente:'),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Valor (R\$)',
-                  prefixText: 'R\$ ',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Informe o valor';
-                  }
-                  final price = double.tryParse(value.replaceAll(',', '.'));
-                  if (price == null || price <= 0) {
-                    return 'Valor inválido';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.of(context).pop(true);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Enviar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    
-    if (result != true) return;
-    
-    final price = double.tryParse(priceController.text.replaceAll(',', '.')) ?? 0;
-    if (price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Valor inválido'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-    
-    final priceCents = (price * 100).round();
-    
+    // Obter data e hora do agendamento original do cliente
+    DateTime? originalDate;
     try {
-      final result = await _apiService.sendQuote(booking['id'] ?? '', finalPriceCents: priceCents);
-      
-      if (!mounted) return;
-      
-      if (result['success'] == true) {
-        await _loadBookingDetails();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Orçamento enviado com sucesso! O cliente receberá uma notificação.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Erro ao enviar orçamento'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      final appointmentDateStr = booking['appointment_date']?.toString() ?? 
+                                  booking['scheduled_date']?.toString() ?? 
+                                  booking['date']?.toString();
+      if (appointmentDateStr != null && appointmentDateStr.isNotEmpty) {
+        originalDate = DateTime.parse(appointmentDateStr);
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Se não conseguir parsear, usar data atual + 1 dia
+      originalDate = DateTime.now().add(const Duration(days: 1));
+    }
+    
+    if (originalDate == null) {
+      originalDate = DateTime.now().add(const Duration(days: 1));
+    }
+
+    DateTime? selectedDate = originalDate;
+    TimeOfDay? selectedTime = TimeOfDay.fromDateTime(originalDate);
+    final reasonController = TextEditingController();
+    final dateController = TextEditingController(
+      text: '${originalDate.day.toString().padLeft(2, '0')}/${originalDate.month.toString().padLeft(2, '0')}/${originalDate.year}',
+    );
+    final timeController = TextEditingController(
+      text: '${originalDate.hour.toString().padLeft(2, '0')}:${originalDate.minute.toString().padLeft(2, '0')}',
+    );
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: borderColor.withOpacity(0.3), width: 1),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 24,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header com ícone
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.schedule,
+                              color: Color(0xFFF59E0B),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Sugerir Novo Horário',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'O cliente receberá uma notificação para analisar sua sugestão',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: secondaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: secondaryTextColor),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Card informativo
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: const Color(0xFFF59E0B),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Os campos abaixo já estão preenchidos com o horário solicitado pelo cliente. Você pode editá-los conforme necessário.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: textColor,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Campo de data editável
+                      Text(
+                        'Data',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: dateController,
+                        readOnly: false,
+                        enabled: true,
+                        keyboardType: TextInputType.datetime,
+                        style: TextStyle(color: textColor),
+                        cursorColor: const Color(0xFF00C977),
+                        decoration: InputDecoration(
+                          labelText: 'Data (DD/MM/AAAA)',
+                          labelStyle: TextStyle(color: secondaryTextColor),
+                          hintText: 'Ex: 25/12/2024',
+                          hintStyle: TextStyle(color: secondaryTextColor),
+                          prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFF00C977)),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.calendar_month, color: Color(0xFF00C977)),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.dark(
+                                        primary: const Color(0xFF00C977),
+                                        onPrimary: Colors.white,
+                                        surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                                        onSurface: isDarkMode ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  selectedDate = picked;
+                                  dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                                });
+                              }
+                            },
+                          ),
+                          filled: true,
+                          fillColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF00C977), width: 2),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          // Tentar parsear a data digitada manualmente
+                          final parts = value.split('/');
+                          if (parts.length == 3) {
+                            try {
+                              final day = int.parse(parts[0]);
+                              final month = int.parse(parts[1]);
+                              final year = int.parse(parts[2]);
+                              final parsedDate = DateTime(year, month, day);
+                              if (parsedDate.isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
+                                setState(() => selectedDate = parsedDate);
+                              }
+                            } catch (e) {
+                              // Ignorar erros de parsing
+                            }
+                          }
+                        },
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: const Color(0xFF00C977),
+                                    onPrimary: Colors.white,
+                                    surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                                    onSurface: isDarkMode ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              selectedDate = picked;
+                              dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Campo de horário editável
+                      Text(
+                        'Horário',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: timeController,
+                        readOnly: false,
+                        enabled: true,
+                        keyboardType: TextInputType.datetime,
+                        style: TextStyle(color: textColor),
+                        cursorColor: const Color(0xFF00C977),
+                        decoration: InputDecoration(
+                          labelText: 'Horário (HH:MM)',
+                          labelStyle: TextStyle(color: secondaryTextColor),
+                          hintText: 'Ex: 14:30',
+                          hintStyle: TextStyle(color: secondaryTextColor),
+                          prefixIcon: const Icon(Icons.access_time, color: Color(0xFF00C977)),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.schedule, color: Color(0xFF00C977)),
+                            onPressed: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: selectedTime ?? TimeOfDay.now(),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.dark(
+                                        primary: const Color(0xFF00C977),
+                                        onPrimary: Colors.white,
+                                        surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                                        onSurface: isDarkMode ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  selectedTime = picked;
+                                  timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                                });
+                              }
+                            },
+                          ),
+                          filled: true,
+                          fillColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF00C977), width: 2),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          // Tentar parsear o horário digitado manualmente
+                          final parts = value.split(':');
+                          if (parts.length == 2) {
+                            try {
+                              final hour = int.parse(parts[0]);
+                              final minute = int.parse(parts[1]);
+                              if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+                                setState(() => selectedTime = TimeOfDay(hour: hour, minute: minute));
+                              }
+                            } catch (e) {
+                              // Ignorar erros de parsing
+                            }
+                          }
+                        },
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: selectedTime ?? TimeOfDay.now(),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: const Color(0xFF00C977),
+                                    onPrimary: Colors.white,
+                                    surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                                    onSurface: isDarkMode ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              selectedTime = picked;
+                              timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Campo de motivo
+                      Text(
+                        'Motivo (opcional)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        style: TextStyle(color: textColor),
+                        cursorColor: const Color(0xFF00C977),
+                        decoration: InputDecoration(
+                          hintText: 'Ex: Horário não disponível, melhor opção...',
+                          hintStyle: TextStyle(color: secondaryTextColor),
+                          filled: true,
+                          fillColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF00C977), width: 2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      
+                      // Botões
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide(color: borderColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancelar',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: (selectedDate != null && selectedTime != null)
+                                  ? () {
+                                      final combined = DateTime(
+                                        selectedDate!.year,
+                                        selectedDate!.month,
+                                        selectedDate!.day,
+                                        selectedTime!.hour,
+                                        selectedTime!.minute,
+                                      ).toIso8601String();
+                                      Navigator.pop(context, {
+                                        'date': combined,
+                                        'reason': reasonController.text.trim(),
+                                      });
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF59E0B),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Enviar Sugestão',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Dispose dos controllers apenas após o modal fechar completamente
+    try {
+      if (result != null && result['date'] != null) {
+        try {
+          final bookingId = booking['id']?.toString() ?? '';
+          if (bookingId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Erro: ID do agendamento não encontrado.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+          
+          final apiResult = await _apiService.suggestNewTime(
+            bookingId,
+            result['date'] as String,
+            (result['reason'] as String?) ?? '',
+          );
+
+          if (!mounted) return;
+
+          if (apiResult['success']) {
+            // Mostrar modal informativo
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFFF59E0B),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Sugestão Enviada!',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sua sugestão de horário foi enviada para o cliente com sucesso.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: const Color(0xFFF59E0B),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'O cliente recebeu uma notificação e vai analisar sua sugestão. Você será avisado quando ele autorizar ou negar.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _loadBookingDetails();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Entendi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(apiResult['error']?.toString() ?? 'Erro ao sugerir novo horário.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } finally {
+      // Dispose dos controllers apenas após processar o resultado
+      reasonController.dispose();
+      dateController.dispose();
+      timeController.dispose();
     }
   }
 
@@ -825,25 +1257,25 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       borderColor = Colors.orange.shade200;
       iconColor = Colors.orange.shade700;
     } else if (statusFinal == 'confirmado' || statusFinal == 'confirmed') {
-      title = 'Agendamento Confirmado';
-      description = 'Você confirmou este agendamento. Agora você pode enviar um orçamento inicial ou iniciar o serviço diretamente.';
-      nextStep = 'Escolha uma opção abaixo: enviar orçamento ou iniciar serviço.';
+      title = 'Agendamento Confirmado ✓';
+      description = 'Ótimo! Você aprovou este agendamento. O próximo passo é enviar um orçamento para o cliente.';
+      nextStep = '📝 IMPORTANTE: Clique no botão "Enviar Orçamento" abaixo para informar o valor do serviço ao cliente. Após o cliente aprovar, você poderá iniciar o serviço.';
       icon = Icons.check_circle;
       cardColor = Colors.blue.shade50;
       borderColor = Colors.blue.shade200;
       iconColor = Colors.blue.shade700;
     } else if (statusFinal == 'pendente_cliente') {
-      title = 'Aguardando Aprovação do Cliente';
-      description = 'Você enviou um orçamento. O cliente precisa aprovar antes de prosseguir.';
-      nextStep = 'Aguarde o cliente aprovar o orçamento. Você receberá uma notificação.';
+      title = 'Aguardando Aprovação do Cliente ⏳';
+      description = 'Você enviou o orçamento! Agora é a vez do cliente analisar e aprovar o valor.';
+      nextStep = '⏰ Aguarde a aprovação do cliente. Quando ele aprovar, você receberá uma notificação e poderá iniciar o serviço.';
       icon = Icons.hourglass_empty;
       cardColor = Colors.amber.shade50;
       borderColor = Colors.amber.shade200;
       iconColor = Colors.amber.shade800;
     } else if (statusFinal == 'in_progress' || statusFinal == 'started' || statusFinal == 'em_andamento') {
-      title = 'Serviço em Andamento';
-      description = 'Você iniciou o atendimento. O serviço está sendo realizado agora.';
-      nextStep = 'Quando finalizar, clique em "Concluir Serviço" para enviar o orçamento final.';
+      title = 'Serviço em Andamento 🔧';
+      description = 'O cliente aprovou o orçamento e você iniciou o serviço. Continue realizando o trabalho.';
+      nextStep = '📸 Dica: Tire fotos do serviço durante a execução usando o botão "Enviar Provas". Quando terminar, clique em "Finalizar Serviço" para concluir.';
       icon = Icons.build_circle;
       cardColor = Colors.green.shade50;
       borderColor = Colors.green.shade200;
@@ -1084,16 +1516,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     ),
                   ],
                   
-                  // Botão de enviar orçamento (quando status é confirmado E ainda não foi enviado orçamento)
+                  // Botão de montar/enviar orçamento (quando status é confirmado E ainda não foi enviado orçamento)
                   if (isConfirmed && !hasFinalPrice)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => _showSendQuoteDialog(booking),
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                            ),
+                          );
+                          if (result == true) {
+                            await _loadBookingDetails();
+                          }
+                        },
                         icon: const Icon(Icons.send, color: Colors.white),
                         label: const Text(
-                          'Enviar Orçamento',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          '📝 Montar Orçamento',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
@@ -1158,8 +1600,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           },
                           icon: const Icon(Icons.play_arrow, color: Colors.white),
                           label: const Text(
-                            'Iniciar Serviço',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            '▶️ Iniciar Serviço',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00B4D8),
@@ -1171,27 +1613,71 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         ),
                       ),
                     ),
-                ],
-              );
-            },
+                  
+                  // Botão de editar orçamento (quando já está em_andamento)
+                  if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress')
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                onPressed: () async {
+                  // Buscar items existentes do orçamento
+                  final existingItems = booking['quote_items'] as List<dynamic>?;
+                  final existingDiagnostic = booking['diagnostic_value'] as int?;
+                  
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BuildQuoteScreen(
+                        bookingId: booking['id'] ?? '',
+                        existingItems: existingItems?.map((item) => {
+                          'description': item['description'] ?? '',
+                          'quantity': item['quantity'] ?? 1,
+                          'unit_price': item['unit_price'] ?? 0,
+                        }).toList(),
+                        existingDiagnosticValue: existingDiagnostic,
+                        isEditMode: true, // Modo de edição
+                      ),
+                    ),
+                  );
+                  
+                  if (result == true) {
+                    await _loadBookingDetails();
+                  }
+                },
+                icon: const Icon(Icons.edit, color: Colors.orange),
+                label: const Text(
+                  '✏️ Editar Orçamento',
+                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.orange, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                        ),
+                      ),
           ),
           
           // Botão de finalizar serviço (quando já está em_andamento)
           if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress')
-            SizedBox(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showFinishServiceDialog(booking),
                 icon: const Icon(Icons.check_circle, color: Colors.white),
                 label: const Text(
-                  'Finalizar Serviço',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            '✅ Finalizar Serviço',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00C977),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
+                            ),
                   ),
                 ),
               ),
@@ -1229,6 +1715,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
               ),
             ),
           ],
+                ],
+              );
+            },
+          ),
         ],
       ),
     );

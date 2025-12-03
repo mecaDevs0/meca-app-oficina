@@ -24,10 +24,10 @@ class AppConfig {
   static const String appName = 'MECA Oficina';
   
   /// Versão do app
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.6.4';
   
   /// Build number
-  static const String buildNumber = '1';
+  static const String buildNumber = '113';
   
   // ========================================
   // PAGSEGURO / PAGBANK
@@ -90,7 +90,7 @@ class AppConfig {
   // ========================================
   
   /// OneSignal App ID
-  static const String oneSignalAppId = 'YOUR_ONESIGNAL_APP_ID_HERE';
+  static const String oneSignalAppId = 'b2d9eb72-de92-4a59-ab91-30484d64f403';
   
   // ========================================
   // DEBUG

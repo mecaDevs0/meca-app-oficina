@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
@@ -20,17 +21,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _notifications = [];
   int _unreadCount = 0;
+  int _previousUnreadCount = 0;
   final ApiService _apiService = ApiService();
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final provider = Provider.of<NotificationProvider>(context, listen: false);
+      _previousUnreadCount = provider.unreadNotifications;
       provider.markProfileBadgeSeen();
     });
     _loadNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(initSettings);
   }
 
   Future<void> _loadNotifications() async {
@@ -41,6 +62,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final token = await StorageService.getToken();
       if (token == null) {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
@@ -60,12 +82,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ? data['unread_count']
                 : int.tryParse('${data['unread_count']}') ?? 0;
           });
-          final provider = Provider.of<NotificationProvider>(context, listen: false);
-          provider.setUnreadNotifications(_unreadCount, resetBadge: _unreadCount == 0);
-          
-          // Verificar se há notificações de pagamento não lidas
-          final hasUnreadPayments = provider.hasUnreadPaymentNotifications(_notifications);
-          provider.setFinancialBadge(hasUnreadPayments, resetBadge: !hasUnreadPayments);
+          if (mounted) {
+            final provider = Provider.of<NotificationProvider>(context, listen: false);
+            provider.setUnreadNotifications(_unreadCount, resetBadge: _unreadCount == 0);
+            
+            _previousUnreadCount = _unreadCount;
+            
+            // Verificar se há notificações de pagamento não lidas
+            final hasUnreadPayments = provider.hasUnreadPaymentNotifications(_notifications);
+            provider.setFinancialBadge(hasUnreadPayments, resetBadge: !hasUnreadPayments);
+          }
         }
       } else {
         if (mounted) {

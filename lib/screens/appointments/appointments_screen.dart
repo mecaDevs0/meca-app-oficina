@@ -14,7 +14,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
   late TabController _tabController;
   List<Map<String, dynamic>> _bookings = [];
   bool _loading = true;
-  String _selectedStatus = 'all';
 
   @override
   void initState() {
@@ -91,7 +90,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
               controller: _tabController,
               children: [
                 _buildBookingsList(_getBookingsByStatus('pending')),
-                _buildBookingsList(_getBookingsByStatus('confirmed')),
+                _buildConfirmedBookingsList(), // Separar confirmados atuais e antigos
                 _buildBookingsList(_getBookingsByStatus('pending_client')),
                 _buildBookingsList(_getBookingsByStatus('completed')),
               ],
@@ -369,7 +368,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       case 'pendente_cliente':
         return Colors.amber.shade700;
       case 'finalizado_aguardando_pagamento':
-      case 'finalizado_aguardando_pagamento':
         return Colors.blue.shade700;
       case 'pago':
       case 'paid':
@@ -427,6 +425,217 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     } catch (e) {
       return 'Data inválida';
     }
+  }
+
+  // Separar agendamentos confirmados em atuais e antigos
+  Widget _buildConfirmedBookingsList() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final confirmedBookings = _getBookingsByStatus('confirmed');
+    
+    // Separar por data
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    final currentBookings = <Map<String, dynamic>>[];
+    final pastBookings = <Map<String, dynamic>>[];
+    
+    for (final booking in confirmedBookings) {
+      try {
+        final appointmentDate = booking['appointment_date'];
+        if (appointmentDate != null) {
+          final date = DateTime.parse(appointmentDate);
+          final bookingDate = DateTime(date.year, date.month, date.day);
+          
+          if (bookingDate.isBefore(today)) {
+            pastBookings.add(booking);
+          } else {
+            currentBookings.add(booking);
+          }
+        } else {
+          // Se não tiver data, considerar como atual
+          currentBookings.add(booking);
+        }
+      } catch (e) {
+        // Se houver erro ao parsear data, considerar como atual
+        currentBookings.add(booking);
+      }
+    }
+    
+    return RefreshIndicator(
+      color: const Color(0xFF00C977),
+      onRefresh: _loadBookings,
+      child: CustomScrollView(
+        slivers: [
+          // Agendamentos atuais
+          if (currentBookings.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  'Agendamentos Confirmados',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildBookingCard(currentBookings[index], isDarkMode),
+                childCount: currentBookings.length,
+              ),
+            ),
+          ],
+          
+          // Separador para agendamentos antigos
+          if (pastBookings.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDarkMode
+                          ? [
+                              Colors.orange.shade900.withOpacity(0.3),
+                              Colors.orange.shade800.withOpacity(0.2),
+                            ]
+                          : [
+                              Colors.orange.shade50,
+                              Colors.orange.shade100.withOpacity(0.5),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDarkMode
+                          ? Colors.orange.shade700.withOpacity(0.3)
+                          : Colors.orange.shade200.withOpacity(0.6),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.shade200.withOpacity(isDarkMode ? 0.1 : 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                        spreadRadius: 0,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Ícone com background circular
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.orange.shade400,
+                              Colors.orange.shade600,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.shade400.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.history_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Texto
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Agendamentos Anteriores',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isDarkMode
+                                    ? Colors.orange.shade200
+                                    : Colors.orange.shade900,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Datas anteriores ao dia atual',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: isDarkMode
+                                    ? Colors.orange.shade300.withOpacity(0.8)
+                                    : Colors.orange.shade700.withOpacity(0.8),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildBookingCard(pastBookings[index], isDarkMode),
+                childCount: pastBookings.length,
+              ),
+            ),
+          ],
+          
+          // Mensagem quando não há agendamentos
+          if (currentBookings.isEmpty && pastBookings.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.event_available,
+                      size: 80,
+                      color: isDarkMode ? Colors.grey[600] : Colors.grey[300],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Nenhum agendamento confirmado encontrado',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

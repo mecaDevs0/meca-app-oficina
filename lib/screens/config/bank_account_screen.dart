@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
@@ -8,6 +9,9 @@ import '../../data/banks_data.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
+import '../../utils/cpf_formatter.dart';
+import '../../utils/cnpj_formatter.dart';
+import '../../utils/cep_formatter.dart';
 
 class BankAccountScreen extends StatefulWidget {
   const BankAccountScreen({Key? key}) : super(key: key);
@@ -407,6 +411,16 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                       label: 'CPF/CNPJ',
                       hint: 'Digite o CPF ou CNPJ do titular',
                       keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+                          if (digits.length <= 11) {
+                            return CpfFormatter().formatEditUpdate(oldValue, newValue);
+                          } else {
+                            return CnpjFormatter().formatEditUpdate(oldValue, newValue);
+                          }
+                        }),
+                      ],
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'CPF/CNPJ é obrigatório';
@@ -441,6 +455,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                       label: 'CEP',
                       hint: 'Digite o CEP',
                       keyboardType: TextInputType.number,
+                      inputFormatters: [CepFormatter(), LengthLimitingTextInputFormatter(9)],
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'CEP é obrigatório';
@@ -801,6 +816,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     Widget? suffixIcon,
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     final isDark = themeService.isDarkMode;
@@ -827,6 +843,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           validator: validator,
           readOnly: readOnly,
           textCapitalization: textCapitalization,
+          inputFormatters: inputFormatters,
           style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: hint,

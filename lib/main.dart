@@ -24,9 +24,11 @@ import 'screens/schedule/schedule_screen.dart';
 import 'screens/service/service_details_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
+import 'services/onesignal_service.dart';
+import 'services/api_service.dart';
 import 'utils/page_transitions.dart';
 
-void main() {
+void main() async {
   // Wrapper para capturar erros não tratados
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -43,6 +45,57 @@ void main() {
       print('Erro ao inicializar Flutter binding: $e');
     }
   }
+  
+  // Inicializar OneSignal de forma assíncrona
+  Future.microtask(() async {
+    try {
+      await OneSignalService.initialize();
+      
+      // Aguardar um pouco para garantir que o token está disponível
+      // Tentar salvar o token periodicamente até conseguir
+      Future.delayed(const Duration(seconds: 2), () async {
+        for (int attempt = 0; attempt < 5; attempt++) {
+          try {
+            final playerId = OneSignalService.getSubscriptionId();
+            if (playerId != null && playerId.isNotEmpty) {
+              print('[Main] Token OneSignal encontrado: ${playerId.substring(0, 20)}...');
+              // Salvar token no backend se usuário estiver logado
+              final apiService = ApiService();
+              final prefs = await apiService.getStorage();
+              final token = prefs.getString('token');
+              if (token != null) {
+                final result = await apiService.saveDeviceToken(playerId);
+                if (result['success'] == true) {
+                  print('[Main] Device token salvo com sucesso no backend');
+                  break; // Sucesso, parar tentativas
+                } else {
+                  print('[Main] Erro ao salvar device token: ${result['error']}');
+                }
+              } else {
+                print('[Main] Usuário não está logado, token não será salvo');
+                break; // Usuário não logado, não precisa continuar
+              }
+            } else {
+              print('[Main] Tentativa ${attempt + 1}/5: Token OneSignal ainda não disponível');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('[Main] Erro ao salvar device token (tentativa ${attempt + 1}): $e');
+            }
+          }
+          
+          // Aguardar antes da próxima tentativa
+          if (attempt < 4) {
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        }
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erro ao inicializar OneSignal: $e');
+      }
+    }
+  });
   
   try {
     runApp(const MecaOficinaApp());
@@ -76,9 +129,10 @@ class MecaOficinaApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => ServicesProvider()),
         ChangeNotifierProvider(create: (context) => NotificationProvider()),
       ],
-      child: Consumer<ThemeService>(
-        builder: (context, themeService, child) {
-                 return MaterialApp(
+      child: _NotificationListenerWrapper(
+        child: Consumer<ThemeService>(
+          builder: (context, themeService, child) {
+                   return MaterialApp(
                    title: 'MECA Oficina',
                    debugShowCheckedModeBanner: false,
                    theme: ThemeService.lightTheme,
@@ -135,8 +189,45 @@ class MecaOficinaApp extends StatelessWidget {
         }
       },
           );
-        },
+          },
+        ),
       ),
     );
+  }
+}
+
+// Widget wrapper para configurar o listener de notificações push
+class _NotificationListenerWrapper extends StatefulWidget {
+  final Widget child;
+
+  const _NotificationListenerWrapper({required this.child});
+
+  @override
+  State<_NotificationListenerWrapper> createState() => _NotificationListenerWrapperState();
+}
+
+class _NotificationListenerWrapperState extends State<_NotificationListenerWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Configurar callback para atualizar notificações quando chegam push
+    OneSignalService.setNotificationReceivedCallback((notification) {
+      print('[NotificationListener] Push notification recebida: ${notification.notificationId}');
+      // Atualizar contador de notificações não lidas
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final provider = Provider.of<NotificationProvider>(context, listen: false);
+          // Incrementar contador de não lidas
+          final currentCount = provider.unreadNotifications;
+          provider.setUnreadNotifications(currentCount + 1, resetBadge: false);
+          print('[NotificationListener] Contador atualizado: ${currentCount + 1}');
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }

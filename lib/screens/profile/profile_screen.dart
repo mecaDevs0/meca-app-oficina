@@ -10,6 +10,7 @@ import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
+import '../../services/onesignal_service.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -159,6 +160,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             iconTheme: IconThemeData(color: textColor),
+            leading: IconButton(
+              icon: Stack(
+                children: [
+                  Icon(Icons.notifications_outlined, color: textColor),
+                  if (showNotificationsBadge)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onPressed: () {
+                Navigator.pushNamed(context, '/notifications');
+              },
+            ),
             actions: [
               IconButton(
                 icon: Icon(Icons.edit_outlined, color: textColor),
@@ -457,9 +481,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     (_logoUrl!.startsWith('http://') || _logoUrl!.startsWith('https://'));
     final borderColor = Colors.white.withOpacity(isDark ? 0.25 : 0.45);
 
-    return Stack(
-      alignment: Alignment.center,
+    return Column(
       children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
         Container(
           width: 116,
           height: 116,
@@ -563,6 +589,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
+          ],
+        ),
+        if (!hasLogo) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _isUploadingLogo ? null : _showLogoPicker,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.camera_alt,
+                    size: 14,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Adicionar logo',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1263,20 +1327,123 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Central de Ajuda'),
-        content: const Text(
-          'Para suporte, entre em contato:\n\n'
-          'Email: suporte@meca.com\n'
-          'Telefone: (11) 99999-9999\n'
-          'Horário: 8h às 18h',
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C977),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.build,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('MECA - Suporte'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Precisa de ajuda? Entre em contato conosco:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _buildContactInfo(
+                Icons.email,
+                'Email',
+                'contato@mecabr.com',
+              ),
+              const SizedBox(height: 12),
+              _buildContactInfo(
+                Icons.access_time,
+                'Horário de Atendimento',
+                'Horário de 24hrs',
+              ),
+              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              const Text(
+                'FAQ Rápido:',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('• Como agendar um serviço?'),
+              const Text('• Como cancelar um agendamento?'),
+              const Text('• Como alterar meus dados?'),
+              const Text('• Como funciona o pagamento?'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Fechar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final emailUri = Uri(
+                scheme: 'mailto',
+                path: 'contato@mecabr.com',
+                query: 'subject=Suporte MECA - Solicitação de Ajuda',
+              );
+              if (await canLaunchUrl(emailUri)) {
+                await launchUrl(emailUri);
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Não foi possível abrir o aplicativo de email.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00C977),
+            ),
+            child: const Text('Entrar em Contato'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContactInfo(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF00C977)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1676,6 +1843,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              // Remover token OneSignal antes de fazer logout
+              try {
+                final playerId = OneSignalService.getSubscriptionId();
+                if (playerId != null) {
+                  await _apiService.removeDeviceToken(playerId);
+                  await OneSignalService.removeExternalUserId();
+                }
+              } catch (e) {
+                print('Erro ao remover device token: $e');
+              }
+              
               await _apiService.logout();
               if (mounted) {
                 Navigator.pushReplacementNamed(context, '/login');

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../services/storage_service.dart';
+import '../services/onesignal_service.dart';
+import '../services/api_service.dart';
 import '../widgets/animation_widgets.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -41,6 +44,24 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 3000));
     
     final token = await StorageService.getToken();
+    
+    // Se usuário já está logado, salvar device token
+    if (token != null) {
+      try {
+        final playerId = OneSignalService.getSubscriptionId();
+        if (playerId != null) {
+          final apiService = ApiService();
+          await apiService.saveDeviceToken(playerId);
+          if (kDebugMode) {
+            print('[Splash] Device token salvo após verificar token existente');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('[Splash] Erro ao salvar device token: $e');
+        }
+      }
+    }
     
     if (mounted) {
       if (token != null) {

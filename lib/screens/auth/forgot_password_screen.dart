@@ -140,6 +140,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildFormView() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    
     return Form(
       key: _formKey,
       child: Column(
@@ -175,14 +178,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
           TextFormField(
             controller: _emailController,
-            style: const TextStyle(color: Colors.black),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
             cursorColor: AppColors.primaryColor,
             decoration: FormStyles.decorate(
               context,
-              const InputDecoration(
+              InputDecoration(
               labelText: 'Email',
+              labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.grey[600]),
               hintText: 'seu@email.com',
-              prefixIcon: Icon(Icons.email, color: AppColors.primaryColor),
+              hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[400]),
+              prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
+              filled: true,
+              fillColor: isDark ? Colors.grey[900] : Colors.white,
               ),
             ),
             keyboardType: TextInputType.emailAddress,

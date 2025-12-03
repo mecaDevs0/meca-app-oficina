@@ -1,6 +1,6 @@
 name: meca_app_oficina
 description: MECA - App da Oficina para gestão de agendamentos
-version: 1.5.2+108
+version: 1.6.5+114
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -24,15 +24,16 @@ dependencies:
   flutter_image_compress: ^2.0.4
   cached_network_image: ^3.3.0
   onesignal_flutter: ^5.0.0
+  flutter_local_notifications: ^16.3.0
   url_launcher: ^6.2.5
   local_auth: ^2.1.7
   flutter_secure_storage: ^9.0.0
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -41,13 +42,6 @@ flutter:
     - assets/images/
     - assets/logos/
     - assets/animations/
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/logos/icone_oficina_full.png"
-  adaptive_icon_background: "#252940"
-  adaptive_icon_foreground: "assets/logos/icone_oficina_full.png"
 
 
 

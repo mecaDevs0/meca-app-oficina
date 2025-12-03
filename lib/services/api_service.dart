@@ -328,6 +328,49 @@ class ApiService {
   }
 
   // ============================================
+  // DEVICE TOKENS - PUSH NOTIFICATIONS
+  // ============================================
+
+  Future<Map<String, dynamic>> saveDeviceToken(String onesignalPlayerId, {String? platform}) async {
+    try {
+      await loadToken();
+      
+      final response = await _dio.post('/device-tokens', data: {
+        'onesignal_player_id': onesignalPlayerId,
+        'platform': platform ?? (Platform.isAndroid ? 'android' : 'ios'),
+      });
+      
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      if (e is DioException) {
+        return {'success': false, 'error': e.response?.data['error'] ?? 'Erro ao salvar token'};
+      }
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> removeDeviceToken(String onesignalPlayerId) async {
+    try {
+      await loadToken();
+      
+      final response = await _dio.delete('/device-tokens', data: {
+        'onesignal_player_id': onesignalPlayerId,
+      });
+      
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      if (e is DioException) {
+        return {'success': false, 'error': e.response?.data['error'] ?? 'Erro ao remover token'};
+      }
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<SharedPreferences> getStorage() async {
+    return await SharedPreferences.getInstance();
+  }
+
+  // ============================================
   // PROFILE - DADOS REAIS DA API EC2 AWS
   // ============================================
 
@@ -546,29 +589,53 @@ class ApiService {
   Future<Map<String, dynamic>> rejectBooking(String bookingId, String reason) async {
     try {
       await loadToken();
-      // Usar endpoint real: /bookings/:id/status
-      final response = await _dio.put('/bookings/$bookingId/status', data: {
-        'status': 'cancelled',
+      // Usar endpoint real: /bookings/:id/cancel
+      final response = await _dio.put('/bookings/$bookingId/cancel', data: {
         'reason': reason,
       });
-      return {'success': true, 'data': response.data['data'] ?? response.data};
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'data': response.data['data'] ?? response.data};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao recusar agendamento'};
+      }
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': _getErrorMessage(e)};
     }
   }
 
   Future<Map<String, dynamic>> suggestNewTime(String bookingId, String suggestedDate, String reason) async {
     try {
       await loadToken();
-      // Usar endpoint real: /bookings/:id/status com status específico
-      final response = await _dio.put('/bookings/$bookingId/status', data: {
-        'status': 'suggested_time',
+      final response = await _dio.put('/bookings/$bookingId/suggest-time', data: {
         'suggested_date': suggestedDate,
         'reason': reason,
       });
-      return {'success': true, 'data': response.data['data'] ?? response.data};
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'data': response.data['data']};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao sugerir horário'};
+      }
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelBooking(String bookingId, {String? reason}) async {
+    try {
+      await loadToken();
+      final response = await _dio.put('/bookings/$bookingId/cancel', data: {
+        if (reason != null) 'reason': reason,
+      });
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'data': response.data['data']};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao cancelar agendamento'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
     }
   }
 
@@ -596,13 +663,28 @@ class ApiService {
 
   Future<Map<String, dynamic>> sendQuote(
     String bookingId, {
-    required int finalPriceCents,
+    int? finalPriceCents, // Formato antigo (compatibilidade)
+    List<Map<String, dynamic>>? items, // Novo formato
+    int? diagnosticValueCents, // Novo formato
   }) async {
     try {
       await loadToken();
-      final payload = <String, dynamic>{
-        'finalPrice': finalPriceCents,
-      };
+      final payload = <String, dynamic>{};
+      
+      // Suporte para formato antigo e novo
+      if (items != null && items.isNotEmpty) {
+        // Novo formato: items + diagnóstico
+        payload['items'] = items;
+        if (diagnosticValueCents != null && diagnosticValueCents > 0) {
+          payload['diagnosticValue'] = diagnosticValueCents;
+        }
+      } else if (finalPriceCents != null) {
+        // Formato antigo: apenas finalPrice
+        payload['finalPrice'] = finalPriceCents;
+      } else {
+        return {'success': false, 'error': 'Informe items do orçamento ou valor final'};
+      }
+      
       final response = await _dio.put('/bookings/$bookingId/send-quote', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } on DioException catch (e) {
@@ -615,19 +697,61 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> finishService(
+  Future<Map<String, dynamic>> editQuote(
     String bookingId, {
-    required int finalPriceCents,
-    String? notes,
+    required List<Map<String, dynamic>> items,
+    int? diagnosticValueCents,
   }) async {
     try {
       await loadToken();
       final payload = <String, dynamic>{
-        'finalPrice': finalPriceCents,
+        'items': items,
       };
+      if (diagnosticValueCents != null && diagnosticValueCents > 0) {
+        payload['diagnosticValue'] = diagnosticValueCents;
+      }
+      
+      final response = await _dio.put('/bookings/$bookingId/edit-quote', data: payload);
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data?['error']?.toString() ?? 
+                          e.message ?? 
+                          'Erro ao editar orçamento';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> finishService(
+    String bookingId, {
+    int? finalPriceCents, // Formato antigo (compatibilidade)
+    List<Map<String, dynamic>>? items, // Novo formato
+    int? diagnosticValueCents, // Novo formato
+    String? notes,
+  }) async {
+    try {
+      await loadToken();
+      final payload = <String, dynamic>{};
+      
+      // Suporte para formato antigo e novo
+      if (items != null && items.isNotEmpty) {
+        // Novo formato: items + diagnóstico
+        payload['items'] = items;
+        if (diagnosticValueCents != null && diagnosticValueCents > 0) {
+          payload['diagnosticValue'] = diagnosticValueCents;
+        }
+      } else if (finalPriceCents != null) {
+        // Formato antigo: apenas finalPrice
+        payload['finalPrice'] = finalPriceCents;
+      } else {
+        return {'success': false, 'error': 'Informe items do orçamento ou valor final'};
+      }
+      
       if (notes != null && notes.trim().isNotEmpty) {
         payload['notes'] = notes.trim();
       }
+      
       final response = await _dio.put('/bookings/$bookingId/finish', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
@@ -1808,7 +1932,76 @@ class ApiService {
         return {'success': false, 'error': response.data['error'] ?? 'Erro ao alterar senha'};
       }
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': _getErrorMessage(e)};
     }
+  }
+
+  String? _extractServerMessage(dynamic responseData) {
+    if (responseData == null) return null;
+
+    if (responseData is String) {
+      return responseData;
+    }
+
+    if (responseData is List && responseData.isNotEmpty) {
+      final first = responseData.first;
+      if (first is String) {
+        return first;
+      }
+      if (first is Map) {
+        final map = Map<String, dynamic>.from(first);
+        for (final key in ['error', 'message', 'detail', 'msg']) {
+          final value = map[key];
+          if (value is String && value.trim().isNotEmpty) {
+            return value;
+          }
+        }
+      }
+    }
+
+    if (responseData is Map) {
+      final map = Map<String, dynamic>.from(responseData);
+      for (final key in ['error', 'message', 'detail', 'msg']) {
+        final value = map[key];
+        if (value is String && value.trim().isNotEmpty) {
+          return value;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String _getErrorMessage(dynamic error) {
+    if (error is DioException) {
+      final serverMessage = _extractServerMessage(error.response?.data);
+      if (serverMessage != null && serverMessage.trim().isNotEmpty) {
+        return serverMessage.trim();
+      }
+
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Timeout de conexão. Verifique sua internet.';
+        case DioExceptionType.badResponse:
+          final statusCode = error.response?.statusCode;
+          if (statusCode == 401) {
+            return 'Sua sessão expirou. Entre novamente para continuar.';
+          } else if (statusCode == 404) {
+            return 'Não encontramos essas informações. Atualize a tela e tente novamente.';
+          } else if (statusCode == 500) {
+            return 'Estamos passando por uma instabilidade. Tente novamente em instantes.';
+          }
+          return 'Ocorreu um erro (${statusCode ?? 'indefinido'}). Tente novamente em instantes.';
+        case DioExceptionType.cancel:
+          return 'Requisição cancelada.';
+        case DioExceptionType.connectionError:
+          return 'Erro de conexão. Verifique sua internet.';
+        default:
+          return 'Erro de rede: ${error.message}';
+      }
+    }
+    return 'Erro inesperado: ${error.toString()}';
   }
 }

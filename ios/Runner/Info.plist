@@ -69,6 +69,10 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
 	
+	<!-- Push Notifications -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Este app precisa enviar notificações sobre novos agendamentos e atualizações.</string>
+	
 	<!-- Google Maps API Key -->
 	<key>GMSApiKey</key>
 	<string>AIzaSyBvOkBwJhXmQ2nE8fG9iL3pR7sT1uV4wX6</string>

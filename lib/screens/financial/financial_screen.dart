@@ -214,68 +214,74 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildFinancialCard(
-                title: summaryItems[0]['title'] as String,
-                amount: summaryItems[0]['value'],
-                icon: summaryItems[0]['icon'] as IconData,
-                color: summaryItems[0]['color'] as Color,
-                cardColor: cardColor,
-                borderColor: borderColor,
-                textColor: textColor,
-                secondaryTextColor: secondaryTextColor,
-                subtitle: summaryItems[0]['subtitle'] as String,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildFinancialCard(
+                  title: summaryItems[0]['title'] as String,
+                  amount: summaryItems[0]['value'],
+                  icon: summaryItems[0]['icon'] as IconData,
+                  color: summaryItems[0]['color'] as Color,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textColor: textColor,
+                  secondaryTextColor: secondaryTextColor,
+                  subtitle: summaryItems[0]['subtitle'] as String,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildFinancialCard(
-                title: summaryItems[1]['title'] as String,
-                amount: summaryItems[1]['value'],
-                icon: summaryItems[1]['icon'] as IconData,
-                color: summaryItems[1]['color'] as Color,
-                cardColor: cardColor,
-                borderColor: borderColor,
-                textColor: textColor,
-                secondaryTextColor: secondaryTextColor,
-                subtitle: summaryItems[1]['subtitle'] as String,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildFinancialCard(
+                  title: summaryItems[1]['title'] as String,
+                  amount: summaryItems[1]['value'],
+                  icon: summaryItems[1]['icon'] as IconData,
+                  color: summaryItems[1]['color'] as Color,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textColor: textColor,
+                  secondaryTextColor: secondaryTextColor,
+                  subtitle: summaryItems[1]['subtitle'] as String,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFinancialCard(
-                title: summaryItems[2]['title'] as String,
-                amount: summaryItems[2]['value'],
-                icon: summaryItems[2]['icon'] as IconData,
-                color: summaryItems[2]['color'] as Color,
-                cardColor: cardColor,
-                borderColor: borderColor,
-                textColor: textColor,
-                secondaryTextColor: secondaryTextColor,
-                subtitle: summaryItems[2]['subtitle'] as String,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildFinancialCard(
+                  title: summaryItems[2]['title'] as String,
+                  amount: summaryItems[2]['value'],
+                  icon: summaryItems[2]['icon'] as IconData,
+                  color: summaryItems[2]['color'] as Color,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textColor: textColor,
+                  secondaryTextColor: secondaryTextColor,
+                  subtitle: summaryItems[2]['subtitle'] as String,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildFinancialCard(
-                title: summaryItems[3]['title'] as String,
-                amount: summaryItems[3]['value'],
-                icon: summaryItems[3]['icon'] as IconData,
-                color: summaryItems[3]['color'] as Color,
-                cardColor: cardColor,
-                borderColor: borderColor,
-                textColor: textColor,
-                secondaryTextColor: secondaryTextColor,
-                subtitle: summaryItems[3]['subtitle'] as String,
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildFinancialCard(
+                  title: summaryItems[3]['title'] as String,
+                  amount: summaryItems[3]['value'],
+                  icon: summaryItems[3]['icon'] as IconData,
+                  color: summaryItems[3]['color'] as Color,
+                  cardColor: cardColor,
+                  borderColor: borderColor,
+                  textColor: textColor,
+                  secondaryTextColor: secondaryTextColor,
+                  subtitle: summaryItems[3]['subtitle'] as String,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -300,7 +306,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         : null;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -318,11 +324,13 @@ class _FinancialScreenState extends State<FinancialScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
@@ -338,6 +346,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
                     fontWeight: FontWeight.w600,
                     color: textColor,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -346,35 +356,44 @@ class _FinancialScreenState extends State<FinancialScreen> {
           Text(
             amountLabel,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               color: textColor,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               subtitle,
               style: TextStyle(
                 fontSize: 12,
                 color: secondaryTextColor,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
           if (trailing != null) ...[
-            const SizedBox(height: 14),
-            Divider(color: secondaryTextColor.withOpacity(0.2)),
             const SizedBox(height: 12),
+            Divider(color: secondaryTextColor.withOpacity(0.2), height: 1),
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  trailingLabel!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: secondaryTextColor,
+                Expanded(
+                  child: Text(
+                    trailingLabel!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: secondaryTextColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   trailing,
                   style: TextStyle(
@@ -382,6 +401,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
                     fontWeight: FontWeight.w600,
                     color: textColor,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -451,13 +472,14 @@ class _FinancialScreenState extends State<FinancialScreen> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 stat['icon'] as IconData,
                 color: stat['color'] as Color,
                 size: 24,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 stat['title'] as String,
                 style: TextStyle(
@@ -465,8 +487,10 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   fontWeight: FontWeight.w500,
                   color: secondaryTextColor,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 stat['value'] as String,
                 style: TextStyle(
@@ -474,6 +498,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   fontWeight: FontWeight.w700,
                   color: textColor,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

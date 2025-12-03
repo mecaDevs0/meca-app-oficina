@@ -219,7 +219,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       physics: const BouncingScrollPhysics(),
                       children: [
                         _buildBookingsList(_pendingBookings, 'pending'),
-                        _buildBookingsList(_confirmedBookings, 'confirmed'),
+                        _buildConfirmedBookingsList(), // Separar confirmados atuais e antigos
                         _buildBookingsList(_completedBookings, 'completed'),
                       ],
                     ),
@@ -342,6 +342,245 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     );
   }
 
+  // Separar agendamentos confirmados em atuais e antigos
+  Widget _buildConfirmedBookingsList() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    
+    // Separar por data
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    final currentBookings = <Map<String, dynamic>>[];
+    final pastBookings = <Map<String, dynamic>>[];
+    
+    for (final booking in _confirmedBookings) {
+      try {
+        final appointmentDate = booking['appointment_date'];
+        if (appointmentDate != null) {
+          final date = DateTime.parse(appointmentDate);
+          final bookingDate = DateTime(date.year, date.month, date.day);
+          
+          if (bookingDate.isBefore(today)) {
+            pastBookings.add(booking);
+          } else {
+            currentBookings.add(booking);
+          }
+        } else {
+          // Se não tiver data, considerar como atual
+          currentBookings.add(booking);
+        }
+      } catch (e) {
+        // Se houver erro ao parsear data, considerar como atual
+        currentBookings.add(booking);
+      }
+    }
+    
+    if (currentBookings.isEmpty && pastBookings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _getEmptyIcon('confirmed'),
+              size: 64,
+              color: const Color(0xFFD1D5DB),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _getEmptyMessage('confirmed'),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: ThemeService.getTextColor(isDark),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getEmptySubtitle('confirmed'),
+              style: TextStyle(
+                fontSize: 14,
+                color: ThemeService.getSecondaryTextColor(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return RefreshIndicator(
+      onRefresh: _loadBookings,
+      child: CustomScrollView(
+        slivers: [
+          // Agendamentos atuais
+          if (currentBookings.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Agendamentos Confirmados',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: ThemeService.getTextColor(isDark),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Clique no card do serviço para ver o status e ver o que deve fazer',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: ThemeService.getSecondaryTextColor(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildBookingCard(currentBookings[index], 'confirmed'),
+                  );
+                },
+                childCount: currentBookings.length,
+              ),
+            ),
+          ],
+          
+          // Separador para agendamentos antigos
+          if (pastBookings.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [
+                              Colors.orange.shade900.withOpacity(0.3),
+                              Colors.orange.shade800.withOpacity(0.2),
+                            ]
+                          : [
+                              Colors.orange.shade50,
+                              Colors.orange.shade100.withOpacity(0.5),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.orange.shade700.withOpacity(0.3)
+                          : Colors.orange.shade200.withOpacity(0.6),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.shade200.withOpacity(isDark ? 0.1 : 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                        spreadRadius: 0,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Ícone com background circular
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.orange.shade400,
+                              Colors.orange.shade600,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.orange.shade400.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.history_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Texto
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Agendamentos Anteriores',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.orange.shade200
+                                    : Colors.orange.shade900,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Datas anteriores ao dia atual',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: isDark
+                                    ? Colors.orange.shade300.withOpacity(0.8)
+                                    : Colors.orange.shade700.withOpacity(0.8),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildBookingCard(pastBookings[index], 'confirmed'),
+                  );
+                },
+                childCount: pastBookings.length,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   IconData _getEmptyIcon(String type) {
     switch (type) {
       case 'pending':
@@ -456,18 +695,22 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(booking['status']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _getStatusText(booking['status']),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _getStatusColor(booking['status']),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(booking['status']).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getStatusText(booking['status']),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _getStatusColor(booking['status']),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -577,47 +820,47 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _confirmBooking(booking),
-                    icon: Icon(Icons.check, size: 16),
-                    label: const Text('Aprovar'),
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Aprovar', overflow: TextOverflow.ellipsis, maxLines: 1),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF10B981),
                       side: const BorderSide(color: Color(0xFF10B981)),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 6),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _rejectBooking(booking),
-                    icon: Icon(Icons.close, size: 16),
-                    label: const Text('Recusar'),
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('Recusar', overflow: TextOverflow.ellipsis, maxLines: 1),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFEF4444),
                       side: const BorderSide(color: Color(0xFFEF4444)),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 6),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _suggestNewTime(booking),
-                    icon: Icon(Icons.schedule, size: 16),
-                    label: const Text('Sugerir'),
+                    icon: const Icon(Icons.schedule, size: 16),
+                    label: const Text('Sugerir', overflow: TextOverflow.ellipsis, maxLines: 1),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFF59E0B),
                       side: const BorderSide(color: Color(0xFFF59E0B)),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -673,6 +916,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         return 'Cancelado';
       case 'recusado':
         return 'Recusado';
+      case 'finalizado_aguardando_pagamento':
+      case 'finalizado':
+      case 'awaiting_payment':
+        return 'Aguardando Pagamento';
+      case 'pago':
+      case 'paid':
+        return 'Pago';
       default:
         return status ?? 'Desconhecido';
     }
@@ -693,12 +943,104 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     try {
       final result = await _apiService.confirmBooking(booking['id']);
       if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Agendamento aprovado com sucesso!'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
+        // Mostrar modal informativo após aprovar
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: const Color(0xFF00C977),
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Agendamento Aprovado!',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'O agendamento foi aprovado com sucesso e foi movido para a aba "Confirmados".',
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C977).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF00C977).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: const Color(0xFF00C977),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Próximo passo: Abra este agendamento novamente na aba "Confirmados" para enviar o orçamento ao cliente.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _loadBookings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C977),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Entendi',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         _loadBookings();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -719,54 +1061,206 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   }
 
   Future<void> _rejectBooking(Map<String, dynamic> booking) async {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
+    
     final reasonController = TextEditingController();
     
-    final result = await showDialog<String>(
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recusar Agendamento'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Informe o motivo da recusa:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              style: FormStyles.inputTextStyle(context),
-              cursorColor: AppColors.primaryColor,
-              decoration: FormStyles.decorate(
-                context,
-                const InputDecoration(
-                hintText: 'Motivo da recusa...',
-              ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: borderColor.withOpacity(0.3), width: 1),
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header com ícone
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.cancel_outlined,
+                          color: Color(0xFFEF4444),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Recusar Agendamento',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'O cliente será notificado sobre a recusa',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: secondaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: secondaryTextColor),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Card informativo
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: const Color(0xFFEF4444),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Ao recusar, o agendamento será cancelado e o cliente receberá uma notificação.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textColor,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Campo de motivo
+                  Text(
+                    'Motivo da Recusa',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 4,
+                    style: FormStyles.inputTextStyle(context),
+                    cursorColor: AppColors.primaryColor,
+                    decoration: FormStyles.decorate(
+                      context,
+                      const InputDecoration(
+                        hintText: 'Ex: Horário não disponível, falta de peças, agenda lotada...',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Botões
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: BorderSide(color: borderColor),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancelar',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context, reasonController.text.trim().isEmpty ? 'Sem motivo informado' : reasonController.text.trim());
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Confirmar Recusa',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, reasonController.text),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-            child: const Text('Recusar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
-    if (result != null && result.isNotEmpty) {
+    if (result != null) {
       try {
         final apiResult = await _apiService.rejectBooking(booking['id'], result);
         if (apiResult['success']) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Agendamento recusado!'),
+              content: Text('Agendamento recusado com sucesso! O cliente foi notificado.'),
               backgroundColor: Color(0xFFEF4444),
             ),
           );
@@ -793,157 +1287,429 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   Future<void> _suggestNewTime(Map<String, dynamic> booking) async {
     final themeService = Provider.of<ThemeService>(context, listen: false);
     final isDark = themeService.isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final textColor = ThemeService.getTextColor(isDark);
+    final secondaryTextColor = ThemeService.getSecondaryTextColor(isDark);
 
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
+    // Obter data e hora do agendamento original do cliente
+    DateTime? originalDate;
+    try {
+      final appointmentDateStr = booking['appointment_date']?.toString() ?? 
+                                  booking['scheduled_date']?.toString() ?? 
+                                  booking['date']?.toString();
+      if (appointmentDateStr != null && appointmentDateStr.isNotEmpty) {
+        originalDate = DateTime.parse(appointmentDateStr);
+      }
+    } catch (e) {
+      // Se não conseguir parsear, usar data atual + 1 dia
+      originalDate = DateTime.now().add(const Duration(days: 1));
+    }
+    
+    if (originalDate == null) {
+      originalDate = DateTime.now().add(const Duration(days: 1));
+    }
+
+    DateTime? selectedDate = originalDate;
+    TimeOfDay? selectedTime = TimeOfDay.fromDateTime(originalDate);
     final reasonController = TextEditingController();
+    final dateController = TextEditingController(
+      text: '${originalDate.day.toString().padLeft(2, '0')}/${originalDate.month.toString().padLeft(2, '0')}/${originalDate.year}',
+    );
+    final timeController = TextEditingController(
+      text: '${originalDate.hour.toString().padLeft(2, '0')}:${originalDate.minute.toString().padLeft(2, '0')}',
+    );
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            return Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: borderColor.withOpacity(0.3), width: 1),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sugerir Novo Horário',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.calendar_today, color: Color(0xFF00C977)),
-                      title: Text(
-                        selectedDate == null
-                            ? 'Selecionar data'
-                            : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                      ),
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: ColorScheme.dark(
-                                  primary: const Color(0xFF00C977),
-                                  onPrimary: Colors.white,
-                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                                  onSurface: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (picked != null) {
-                          setState(() => selectedDate = picked);
-                        }
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.access_time, color: Color(0xFF00C977)),
-                      title: Text(
-                        selectedTime == null
-                            ? 'Selecionar horário'
-                            : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}',
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                      ),
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime ?? TimeOfDay.now(),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: ColorScheme.dark(
-                                  primary: const Color(0xFF00C977),
-                                  onPrimary: Colors.white,
-                                  surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                                  onSurface: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (picked != null) {
-                          setState(() => selectedTime = picked);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: reasonController,
-                      maxLines: 3,
-                      style: FormStyles.inputTextStyle(context),
-                      cursorColor: AppColors.primaryColor,
-                      decoration: FormStyles.decorate(
-                        context,
-                        const InputDecoration(
-                        labelText: 'Motivo (opcional)',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancelar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: (selectedDate != null && selectedTime != null)
-                                ? () {
-                                    final combined = DateTime(
-                                      selectedDate!.year,
-                                      selectedDate!.month,
-                                      selectedDate!.day,
-                                      selectedTime!.hour,
-                                      selectedTime!.minute,
-                                    ).toIso8601String();
-                                    Navigator.pop(context, {
-                                      'date': combined,
-                                      'reason': reasonController.text.trim(),
-                                    });
-                                  }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C977),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 24,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header com ícone
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Text('Sugerir'),
+                            child: const Icon(
+                              Icons.schedule,
+                              color: Color(0xFFF59E0B),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Sugerir Novo Horário',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'O cliente receberá uma notificação para analisar sua sugestão',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: secondaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: secondaryTextColor),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Card informativo
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withOpacity(0.3),
+                            width: 1,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: const Color(0xFFF59E0B),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Os campos abaixo já estão preenchidos com o horário solicitado pelo cliente. Você pode editá-los conforme necessário.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: textColor,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Campo de data editável
+                      Text(
+                        'Data',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: dateController,
+                        readOnly: false,
+                        enabled: true,
+                        keyboardType: TextInputType.datetime,
+                        style: FormStyles.inputTextStyle(context),
+                        cursorColor: AppColors.primaryColor,
+                        decoration: FormStyles.decorate(
+                          context,
+                          InputDecoration(
+                            labelText: 'Data (DD/MM/AAAA)',
+                            hintText: 'Ex: 25/12/2024',
+                            prefixIcon: const Icon(Icons.calendar_today, color: AppColors.primaryColor),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month, color: AppColors.primaryColor),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: ColorScheme.dark(
+                                          primary: const Color(0xFF00C977),
+                                          onPrimary: Colors.white,
+                                          surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                          onSurface: isDark ? Colors.white : Colors.black,
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    selectedDate = picked;
+                                    dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          // Tentar parsear a data digitada manualmente
+                          final parts = value.split('/');
+                          if (parts.length == 3) {
+                            try {
+                              final day = int.parse(parts[0]);
+                              final month = int.parse(parts[1]);
+                              final year = int.parse(parts[2]);
+                              final parsedDate = DateTime(year, month, day);
+                              if (parsedDate.isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
+                                setState(() => selectedDate = parsedDate);
+                              }
+                            } catch (e) {
+                              // Ignorar erros de parsing
+                            }
+                          }
+                        },
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate ?? DateTime.now().add(const Duration(days: 1)),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: const Color(0xFF00C977),
+                                    onPrimary: Colors.white,
+                                    surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                    onSurface: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              selectedDate = picked;
+                              dateController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Campo de horário editável
+                      Text(
+                        'Horário',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: timeController,
+                        readOnly: false,
+                        enabled: true,
+                        keyboardType: TextInputType.datetime,
+                        style: FormStyles.inputTextStyle(context),
+                        cursorColor: AppColors.primaryColor,
+                        decoration: FormStyles.decorate(
+                          context,
+                          InputDecoration(
+                            labelText: 'Horário (HH:MM)',
+                            hintText: 'Ex: 14:30',
+                            prefixIcon: const Icon(Icons.access_time, color: AppColors.primaryColor),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.schedule, color: AppColors.primaryColor),
+                              onPressed: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: selectedTime ?? TimeOfDay.now(),
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: ColorScheme.dark(
+                                          primary: const Color(0xFF00C977),
+                                          onPrimary: Colors.white,
+                                          surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                          onSurface: isDark ? Colors.white : Colors.black,
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    selectedTime = picked;
+                                    timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          // Tentar parsear o horário digitado manualmente
+                          final parts = value.split(':');
+                          if (parts.length == 2) {
+                            try {
+                              final hour = int.parse(parts[0]);
+                              final minute = int.parse(parts[1]);
+                              if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+                                setState(() => selectedTime = TimeOfDay(hour: hour, minute: minute));
+                              }
+                            } catch (e) {
+                              // Ignorar erros de parsing
+                            }
+                          }
+                        },
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: selectedTime ?? TimeOfDay.now(),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: const Color(0xFF00C977),
+                                    onPrimary: Colors.white,
+                                    surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                    onSurface: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              selectedTime = picked;
+                              timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Campo de motivo
+                      Text(
+                        'Motivo (opcional)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        style: FormStyles.inputTextStyle(context),
+                        cursorColor: AppColors.primaryColor,
+                        decoration: FormStyles.decorate(
+                          context,
+                          const InputDecoration(
+                            hintText: 'Ex: Horário não disponível, melhor opção...',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      
+                      // Botões
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide(color: borderColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancelar',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: (selectedDate != null && selectedTime != null)
+                                  ? () {
+                                      final combined = DateTime(
+                                        selectedDate!.year,
+                                        selectedDate!.month,
+                                        selectedDate!.day,
+                                        selectedTime!.hour,
+                                        selectedTime!.minute,
+                                      ).toIso8601String();
+                                      Navigator.pop(context, {
+                                        'date': combined,
+                                        'reason': reasonController.text.trim(),
+                                      });
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF59E0B),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Enviar Sugestão',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -952,43 +1718,145 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       },
     );
 
-    reasonController.dispose();
-
-    if (result != null && result['date'] != null) {
-      try {
-        final apiResult = await _apiService.suggestNewTime(
-          booking['id'].toString(),
-          result['date'] as String,
-          (result['reason'] as String?) ?? '',
-        );
-
-        if (!mounted) return;
-
-        if (apiResult['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Novo horário sugerido com sucesso!'),
-              backgroundColor: Color(0xFF00C977),
-            ),
+    // Dispose dos controllers apenas após o modal fechar completamente
+    try {
+      if (result != null && result['date'] != null) {
+        try {
+          final apiResult = await _apiService.suggestNewTime(
+            booking['id'].toString(),
+            result['date'] as String,
+            (result['reason'] as String?) ?? '',
           );
-          _loadBookings();
-        } else {
+
+          if (!mounted) return;
+
+          if (apiResult['success']) {
+            // Mostrar modal informativo
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFFF59E0B),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Sugestão Enviada!',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sua sugestão de horário foi enviada para o cliente com sucesso.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: const Color(0xFFF59E0B),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'O cliente recebeu uma notificação e vai analisar sua sugestão. Você será avisado quando ele autorizar ou negar.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _loadBookings();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Entendi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erro: ${apiResult['error']}'),
+                backgroundColor: const Color(0xFFEF4444),
+              ),
+            );
+          }
+        } catch (e) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erro: ${apiResult['error']}'),
+              content: Text('Erro: $e'),
               backgroundColor: const Color(0xFFEF4444),
             ),
           );
         }
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
       }
+    } finally {
+      // Dispose dos controllers apenas após processar o resultado
+      reasonController.dispose();
+      dateController.dispose();
+      timeController.dispose();
     }
   }
 }

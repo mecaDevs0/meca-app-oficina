@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../../utils/phone_formatter.dart';
+import '../../utils/cpf_formatter.dart';
+import '../../utils/cnpj_formatter.dart';
+import '../../utils/email_formatter.dart';
+import '../../utils/cep_formatter.dart';
+import '../../utils/date_formatter.dart';
 
 class PagBankAccountScreen extends StatefulWidget {
   const PagBankAccountScreen({Key? key}) : super(key: key);
@@ -89,14 +96,67 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
         if (registrationData != null) {
           _nameController.text = registrationData['name'] ?? '';
           _businessNameController.text = registrationData['business_name'] ?? '';
-          _emailController.text = registrationData['email'] ?? '';
-          _taxIdController.text = registrationData['tax_id'] ?? '';
-          _phoneController.text = registrationData['phone'] ?? '';
-          _birthDateController.text = registrationData['birth_date'] ?? '';
+          // Formatar email ao carregar
+          final emailValue = registrationData['email'] ?? '';
+          _emailController.text = emailValue.toString().trim().toLowerCase();
+          // Formatar CPF/CNPJ ao carregar
+          final taxIdValue = registrationData['tax_id'] ?? '';
+          if (taxIdValue.toString().isNotEmpty) {
+            final digits = taxIdValue.toString().replaceAll(RegExp(r'\D'), '');
+            if (digits.length == 11) {
+              _taxIdController.text = CpfFormatter().formatEditUpdate(
+                const TextEditingValue(),
+                TextEditingValue(text: digits),
+              ).text;
+            } else if (digits.length == 14) {
+              _taxIdController.text = CnpjFormatter().formatEditUpdate(
+                const TextEditingValue(),
+                TextEditingValue(text: digits),
+              ).text;
+            } else {
+              _taxIdController.text = taxIdValue.toString();
+            }
+          }
+          // Formatar telefone ao carregar
+          final phoneValue = registrationData['phone'] ?? '';
+          if (phoneValue.toString().isNotEmpty) {
+            _phoneController.text = PhoneInputFormatter().formatEditUpdate(
+              const TextEditingValue(),
+              TextEditingValue(text: phoneValue.toString().replaceAll(RegExp(r'\D'), '')),
+            ).text;
+          }
+          // Formatar data de nascimento ao carregar
+          final birthDateValue = registrationData['birth_date'] ?? '';
+          if (birthDateValue.toString().isNotEmpty) {
+            // Se está no formato YYYY-MM-DD, converter para DD/MM/AAAA
+            if (birthDateValue.toString().contains('-')) {
+              final parts = birthDateValue.toString().split('-');
+              if (parts.length == 3) {
+                _birthDateController.text = '${parts[2]}/${parts[1]}/${parts[0]}';
+              } else {
+                _birthDateController.text = birthDateValue.toString();
+              }
+            } else {
+              // Se já está formatado, usar direto
+              _birthDateController.text = birthDateValue.toString();
+            }
+          }
           
           final address = registrationData['address'] as Map<String, dynamic>?;
           if (address != null) {
-            _cepController.text = address['postal_code'] ?? '';
+            // Formatar CEP ao carregar
+            final cepValue = address['postal_code'] ?? '';
+            if (cepValue.toString().isNotEmpty) {
+              final cepDigits = cepValue.toString().replaceAll(RegExp(r'\D'), '');
+              if (cepDigits.length == 8) {
+                _cepController.text = CepFormatter().formatEditUpdate(
+                  const TextEditingValue(),
+                  TextEditingValue(text: cepDigits),
+                ).text;
+              } else {
+                _cepController.text = cepValue.toString();
+              }
+            }
             _streetController.text = address['street'] ?? '';
             _numberController.text = address['number'] ?? '';
             _neighborhoodController.text = address['district'] ?? address['locality'] ?? '';
@@ -109,8 +169,22 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
           final person = registrationData['person'] as Map<String, dynamic>?;
           if (person != null) {
             _personNameController.text = person['name'] ?? '';
-            _personEmailController.text = person['email'] ?? '';
-            _personCpfController.text = person['tax_id'] ?? '';
+            // Formatar email da pessoa física ao carregar
+            final personEmailValue = person['email'] ?? '';
+            _personEmailController.text = personEmailValue.toString().trim().toLowerCase();
+            // Formatar CPF da pessoa física ao carregar
+            final personCpfValue = person['tax_id'] ?? '';
+            if (personCpfValue.toString().isNotEmpty) {
+              final cpfDigits = personCpfValue.toString().replaceAll(RegExp(r'\D'), '');
+              if (cpfDigits.length == 11) {
+                _personCpfController.text = CpfFormatter().formatEditUpdate(
+                  const TextEditingValue(),
+                  TextEditingValue(text: cpfDigits),
+                ).text;
+              } else {
+                _personCpfController.text = personCpfValue.toString();
+              }
+            }
             _motherNameController.text = person['mother_name'] ?? '';
           }
         }
@@ -510,6 +584,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'Email',
               hint: 'exemplo@email.com',
               keyboardType: TextInputType.emailAddress,
+              inputFormatters: [EmailFormatter()],
               validator: (v) {
                 if (v?.isEmpty == true) return 'Campo obrigatório';
                 if (!v!.contains('@')) return 'Email inválido';
@@ -528,6 +603,17 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'CPF ou CNPJ',
               hint: '000.000.000-00 ou 00.000.000/0000-00',
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                // Formatter dinâmico que detecta CPF ou CNPJ
+                TextInputFormatter.withFunction((oldValue, newValue) {
+                  final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+                  if (digits.length <= 11) {
+                    return CpfFormatter().formatEditUpdate(oldValue, newValue);
+                  } else {
+                    return CnpjFormatter().formatEditUpdate(oldValue, newValue);
+                  }
+                }),
+              ],
               validator: (v) {
                 if (v?.isEmpty == true) return 'Campo obrigatório';
                 final digits = v!.replaceAll(RegExp(r'[^0-9]'), '');
@@ -547,6 +633,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'Telefone',
               hint: '(11) 99999-9999',
               keyboardType: TextInputType.phone,
+              inputFormatters: [PhoneInputFormatter()],
               validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
               textColor: textColor,
               secondaryText: secondaryText,
@@ -561,6 +648,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'Data de Nascimento',
               hint: 'DD/MM/AAAA',
               keyboardType: TextInputType.datetime,
+              inputFormatters: [DateFormatter()],
               textColor: textColor,
               secondaryText: secondaryText,
             ),
@@ -595,6 +683,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'Email',
               hint: 'exemplo@email.com',
               keyboardType: TextInputType.emailAddress,
+              inputFormatters: [EmailFormatter()],
               validator: (v) {
                 if (v?.isEmpty == true) return 'Campo obrigatório';
                 if (!v!.contains('@')) return 'Email inválido';
@@ -611,6 +700,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'CPF',
               hint: '000.000.000-00',
               keyboardType: TextInputType.number,
+              inputFormatters: [CpfFormatter(), LengthLimitingTextInputFormatter(14)],
               validator: (v) {
                 if (v?.isEmpty == true) return 'Campo obrigatório';
                 final digits = v!.replaceAll(RegExp(r'[^0-9]'), '');
@@ -646,6 +736,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               label: 'CEP',
               hint: '00000-000',
               keyboardType: TextInputType.number,
+              inputFormatters: [CepFormatter(), LengthLimitingTextInputFormatter(9)],
               onChanged: (_) => _fetchCep(),
               validator: (v) => v?.isEmpty == true ? 'Campo obrigatório' : null,
               textColor: textColor,
@@ -1058,6 +1149,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
     TextCapitalization textCapitalization = TextCapitalization.none,
     required Color textColor,
     required Color secondaryText,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
@@ -1066,6 +1158,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
       onChanged: onChanged,
       maxLength: maxLength,
       textCapitalization: textCapitalization,
+      inputFormatters: inputFormatters,
       style: TextStyle(color: textColor),
       decoration: InputDecoration(
         labelText: label,
