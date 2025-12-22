@@ -34,8 +34,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final provider = Provider.of<NotificationProvider>(context, listen: false);
       _previousUnreadCount = provider.unreadNotifications;
       provider.markProfileBadgeSeen();
+      // Marcar todas as notificações como lidas automaticamente ao entrar na tela
+      _markAllAsReadSilently();
     });
     _loadNotifications();
+  }
+
+  // Marcar todas como lidas silenciosamente (sem mostrar mensagem)
+  Future<void> _markAllAsReadSilently() async {
+    try {
+      final response = await _apiService.markAllNotificationsAsRead();
+      if (response['success'] == true && mounted) {
+        // Atualizar provider imediatamente
+        final provider = Provider.of<NotificationProvider>(context, listen: false);
+        // Apenas atualizar contador de não lidas (o provider não tem setNotifications)
+        provider.setUnreadNotifications(0, resetBadge: true);
+        // Recarregar notificações para garantir sincronização
+        await _loadNotifications();
+      }
+    } catch (e) {
+      // Silenciar erros - não mostrar mensagem ao usuário
+      print('Erro ao marcar notificações como lidas: $e');
+    }
   }
 
   Future<void> _initializeNotifications() async {

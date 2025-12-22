@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/bank_service.dart';
+import '../../services/api_service.dart';
 import '../../core/app_colors.dart';
 import '../../utils/form_styles.dart';
 
@@ -17,6 +18,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   final _agenciaController = TextEditingController();
   final _contaController = TextEditingController();
   final BankService _bankService = BankService();
+  final ApiService _apiService = ApiService();
   bool _loading = false;
   String _accountType = 'corrente';
   bool _acceptsInstallment = false;
@@ -26,7 +28,18 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
 
     setState(() => _loading = true);
 
+    // Obter workshopId do usuário logado
+    final workshopId = await _apiService.getWorkshopId();
+    if (workshopId == null) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro: Usuário não autenticado')),
+      );
+      return;
+    }
+
     final result = await _bankService.updateBankDetails(
+      workshopId: workshopId,
       bankName: _bankNameController.text,
       agencia: _agenciaController.text,
       conta: _contaController.text,

@@ -42,7 +42,7 @@ class ServiceControlService {
     try {
       await loadToken();
       
-      final response = await _dio.put('/store/booking/$bookingId/status', data: {
+      final response = await _dio.put('/bookings/$bookingId/status', data: {
         'status': status,
       });
       

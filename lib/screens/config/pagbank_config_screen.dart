@@ -22,54 +22,133 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPagBankData();
+    // Aguardar o próximo frame antes de carregar dados
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadPagBankData();
+      }
+    });
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
   }
 
   Future<void> _loadPagBankData() async {
-    setState(() {
+    if (!mounted) return;
+    
+    _safeSetState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      // Garantir que o token está carregado antes de fazer a chamada
+      await _apiService.loadToken();
+      
+      if (!mounted) return;
+      
+      // Verificar se tem workshopId antes de fazer a chamada
+      final workshopId = await _apiService.getWorkshopId();
+      if (workshopId == null) {
+        _safeSetState(() {
+          _errorMessage = 'Token inválido ou workshopId não encontrado. Faça login novamente.';
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      if (!mounted) return;
+      
       final response = await _apiService.getPagBankAccount();
+      if (!mounted) return;
+      
       if (response['success'] == true) {
-        setState(() => _pagbankData = response['data'] as Map<String, dynamic>?);
+        _safeSetState(() => _pagbankData = response['data'] as Map<String, dynamic>?);
       } else {
-        setState(() => _errorMessage = response['error']?.toString() ?? 'Erro ao carregar dados PagBank.');
+        _safeSetState(() => _errorMessage = response['error']?.toString() ?? 'Erro ao carregar dados PagBank.');
       }
     } catch (e) {
-      setState(() => _errorMessage = 'Erro ao carregar dados PagBank: $e');
+      if (mounted) {
+        _safeSetState(() => _errorMessage = 'Erro ao carregar dados PagBank: $e');
+      }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _safeSetState(() => _isLoading = false);
       }
     }
   }
 
   Future<void> _handleConnectPagBank() async {
     if (_isConnecting) return;
-
-    setState(() => _isConnecting = true);
+    
+    if (!mounted) return;
+    
+    _safeSetState(() => _isConnecting = true);
+    
     String? feedback;
+    bool shouldReload = false;
 
     try {
+      // Garantir que o token está carregado antes de fazer a chamada
+      await _apiService.loadToken();
+      
+      if (!mounted) {
+        _safeSetState(() => _isConnecting = false);
+        return;
+      }
+      
+      // Verificar se tem workshopId antes de fazer a chamada
+      final workshopId = await _apiService.getWorkshopId();
+      if (workshopId == null) {
+        feedback = 'Token inválido ou workshopId não encontrado. Faça login novamente.';
+        if (mounted) {
+          _safeSetState(() => _isConnecting = false);
+          try {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(feedback),
+              backgroundColor: Colors.red,
+            ));
+          } catch (e) {
+            print('Erro ao mostrar snackbar: $e');
+          }
+        }
+        return;
+      }
+      
+      if (!mounted) {
+        _safeSetState(() => _isConnecting = false);
+        return;
+      }
+      
       final response = await _apiService.startPagBankConnect();
+      
+      if (!mounted) {
+        _safeSetState(() => _isConnecting = false);
+        return;
+      }
+      
       if (response['success'] == true) {
         final data = Map<String, dynamic>.from(response['data'] ?? {});
         final authorizeUrl = (data['authorize_url'] ?? data['url'] ?? data['redirect_url'])?.toString();
         final expiresIn = data['expires_in_minutes'];
 
         if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
-          final uri = Uri.parse(authorizeUrl);
-          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          try {
+            final uri = Uri.parse(authorizeUrl);
+            final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
-          if (!launched) {
-            feedback = 'Não foi possível abrir a página de autorização do PagBank.';
-          } else {
-            feedback = expiresIn != null
-                ? 'Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
-                : 'Autorização PagBank aberta em uma nova janela.';
+            if (!launched) {
+              feedback = 'Não foi possível abrir a página de autorização do PagBank.';
+            } else {
+              feedback = expiresIn != null
+                  ? 'Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
+                  : 'Autorização PagBank aberta em uma nova janela.';
+              shouldReload = true;
+            }
+          } catch (e) {
+            feedback = 'Erro ao abrir URL de autorização: $e';
           }
         } else {
           feedback = 'A API não retornou a URL de autorização do PagBank.';
@@ -79,13 +158,36 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
       }
     } catch (e) {
       feedback = 'Erro ao iniciar PagBank Connect: $e';
+      print('Erro detalhado ao conectar PagBank: $e');
     } finally {
       if (mounted) {
-        setState(() => _isConnecting = false);
+        _safeSetState(() => _isConnecting = false);
+        
         if (feedback != null && feedback.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(feedback)));
+          // Usar um pequeno delay para garantir que o estado foi atualizado
+          await Future.delayed(const Duration(milliseconds: 150));
+          if (mounted) {
+            try {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(feedback),
+                backgroundColor: feedback.contains('Erro') || feedback.contains('não foi possível') 
+                    ? Colors.red 
+                    : Colors.green,
+                duration: const Duration(seconds: 4),
+              ));
+            } catch (e) {
+              print('Erro ao mostrar snackbar: $e');
+            }
+          }
         }
-        await _loadPagBankData();
+        
+        // Recarregar dados apenas se a autorização foi aberta com sucesso
+        if (shouldReload) {
+          await Future.delayed(const Duration(milliseconds: 800));
+          if (mounted) {
+            await _loadPagBankData();
+          }
+        }
       }
     }
   }
@@ -213,22 +315,117 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
     );
   }
 
-  Widget _buildInfoCard(bool isDark, Color textColor, Color secondaryText) {
-    final accountInfo = [
-      MapEntry('Nome', _pagbankData?['account_name']),
-      MapEntry('CPF/CNPJ', _pagbankData?['account_document']),
-      MapEntry('Banco', _pagbankData?['bank_name']),
-      MapEntry('Agência', _pagbankData?['agency']),
-      MapEntry('Conta', _pagbankData?['account']),
-      MapEntry('Pix', _pagbankData?['pix_key']),
-      MapEntry('Atualizado em', _pagbankData?['updated_at']),
-    ];
+  String _formatValue(dynamic value) {
+    if (value == null) return '-';
+    
+    // Se for um Map, formatar como campos individuais
+    if (value is Map) {
+      final entries = value.entries
+          .where((e) => e.value != null && e.value.toString().isNotEmpty)
+          .map((e) => '${_formatFieldName(e.key.toString())}: ${_formatValue(e.value)}')
+          .join('\n');
+      return entries.isEmpty ? '-' : entries;
+    }
+    
+    // Se for uma List, formatar como lista
+    if (value is List) {
+      if (value.isEmpty) return '-';
+      return value.map((item) => _formatValue(item)).join(', ');
+    }
+    
+    // Se for bool, traduzir
+    if (value is bool) {
+      return value ? 'Sim' : 'Não';
+    }
+    
+    // Se for string vazia
+    if (value.toString().trim().isEmpty) {
+      return '-';
+    }
+    
+    return value.toString();
+  }
 
+  String _formatFieldName(String key) {
+    final fieldNames = {
+      'id': 'ID',
+      'status': 'Status',
+      'name': 'Nome',
+      'document': 'Documento',
+      'type': 'Tipo',
+      'account_name': 'Nome da Conta',
+      'account_document': 'CPF/CNPJ',
+      'bank_name': 'Banco',
+      'agency': 'Agência',
+      'account': 'Conta',
+      'pix_key': 'Chave PIX',
+      'updated_at': 'Atualizado em',
+    };
+    
+    return fieldNames[key.toLowerCase()] ?? key;
+  }
+
+  Widget _buildInfoCard(bool isDark, Color textColor, Color secondaryText) {
     final cardColor = isDark ? const Color(0xFF101826) : Colors.white;
 
     final shadowColor = isDark
         ? const Color.fromRGBO(0, 0, 0, 0.3)
         : const Color.fromRGBO(158, 158, 158, 0.15);
+
+    // Extrair dados de forma mais inteligente
+    final accountData = _pagbankData;
+    
+    // Lista de campos para exibir, com prioridade
+    final fieldsToShow = <MapEntry<String, dynamic>>[];
+    
+    if (accountData != null) {
+      // Campos diretos (não objetos)
+      if (accountData['account_name'] != null) {
+        fieldsToShow.add(MapEntry('Nome', accountData['account_name']));
+      }
+      if (accountData['account_document'] != null) {
+        fieldsToShow.add(MapEntry('CPF/CNPJ', accountData['account_document']));
+      }
+      if (accountData['bank_name'] != null) {
+        fieldsToShow.add(MapEntry('Banco', accountData['bank_name']));
+      }
+      if (accountData['agency'] != null) {
+        fieldsToShow.add(MapEntry('Agência', accountData['agency']));
+      }
+      if (accountData['pix_key'] != null) {
+        fieldsToShow.add(MapEntry('Chave PIX', accountData['pix_key']));
+      }
+      
+      // Se account é um objeto, extrair campos dele (não adicionar o objeto inteiro)
+      if (accountData['account'] is Map) {
+        final accountObj = accountData['account'] as Map;
+        if (accountObj['id'] != null) {
+          fieldsToShow.add(MapEntry('ID da Conta', accountObj['id']));
+        }
+        if (accountObj['status'] != null) {
+          final status = accountObj['status'].toString();
+          fieldsToShow.add(MapEntry('Status da Conta', _statusLabel(status)));
+        }
+        if (accountObj['name'] != null && accountObj['name'].toString().trim().isNotEmpty) {
+          fieldsToShow.add(MapEntry('Nome', accountObj['name']));
+        }
+        if (accountObj['document'] != null && accountObj['document'].toString().trim().isNotEmpty) {
+          fieldsToShow.add(MapEntry('Documento', accountObj['document']));
+        }
+        if (accountObj['type'] != null) {
+          final type = accountObj['type'].toString();
+          fieldsToShow.add(MapEntry('Tipo de Conta', _formatAccountType(type)));
+        }
+      } else if (accountData['account'] != null && accountData['account'] is! Map) {
+        // Se account não é um objeto, adicionar como string simples
+        fieldsToShow.add(MapEntry('Conta', accountData['account']));
+      }
+      
+      // Campos de data
+      if (accountData['updated_at'] != null) {
+        fieldsToShow.add(MapEntry('Atualizado em', _formatDate(accountData['updated_at'])));
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -255,7 +452,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_pagbankData == null)
+          if (accountData == null || fieldsToShow.isEmpty)
             Text(
               'Conecte sua conta PagBank para receber pagamentos automaticamente.',
               style: TextStyle(color: secondaryText),
@@ -263,22 +460,30 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
           else
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: accountInfo
-                  .where((entry) => entry.value != null && '${entry.value}'.isNotEmpty)
+              children: fieldsToShow
+                  .where((entry) => entry.value != null && _formatValue(entry.value) != '-')
                   .map(
                     (entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             entry.key,
-                            style: TextStyle(color: secondaryText, fontSize: 12),
+                            style: TextStyle(
+                              color: secondaryText,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
-                            '${entry.value}',
-                            style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                            _formatValue(entry.value),
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
                           ),
                         ],
                       ),
@@ -289,6 +494,31 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> {
         ],
       ),
     );
+  }
+
+  String _formatAccountType(String type) {
+    final types = {
+      'checking': 'Conta Corrente',
+      'savings': 'Conta Poupança',
+      'payment': 'Conta Pagamento',
+    };
+    return types[type.toLowerCase()] ?? type;
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return '-';
+    try {
+      final dateStr = date.toString();
+      // Se já está formatado, retornar
+      if (dateStr.contains('/') || dateStr.contains('-')) {
+        return dateStr;
+      }
+      // Tentar parsear como DateTime
+      final dt = DateTime.parse(dateStr);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (e) {
+      return date.toString();
+    }
   }
 
   String _statusLabel(String status) {

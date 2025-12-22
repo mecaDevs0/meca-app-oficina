@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -33,8 +35,28 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GMSApiKey</key>
+	<string>AIzaSyBvOkBwJhXmQ2nE8fG9iL3pR7sT1uV4wX6</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Este app precisa acessar a câmera para tirar fotos dos serviços e perfil.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Utilizamos o Face ID para facilitar o login com Apple.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Este app precisa acessar a galeria para selecionar imagens dos serviços e perfil.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Este app precisa enviar notificações sobre novos agendamentos e atualizações.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -52,29 +74,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	
-	<!-- Permissões necessárias -->
-	<key>NSCameraUsageDescription</key>
-	<string>Este app precisa acessar a câmera para tirar fotos dos serviços e perfil.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Este app precisa acessar a galeria para selecionar imagens dos serviços e perfil.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Utilizamos o Face ID para facilitar o login com Apple.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
-	
-	<!-- Push Notifications -->
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>Este app precisa enviar notificações sobre novos agendamentos e atualizações.</string>
-	
-	<!-- Google Maps API Key -->
-	<key>GMSApiKey</key>
-	<string>AIzaSyBvOkBwJhXmQ2nE8fG9iL3pR7sT1uV4wX6</string>
 </dict>
 </plist>

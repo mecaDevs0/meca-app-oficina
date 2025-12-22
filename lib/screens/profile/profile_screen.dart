@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
+import '../../widgets/verify_account_modal.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -41,6 +42,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Carregar notificações para atualizar badge do perfil
+      try {
+        final notificationsResponse = await _apiService.getNotifications();
+        if (notificationsResponse['success'] && mounted) {
+          final data = notificationsResponse['data'] ?? {};
+          final unreadCount = data['unread_count'] is int
+              ? data['unread_count']
+              : int.tryParse('${data['unread_count']}') ?? 0;
+          final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+          notificationProvider.setUnreadNotifications(unreadCount, resetBadge: unreadCount == 0);
+        }
+      } catch (e) {
+        // Erro ao carregar notificações não deve bloquear o carregamento da tela
+        print('⚠️ Erro ao carregar notificações: $e');
+      }
+      
       final response = await _apiService.getProfile();
       if (response['success']) {
         setState(() {
@@ -635,7 +652,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cardColor = ThemeService.getCardColor(isDark);
     final borderColor = secondaryText.withOpacity(0.18);
     final data = _pagbankData ?? const {};
-    final accountId = data['account_id'];
+    final accountId = data['pagbank_account_id'] ?? data['account_id'];
+    final hasOAuthConnection = accountId != null && 
+                               (data['pagbank_access_token'] != null || data['has_authorization'] == true);
+    final isVerified = data['pagbank_verified'] == true;
     final status = (data['status'] ?? 'not_created').toString().toLowerCase();
     final email = data['email']?.toString();
     final name = data['name']?.toString();
@@ -645,10 +665,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final warningTitleColor = isDark ? const Color(0xFFFFC58F) : const Color(0xFF8A4B16);
     final warningBodyColor = isDark ? Colors.white70 : const Color(0xFF5F3B10);
 
-    // Determinar estado: not_created, pending, approved
-    final pagbankState = accountId == null || accountId.toString().isEmpty
-        ? 'not_created'
-        : (status == 'approved' ? 'approved' : 'pending');
+    // Determinar estado: not_created, connected (OAuth mas não verificado), verified (OAuth + verificado)
+    String pagbankState;
+    if (hasOAuthConnection && isVerified) {
+      pagbankState = 'verified';
+    } else if (hasOAuthConnection && !isVerified) {
+      pagbankState = 'connected';
+    } else if (accountId != null && accountId.toString().isNotEmpty) {
+      pagbankState = status == 'approved' ? 'approved' : 'pending';
+    } else {
+      pagbankState = 'not_created';
+    }
 
     return Container(
       padding: const EdgeInsets.all(22),
@@ -690,9 +717,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text(
                       pagbankState == 'not_created'
                           ? 'Para receber pagamentos via MECA Marketplace, você precisa criar uma conta PagBank Seller.'
-                          : pagbankState == 'pending'
-                              ? 'Conta PagBank criada, pendente de validação'
-                              : 'PagBank aprovado',
+                          : pagbankState == 'connected'
+                              ? 'Conta PagBank conectada, aguardando validação'
+                              : pagbankState == 'verified'
+                                  ? 'Conta PagBank conectada e verificada'
+                                  : pagbankState == 'pending'
+                                      ? 'Conta PagBank criada, pendente de validação'
+                                      : 'PagBank aprovado',
                       style: TextStyle(color: secondaryText, fontSize: 14),
                     ),
                   ],
@@ -705,13 +736,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: _pagbankStatusColor(pagbankState).withOpacity(isDark ? 0.15 : 0.18),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                    _pagbankStatusLabel(pagbankState),
-                  style: TextStyle(
-                      color: _pagbankStatusColor(pagbankState),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pagbankState == 'verified')
+                      const Icon(Icons.check_circle, size: 14, color: Color(0xFF22C55E)),
+                    if (pagbankState == 'verified') const SizedBox(width: 4),
+                    Text(
+                        _pagbankStatusLabel(pagbankState),
+                      style: TextStyle(
+                          color: _pagbankStatusColor(pagbankState),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -745,7 +784,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ]
           
-          // ESTADO 2: Cadastrado mas não validado
+          // ESTADO 2: Conectado via OAuth mas não verificado
+          else if (pagbankState == 'connected') ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7).withOpacity(isDark ? 0.2 : 1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFFCD34D).withOpacity(isDark ? 0.5 : 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.link, color: const Color(0xFFF59E0B), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Conta Conectada',
+                          style: TextStyle(
+                            color: isDark ? Colors.white : const Color(0xFF92400E),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sua conta PagBank está conectada. Agora você precisa validá-la para começar a receber pagamentos.',
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : const Color(0xFF78350F),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showVerifyAccountModal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C977),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.verified_user),
+                label: const Text('Validar Conta'),
+              ),
+            ),
+          ]
+          
+          // ESTADO 2.5: Cadastrado mas não validado (método antigo)
           else if (pagbankState == 'pending') ...[
             if (name != null && name.isNotEmpty)
               _buildKeyValueRow('Nome', name, textColor, secondaryText),
@@ -813,7 +909,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ]
           
-          // ESTADO 3: Validado
+          // ESTADO 3: Verificado via OAuth
+          else if (pagbankState == 'verified') ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4).withOpacity(isDark ? 0.2 : 1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF86EFAC).withOpacity(isDark ? 0.5 : 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Conta Verificada',
+                          style: TextStyle(
+                            color: isDark ? Colors.white : const Color(0xFF166534),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sua conta PagBank está conectada e verificada. Você já pode receber pagamentos!',
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : const Color(0xFF15803D),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (accountId != null)
+              _buildKeyValueRow('ID da Conta', accountId.toString(), textColor, secondaryText),
+          ]
+          
+          // ESTADO 3.5: Validado (método antigo)
           else if (pagbankState == 'approved') ...[
             Container(
               padding: const EdgeInsets.all(16),
@@ -862,6 +1004,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Color _pagbankStatusColor(String state) {
     switch (state) {
+      case 'verified':
+        return const Color(0xFF22C55E);
+      case 'connected':
+        return const Color(0xFF3B82F6);
       case 'approved':
         return const Color(0xFF22C55E);
       case 'pending':
@@ -873,12 +1019,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _pagbankStatusLabel(String state) {
     switch (state) {
+      case 'verified':
+        return 'Verificado';
+      case 'connected':
+        return 'Conectado';
       case 'approved':
         return 'Aprovado';
       case 'pending':
         return 'Pendente';
       default:
         return 'Não cadastrado';
+    }
+  }
+
+  Future<void> _showVerifyAccountModal() async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => VerifyAccountModal(
+        onVerify: () async {
+          Navigator.pop(context);
+          await _verifyAccount();
+        },
+      ),
+    );
+  }
+
+  Future<void> _verifyAccount() async {
+    if (_isConnectingPagbank) return;
+
+    setState(() => _isConnectingPagbank = true);
+
+    try {
+      final response = await _apiService.verifyPagBankAccount();
+
+      if (response['success']) {
+        final data = response['data'];
+        final isValid = data['valid'] == true;
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isValid
+                    ? '✅ Conta verificada com sucesso! Você já pode receber pagamentos.'
+                    : '⚠️ Conta ainda não verificada. Valide sua conta no app PagBank primeiro.',
+              ),
+              backgroundColor: isValid ? Colors.green : Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+
+        // Recarregar dados
+        await _loadWorkshopData();
+      } else {
+        throw Exception(response['error'] ?? 'Erro ao verificar conta');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isConnectingPagbank = false);
     }
   }
 
@@ -1832,17 +2040,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _logout() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Confirmar Logout'),
         content: const Text('Tem certeza que deseja sair da sua conta?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              // Fechar diálogo primeiro
+              Navigator.pop(dialogContext);
+              
+              // Aguardar um frame para garantir que o diálogo foi fechado
+              await Future.delayed(const Duration(milliseconds: 300));
+              
               // Remover token OneSignal antes de fazer logout
               try {
                 final playerId = OneSignalService.getSubscriptionId();
@@ -1854,9 +2067,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 print('Erro ao remover device token: $e');
               }
               
-              await _apiService.logout();
+              // Fazer logout na API
+              try {
+                await _apiService.logout();
+              } catch (e) {
+                print('Erro ao fazer logout na API: $e');
+              }
+              
+              // Aguardar um pouco mais para garantir que tudo foi processado
+              await Future.delayed(const Duration(milliseconds: 200));
+              
+              // Navegar usando o contexto do MaterialApp diretamente
+              // Usar uma abordagem mais segura que não depende do estado do widget
               if (mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
+                try {
+                  // Tentar usar o Navigator do contexto atual
+                  Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
+                } catch (e) {
+                  print('Erro ao navegar com Navigator.of: $e');
+                  // Se falhar, tentar usar uma abordagem alternativa
+                  try {
+                    // Forçar navegação usando o contexto do MaterialApp
+                    final navigatorKey = Navigator.of(context);
+                    navigatorKey.pushNamedAndRemoveUntil(
+                      '/login',
+                      (route) => false,
+                    );
+                  } catch (e2) {
+                    print('Erro ao navegar após logout: $e2');
+                    // Em último caso, o app será redirecionado na próxima inicialização
+                    // pois o token já foi removido
+                  }
+                }
               }
             },
             child: const Text('Sair'),

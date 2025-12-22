@@ -45,7 +45,7 @@ class VehicleSearchService {
       // Limpar a placa (remover espaços e converter para maiúscula)
       final cleanPlate = plate.replaceAll(' ', '').toUpperCase();
       
-      final response = await _dio.get('/api/vehicles/search/$cleanPlate');
+      final response = await _dio.get('/vehicles/plate/$cleanPlate');
       
       if (response.data != null && response.data['success'] == true) {
         return {'success': true, 'data': response.data['data']};

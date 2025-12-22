@@ -55,7 +55,7 @@ class EvidenceService {
       });
 
       final response = await _dio.post(
-        '/store/booking/$bookingId/evidence',
+        '/bookings/$bookingId/images',
         data: formData,
         options: Options(
           headers: {
@@ -102,7 +102,7 @@ class EvidenceService {
     try {
       await loadToken();
       
-      final response = await _dio.get('/store/booking/$bookingId/evidence');
+      final response = await _dio.get('/bookings/$bookingId/images');
       
       if (response.statusCode == 200) {
         final responseData = response.data;

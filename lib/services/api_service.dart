@@ -123,17 +123,25 @@ class ApiService {
 
   // Obter workshopId atual (do token ou cache)
   Future<String?> getWorkshopId() async {
-    if (_workshopId != null) return _workshopId;
+    // Se já tem em cache, retornar
+    if (_workshopId != null && _workshopId!.isNotEmpty) return _workshopId;
     
+    // Carregar token
     await loadToken();
-    if (_token == null) return null;
+    if (_token == null || _token!.isEmpty) return null;
+    
+    // Tentar decodificar do token primeiro
+    _workshopId = _decodeJWT(_token!);
+    if (_workshopId != null && _workshopId!.isNotEmpty) return _workshopId;
     
     // Se ainda não tem workshopId, tentar buscar do perfil
     try {
       final profile = await getProfile();
       if (profile['success'] && profile['data'] != null) {
         _workshopId = profile['data']['id'] as String?;
-        return _workshopId;
+        if (_workshopId != null && _workshopId!.isNotEmpty) {
+          return _workshopId;
+        }
       }
     } catch (e) {
       // Erro silencioso
@@ -437,6 +445,22 @@ class ApiService {
   // ============================================
   // BOOKINGS - DADOS REAIS DA API EC2 AWS
   // ============================================
+
+  // PASSO 15: Buscar pagamento por booking_id
+  Future<Map<String, dynamic>> getPaymentByBooking(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/bookings/$bookingId/payment');
+      
+      if (response.data != null && response.data['success'] == true) {
+        return {'success': true, 'data': response.data['data']};
+      } else {
+        return {'success': false, 'error': response.data['error'] ?? 'Erro ao buscar pagamento'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
 
   Future<Map<String, dynamic>> getBookingDetails(String bookingId) async {
     try {
@@ -1000,6 +1024,16 @@ class ApiService {
       model: vehicleModel?.toString(),
       plate: vehiclePlate?.toString(),
     );
+    // IMPORTANTE: Criar vehicle_info para compatibilidade com tela de detalhes
+    // Deve incluir marca e modelo quando disponíveis
+    if (vehicleBrand != null || vehicleModel != null) {
+      final parts = <String>[];
+      if (vehicleBrand != null) parts.add(vehicleBrand.toString());
+      if (vehicleModel != null) parts.add(vehicleModel.toString());
+      booking['vehicle_info'] = parts.join(' ');
+    } else {
+      booking['vehicle_info'] = null;
+    }
 
     final serviceMap = booking['service'] is Map
         ? Map<String, dynamic>.from(booking['service'] as Map)
@@ -1204,7 +1238,7 @@ class ApiService {
   // FINANCIAL - DADOS REAIS DA API EC2 AWS
   // ============================================
 
-  Future<Map<String, dynamic>> getFinancialSummary() async {
+  Future<Map<String, dynamic>> getFinancialSummary({String? startDate, String? endDate, int? limit, int? offset}) async {
     try {
       await loadToken();
       final workshopId = await getWorkshopId();
@@ -1212,7 +1246,17 @@ class ApiService {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
 
-      final response = await _dio.get('/workshop/$workshopId/financial-summary');
+      // Usar o endpoint /workshop/:id/finance/extract conforme especificado
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['startDate'] = startDate;
+      if (endDate != null) queryParams['endDate'] = endDate;
+      if (limit != null) queryParams['limit'] = limit;
+      if (offset != null) queryParams['offset'] = offset;
+
+      final response = await _dio.get(
+        '/workshop/$workshopId/finance/extract',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
       return {
         'success': true,
         'data': response.data['data'] ?? response.data,
@@ -1489,8 +1533,8 @@ class ApiService {
   Future<Map<String, dynamic>> getBookingEvidence(String bookingId) async {
     try {
       await loadToken();
-      // Usar endpoint real: /booking/:id/evidence
-      final response = await _dio.get('/booking/$bookingId/evidence');
+      // Usar endpoint real: /bookings/:id/images (substitui /bookings/:id/evidence na API nova)
+      final response = await _dio.get('/bookings/$bookingId/images');
       return {'success': true, 'data': response.data['data'] ?? response.data ?? []};
     } catch (e) {
       // Se não existir, retornar lista vazia (não mock, apenas fallback)
@@ -1715,6 +1759,59 @@ class ApiService {
     }
   }
 
+  // GET /pagbank/auth-url - Obter URL de autorização OAuth2
+  Future<Map<String, dynamic>> getPagBankAuthUrl({String? redirectUri}) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final queryParams = <String, dynamic>{};
+      if (redirectUri != null && redirectUri.isNotEmpty) {
+        queryParams['redirect_uri'] = redirectUri;
+      }
+      queryParams['workshopId'] = workshopId;
+
+      final response = await _dio.get(
+        '/pagbank/auth-url',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao obter URL de autorização';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // POST /workshop/:id/pagbank/verify - Verificar status da conta PagBank (KYC)
+  Future<Map<String, dynamic>> verifyPagBankAccount() async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final response = await _dio.post('/workshop/$workshopId/pagbank/verify');
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao verificar conta PagBank';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ============================================
   // WORKSHOP PROFILE - DADOS REAIS DA API EC2 AWS
   // ============================================
@@ -1839,7 +1936,7 @@ class ApiService {
   Future<Map<String, dynamic>> uploadBookingEvidence(String bookingId, dynamic file) async {
     try {
       await loadToken();
-      // Usar endpoint real: /booking/:id/evidence
+      // Usar endpoint real: /bookings/:id/images (substitui /bookings/:id/evidence na API nova)
       String filePath;
       if (file is String) {
         filePath = file;
@@ -1850,10 +1947,10 @@ class ApiService {
       }
       
       final formData = FormData.fromMap({
-        'evidence': await MultipartFile.fromFile(filePath),
+        'image': await MultipartFile.fromFile(filePath),
       });
       
-      final response = await _dio.post('/booking/$bookingId/evidence', data: formData);
+      final response = await _dio.post('/bookings/$bookingId/images', data: formData);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};

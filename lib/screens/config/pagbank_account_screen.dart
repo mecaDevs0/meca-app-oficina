@@ -45,7 +45,9 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
 
   // Selected values
   String? _accountStatus;
-  int _currentStep = 0; // 0: formulário, 1: instruções, 2: aguardando aprovação, 3: confirmar aprovação
+  int _currentStep = 0; // 0: escolha (criar/vincular), 1: formulário, 2: instruções, 3: aguardando aprovação, 4: confirmar aprovação
+  bool _isConnectingOAuth = false;
+  bool _hasExistingData = false; // Indica se já tem dados cadastrados (mas não validado)
 
   @override
   void initState() {
@@ -86,12 +88,30 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
     try {
       await _apiService.loadToken();
       
+      // Verificar se tem workshopId antes de fazer a chamada
+      final workshopId = await _apiService.getWorkshopId();
+      if (workshopId == null) {
+        _safeSetState(() {
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Token inválido ou workshopId não encontrado. Faça login novamente.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
       // Buscar status da conta PagBank
       final statusResponse = await _apiService.getPagBankAccountStatus();
       if (statusResponse['success']) {
         final data = statusResponse['data'];
         _accountStatus = data['status'];
         final registrationData = data['registration_data'] as Map<String, dynamic>?;
+        final hasAccountId = data['pagbank_account_id'] != null;
         
         if (registrationData != null) {
           _nameController.text = registrationData['name'] ?? '';
@@ -118,12 +138,30 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
             }
           }
           // Formatar telefone ao carregar
-          final phoneValue = registrationData['phone'] ?? '';
-          if (phoneValue.toString().isNotEmpty) {
-            _phoneController.text = PhoneInputFormatter().formatEditUpdate(
-              const TextEditingValue(),
-              TextEditingValue(text: phoneValue.toString().replaceAll(RegExp(r'\D'), '')),
-            ).text;
+          // Pode vir como string de números ou como objeto phones
+          String phoneValue = '';
+          if (registrationData['phone'] != null) {
+            phoneValue = registrationData['phone'].toString();
+          } else if (registrationData['phones'] != null && (registrationData['phones'] as List).isNotEmpty) {
+            // Se não tem phone direto, tentar pegar do array phones
+            final phones = registrationData['phones'] as List;
+            if (phones.isNotEmpty) {
+              final firstPhone = phones[0] as Map<String, dynamic>?;
+              if (firstPhone != null) {
+                final area = firstPhone['area']?.toString() ?? '';
+                final number = firstPhone['number']?.toString() ?? '';
+                phoneValue = '$area$number';
+              }
+            }
+          }
+          if (phoneValue.isNotEmpty) {
+            final phoneDigits = phoneValue.replaceAll(RegExp(r'\D'), '');
+            if (phoneDigits.isNotEmpty) {
+              _phoneController.text = PhoneInputFormatter().formatEditUpdate(
+                const TextEditingValue(),
+                TextEditingValue(text: phoneDigits),
+              ).text;
+            }
           }
           // Formatar data de nascimento ao carregar
           final birthDateValue = registrationData['birth_date'] ?? '';
@@ -157,12 +195,14 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
                 _cepController.text = cepValue.toString();
               }
             }
-            _streetController.text = address['street'] ?? '';
-            _numberController.text = address['number'] ?? '';
-            _neighborhoodController.text = address['district'] ?? address['locality'] ?? '';
-            _cityController.text = address['city'] ?? '';
-            _stateController.text = address['state'] ?? address['region_code'] ?? '';
-            _complementController.text = address['complement'] ?? '';
+            _streetController.text = address['street'] ?? address['logradouro'] ?? '';
+            _numberController.text = address['number'] ?? address['numero'] ?? '';
+            _neighborhoodController.text = address['district'] ?? address['bairro'] ?? address['neighborhood'] ?? address['locality'] ?? '';
+            _cityController.text = address['city'] ?? address['cidade'] ?? '';
+            // UF pode vir como state, estado, ou region_code
+            final stateValue = address['state'] ?? address['estado'] ?? address['region_code'] ?? '';
+            _stateController.text = stateValue.toString().toUpperCase().substring(0, stateValue.toString().length > 2 ? 2 : stateValue.toString().length);
+            _complementController.text = address['complement'] ?? address['complemento'] ?? '';
           }
           
           // Carregar dados da pessoa física
@@ -186,16 +226,48 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
               }
             }
             _motherNameController.text = person['mother_name'] ?? '';
+            
+            // Carregar data de nascimento da pessoa se não estiver no nível raiz
+            if (_birthDateController.text.isEmpty && person['birth_date'] != null) {
+              final personBirthDate = person['birth_date'].toString();
+              if (personBirthDate.isNotEmpty) {
+                if (personBirthDate.contains('-')) {
+                  final parts = personBirthDate.split('-');
+                  if (parts.length == 3) {
+                    _birthDateController.text = '${parts[2]}/${parts[1]}/${parts[0]}';
+                  }
+                } else {
+                  _birthDateController.text = personBirthDate;
+                }
+              }
+            }
           }
         }
         
+        // Verificar se já tem conta conectada via OAuth
+        final hasOAuthConnection = data['pagbank_account_id'] != null && 
+                                   data['pagbank_access_token'] != null;
+        final isVerified = data['pagbank_verified'] == true;
+        
+        // Verificar se já tem dados cadastrados (registration_data)
+        // Considera que tem dados se tem registration_data OU account_id (mesmo que não validado)
+        _hasExistingData = (registrationData != null && registrationData.isNotEmpty) || hasAccountId;
+
         // Definir step baseado no status
-        if (_accountStatus == 'approved' && data['approved_by_workshop'] == false) {
-          _currentStep = 3; // Confirmar aprovação
+        if (isVerified && hasOAuthConnection) {
+          // Conta já conectada e verificada - não precisa fazer nada
+          _currentStep = -1; // Tela de sucesso
+        } else if (_accountStatus == 'approved' && data['approved_by_workshop'] == false) {
+          _currentStep = 4; // Confirmar aprovação
         } else if (_accountStatus == 'in_analysis' || _accountStatus == 'pending') {
-          _currentStep = 2; // Aguardando aprovação
+          _currentStep = 3; // Aguardando aprovação
+        } else if (hasOAuthConnection && !isVerified) {
+          _currentStep = 0; // Escolher ação (já conectado, precisa validar)
+        } else if (_hasExistingData && !isVerified) {
+          // Tem dados cadastrados mas não está validado - mostrar opção de editar
+          _currentStep = 1; // Ir direto para formulário para editar
         } else if (_accountStatus == 'not_created' || _accountStatus == null) {
-          _currentStep = 0; // Formulário
+          _currentStep = 0; // Escolher ação (criar ou vincular)
         }
       }
       
@@ -231,30 +303,116 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
   }
 
   Future<void> _saveAccount() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validar formulário primeiro
+    if (!_formKey.currentState!.validate()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, corrija os erros no formulário antes de salvar.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
 
     _safeSetState(() => _isSaving = true);
 
     try {
-      // Payload conforme documentação oficial PagBank e payload do Postman que funcionou
-      // https://developer.pagbank.com.br/reference/criar-conta
-      // Campos obrigatórios para SELLER:
-      // - type: "SELLER"
-      // - business_category: enum (VEHICLE_SERVICES)
-      // - name: string (Nome da pessoa ou Razão Social)
-      // - email: string
-      // - tax_id: string (CPF 11 dígitos ou CNPJ 14 dígitos)
-      // - address: objeto (street, number, complement, locality, city, region_code, country, postal_code)
-      // - phones: array [{country: '55', area, number}]
-      // - person: objeto (OBRIGATÓRIO para SELLER) com name, email, tax_id (CPF), phones, address, mother_name
-      // - tos_acceptance: objeto (OBRIGATÓRIO) com date, user_ip, user_agent
-      
+      // Validação completa de todos os campos obrigatórios ANTES de enviar
       final taxIdDigits = _taxIdController.text.replaceAll(RegExp(r'[^0-9]'), '');
       final phoneDigits = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final postalCode = _cepController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final name = _nameController.text.trim();
+      final email = _emailController.text.trim();
+      final street = _streetController.text.trim();
+      final number = _numberController.text.trim();
+      final neighborhood = _neighborhoodController.text.trim();
+      final city = _cityController.text.trim();
+      final state = _stateController.text.trim();
+      final motherName = _motherNameController.text.trim();
+      
+      // Debug: verificar valores antes de validar
+      print('🔍 [PagBank Save] Valores dos campos:');
+      print('  name: "$name" (isEmpty: ${name.isEmpty})');
+      print('  email: "$email" (isEmpty: ${email.isEmpty})');
+      print('  taxIdDigits: "$taxIdDigits" (length: ${taxIdDigits.length})');
+      print('  phoneDigits: "$phoneDigits" (length: ${phoneDigits.length})');
+      print('  postalCode: "$postalCode" (length: ${postalCode.length})');
+      print('  street: "$street" (isEmpty: ${street.isEmpty})');
+      print('  number: "$number" (isEmpty: ${number.isEmpty})');
+      print('  neighborhood: "$neighborhood" (isEmpty: ${neighborhood.isEmpty})');
+      print('  city: "$city" (isEmpty: ${city.isEmpty})');
+      print('  state: "$state" (length: ${state.length})');
+      print('  motherName: "$motherName" (isEmpty: ${motherName.isEmpty})');
+      
+      // Lista de erros de validação
+      final List<String> validationErrors = [];
+      
+      // Validar campos básicos
+      if (name.isEmpty) validationErrors.add('Nome/Razão Social é obrigatório');
+      if (email.isEmpty) validationErrors.add('Email é obrigatório');
+      if (taxIdDigits.isEmpty) {
+        validationErrors.add('CPF/CNPJ é obrigatório');
+      } else if (taxIdDigits.length != 11 && taxIdDigits.length != 14) {
+        validationErrors.add('CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos');
+      }
       
       // Validar telefone
       if (phoneDigits.isEmpty) {
-        throw Exception('Telefone é obrigatório');
+        validationErrors.add('Telefone é obrigatório');
+      } else if (phoneDigits.length < 8) {
+        validationErrors.add('Telefone deve ter pelo menos 8 dígitos');
+      }
+      
+      // Validar endereço
+      if (postalCode.isEmpty) {
+        validationErrors.add('CEP é obrigatório');
+      } else if (postalCode.length != 8) {
+        validationErrors.add('CEP deve ter 8 dígitos');
+      }
+      if (street.isEmpty) validationErrors.add('Rua é obrigatória');
+      if (number.isEmpty) validationErrors.add('Número é obrigatório');
+      if (neighborhood.isEmpty) validationErrors.add('Bairro é obrigatório');
+      if (city.isEmpty) validationErrors.add('Cidade é obrigatória');
+      if (state.isEmpty) {
+        validationErrors.add('UF é obrigatória');
+      } else if (state.length != 2) {
+        validationErrors.add('UF deve ter 2 caracteres');
+      }
+      
+      // Validar dados da pessoa física (person)
+      final personCpf = _personCpfController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final personCpfFinal = personCpf.isNotEmpty 
+          ? personCpf 
+          : (taxIdDigits.length == 11 ? taxIdDigits : '');
+      
+      print('  personCpf: "$personCpf" (length: ${personCpf.length})');
+      print('  personCpfFinal: "$personCpfFinal" (length: ${personCpfFinal.length})');
+      print('  motherName: "$motherName" (isEmpty: ${motherName.isEmpty})');
+      
+      if (personCpfFinal.isEmpty || personCpfFinal.length != 11) {
+        validationErrors.add('CPF da pessoa física é obrigatório e deve ter 11 dígitos');
+      }
+      
+      if (motherName.isEmpty) {
+        validationErrors.add('Nome da mãe é obrigatório');
+      }
+      
+      // Debug: mostrar erros encontrados
+      if (validationErrors.isNotEmpty) {
+        print('❌ [PagBank Save] Erros de validação encontrados:');
+        for (var error in validationErrors) {
+          print('  - $error');
+        }
+      } else {
+        print('✅ [PagBank Save] Todos os campos validados com sucesso!');
+      }
+      
+      // Se houver erros de validação, mostrar todos de uma vez
+      if (validationErrors.isNotEmpty) {
+        throw Exception('Por favor, corrija os seguintes campos:\n${validationErrors.join('\n')}');
       }
       
       // Extrair DDD (2 dígitos) e número (8-9 dígitos)
@@ -278,8 +436,8 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
       if (phoneNumber.length < 8 || phoneNumber.length > 9) {
         throw Exception('Número de telefone deve ter 8 ou 9 dígitos (sem DDD)');
       }
-      final postalCode = _cepController.text.replaceAll(RegExp(r'[^0-9]'), '');
-      final regionCode = _stateController.text.trim().toUpperCase().substring(0, _stateController.text.trim().length > 2 ? 2 : _stateController.text.trim().length);
+      
+      final regionCode = state.toUpperCase().substring(0, 2);
       
       // Converter data de nascimento para YYYY-MM-DD (formato OBRIGATÓRIO do PagBank)
       String? birthDateFormatted;
@@ -308,40 +466,21 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
         }
       }
       
-      // CPF da pessoa física (obrigatório para person)
-      final personCpf = _personCpfController.text.replaceAll(RegExp(r'[^0-9]'), '');
-      // Se não preencheu CPF da pessoa, usar o tax_id se for CPF (11 dígitos)
-      // Se for CNPJ, não pode usar - precisa preencher o CPF da pessoa
-      final personCpfFinal = personCpf.isNotEmpty 
-          ? personCpf 
-          : (taxIdDigits.length == 11 ? taxIdDigits : '');
-      
-      // Validar se tem CPF válido para person
-      if (personCpfFinal.isEmpty || personCpfFinal.length != 11) {
-        throw Exception('CPF da pessoa física é obrigatório e deve ter 11 dígitos');
-      }
-      
       // Nome da pessoa física (obrigatório para person)
       final personName = _personNameController.text.trim().isNotEmpty 
           ? _personNameController.text.trim() 
-          : _nameController.text.trim();
+          : name;
       
       // Email da pessoa física (obrigatório para person)
       final personEmail = _personEmailController.text.trim().isNotEmpty 
           ? _personEmailController.text.trim() 
-          : _emailController.text.trim();
-      
-      // Nome da mãe (obrigatório para person)
-      final motherName = _motherNameController.text.trim();
-      if (motherName.isEmpty) {
-        throw Exception('Nome da mãe é obrigatório');
-      }
+          : email;
       
       final registrationData = {
         'type': 'SELLER', // OBRIGATÓRIO
         'business_category': 'VEHICLE_SERVICES', // OBRIGATÓRIO para SELLER
-        'name': _nameController.text.trim(), // Nome/Razão Social (obrigatório)
-        'email': _emailController.text.trim(), // Email (obrigatório)
+        'name': name, // Nome/Razão Social (obrigatório)
+        'email': email, // Email (obrigatório)
         'tax_id': taxIdDigits, // CPF/CNPJ (obrigatório)
         'phone': phoneDigits, // Telefone como string (obrigatório para validação da API)
         'phones': [
@@ -352,11 +491,11 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
           },
         ],
         'address': {
-          'street': _streetController.text.trim(),
-          'number': _numberController.text.trim(),
+          'street': street,
+          'number': number,
           'complement': _complementController.text.trim(),
-          'locality': _neighborhoodController.text.trim(),
-          'city': _cityController.text.trim(),
+          'locality': neighborhood,
+          'city': city,
           'region_code': regionCode,
           'country': 'BRA',
           'postal_code': postalCode,
@@ -377,11 +516,11 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
             },
           ],
           'address': {
-            'street': _streetController.text.trim(),
-            'number': _numberController.text.trim(),
+            'street': street,
+            'number': number,
             'complement': _complementController.text.trim(),
-            'locality': _neighborhoodController.text.trim(),
-            'city': _cityController.text.trim(),
+            'locality': neighborhood,
+            'city': city,
             'region_code': regionCode,
             'country': 'BRA',
             'postal_code': postalCode,
@@ -407,30 +546,85 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
       final response = await _apiService.createPagBankAccount(registrationData);
       
       if (response['success']) {
+        final data = response['data'];
+        
+        // Verificar se a conta já existe e precisa de OAuth Connect
+        if (data['needs_oauth_connect'] == true || data['account_exists'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(data['message'] ?? 'Conta já existe. Use "Vincular Conta Existente" para conectar.'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+            
+            // Voltar para tela de escolha para mostrar opção de vincular
+            _safeSetState(() {
+              _currentStep = 0;
+            });
+          }
+          return;
+        }
+        
         _safeSetState(() {
-          _currentStep = 1; // Mostrar instruções
+          _currentStep = 2; // Mostrar instruções
           _accountStatus = 'pending';
         });
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Conta PagBank criada com sucesso!'),
+            SnackBar(
+              content: Text(response['message'] ?? 'Conta PagBank criada com sucesso!'),
               backgroundColor: Colors.green,
             ),
           );
         }
       } else {
-        throw Exception(response['error'] ?? 'Erro ao criar conta');
+        // Extrair mensagem de erro mais detalhada
+        final errorMessage = response['error'] ?? response['message'] ?? 'Erro ao criar conta';
+        final errorDetails = response['details'];
+        String fullErrorMessage = errorMessage;
+        
+        if (errorDetails != null) {
+          if (errorDetails is Map && errorDetails['message'] != null) {
+            fullErrorMessage = '${errorMessage}\n${errorDetails['message']}';
+          } else if (errorDetails is String) {
+            fullErrorMessage = '${errorMessage}\n$errorDetails';
+          }
+        }
+        
+        throw Exception(fullErrorMessage);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Mostrar erro em diálogo para mensagens longas
+        final errorText = e.toString().replaceAll('Exception: ', '');
+        if (errorText.contains('\n') || errorText.length > 100) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Erro ao criar conta'),
+              content: SingleChildScrollView(
+                child: Text(errorText),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorText),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } finally {
       _safeSetState(() => _isSaving = false);
@@ -517,15 +711,311 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
 
   Widget _buildBodyContent(bool isDark, Color textColor, Color backgroundColor, Color cardColor) {
     final secondaryText = _getSecondaryText(isDark);
-    if (_currentStep == 0) {
-      return _buildForm(isDark, textColor, secondaryText, backgroundColor, cardColor);
+    if (_currentStep == -1) {
+      return _buildAlreadyConnected(isDark, textColor, secondaryText, backgroundColor, cardColor);
+    } else if (_currentStep == 0) {
+      return _buildChoiceScreen(isDark, textColor, secondaryText, backgroundColor, cardColor);
     } else if (_currentStep == 1) {
-      return _buildInstructions(isDark, textColor, secondaryText, backgroundColor, cardColor);
+      return _buildForm(isDark, textColor, secondaryText, backgroundColor, cardColor);
     } else if (_currentStep == 2) {
+      return _buildInstructions(isDark, textColor, secondaryText, backgroundColor, cardColor);
+    } else if (_currentStep == 3) {
       return _buildWaitingApproval(isDark, textColor, secondaryText, backgroundColor, cardColor);
     } else {
       return _buildConfirmApproval(isDark, textColor, secondaryText, backgroundColor, cardColor);
     }
+  }
+
+  Future<void> _linkExistingAccount() async {
+    _safeSetState(() => _isConnectingOAuth = true);
+
+    try {
+      // Garantir que o token está carregado antes de fazer a chamada
+      await _apiService.loadToken();
+      
+      // Verificar se tem workshopId antes de fazer a chamada
+      final workshopId = await _apiService.getWorkshopId();
+      if (workshopId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Token inválido ou workshopId não encontrado. Faça login novamente.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        _safeSetState(() => _isConnectingOAuth = false);
+        return;
+      }
+      
+      // Usar startPagBankConnect que é o método correto para iniciar o fluxo OAuth
+      final response = await _apiService.startPagBankConnect();
+      
+      if (response['success']) {
+        final data = response['data'];
+        // Tentar múltiplos formatos de URL
+        final authUrl = data['authorizationUrl'] ?? 
+                       data['authorize_url'] ?? 
+                       data['url'] ?? 
+                       null;
+        
+        if (authUrl == null || authUrl.toString().isEmpty) {
+          throw Exception('URL de autorização não encontrada na resposta da API');
+        }
+        
+        // Validar se a URL é válida
+        final urlString = authUrl.toString();
+        if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
+          throw Exception('URL de autorização inválida: $urlString');
+        }
+        
+        // Verificar se pode abrir a URL
+        final uri = Uri.parse(urlString);
+        final canLaunch = await canLaunchUrl(uri);
+        
+        if (!canLaunch) {
+          throw Exception('Não foi possível abrir a URL: $urlString');
+        }
+        
+        // Abrir URL em navegador externo (não in-app para evitar problemas de CORS)
+        final launched = await launchUrl(
+          uri, 
+          mode: LaunchMode.externalApplication,
+        );
+        
+        if (launched) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Redirecionando para PagBank... Complete a autorização no navegador.'),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 5),
+              ),
+            );
+            // Aguardar alguns segundos e recarregar dados
+            Future.delayed(const Duration(seconds: 5), () {
+              if (mounted) {
+                _loadData();
+              }
+            });
+          }
+        } else {
+          throw Exception('Não foi possível abrir a página de autorização. Verifique sua conexão.');
+        }
+      } else {
+        final errorMessage = response['error'] ?? 'Erro ao obter URL de autorização';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorText = e.toString().replaceAll('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao vincular conta: $errorText'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      _safeSetState(() => _isConnectingOAuth = false);
+    }
+  }
+
+  Widget _buildChoiceScreen(bool isDark, Color textColor, Color secondaryText, Color backgroundColor, Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Conectar Conta PagBank',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Escolha como deseja conectar sua conta PagBank',
+            style: TextStyle(fontSize: 16, color: secondaryText),
+          ),
+          const SizedBox(height: 32),
+          
+          // Opção 1: Vincular conta existente
+          InkWell(
+            onTap: _isConnectingOAuth ? null : _linkExistingAccount,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF00C977).withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C977).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.link,
+                      color: Color(0xFF00C977),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vincular Conta Existente',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Já tenho uma conta PagBank e quero vincular',
+                          style: TextStyle(fontSize: 14, color: secondaryText),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isConnectingOAuth)
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Color(0xFF00C977),
+                      size: 20,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Opção 2: Criar nova conta OU Editar dados existentes
+          InkWell(
+            onTap: () {
+              _safeSetState(() {
+                _currentStep = 1; // Ir para formulário
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF00C977).withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C977).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _hasExistingData ? Icons.edit : Icons.add_circle_outline,
+                      color: const Color(0xFF00C977),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _hasExistingData ? 'Editar Dados Bancários PagBank' : 'Criar Nova Conta',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _hasExistingData 
+                            ? 'Editar os dados bancários PagBank já cadastrados'
+                            : 'Criar uma nova conta PagBank para minha oficina',
+                          style: TextStyle(fontSize: 14, color: secondaryText),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Color(0xFF00C977),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlreadyConnected(bool isDark, Color textColor, Color secondaryText, Color backgroundColor, Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 80),
+          const SizedBox(height: 24),
+          Text(
+            'Conta PagBank Conectada!',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: textColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sua conta PagBank está conectada e verificada. Você já pode receber pagamentos!',
+            style: TextStyle(fontSize: 16, color: secondaryText),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C977),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Voltar',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildForm(bool isDark, Color textColor, Color secondaryText, Color backgroundColor, Color cardColor) {
@@ -837,9 +1327,9 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
                         width: 24,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text(
-                        'Criar Conta PagBank',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                    : Text(
+                        _hasExistingData ? 'Atualizar Dados PagBank' : 'Criar Conta PagBank',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                       ),
               ),
             ),
@@ -918,7 +1408,7 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
             height: 56,
             child: ElevatedButton(
               onPressed: () {
-                _safeSetState(() => _currentStep = 2);
+                _safeSetState(() => _currentStep = 3);
                 _loadData();
               },
               style: ElevatedButton.styleFrom(

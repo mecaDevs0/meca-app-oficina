@@ -38,6 +38,7 @@ class BankService {
 
   // Método para atualizar dados bancários com campo de parcelamento
   Future<Map<String, dynamic>> updateBankDetails({
+    required String workshopId,
     required String bankName,
     required String agencia,
     required String conta,
@@ -55,7 +56,7 @@ class BankService {
         'accepts_installment': acceptsInstallment,
       };
 
-      final response = await _dio.put('/store/workshops/me/bank-details', data: bankData);
+      final response = await _dio.put('/workshop/$workshopId/banking', data: bankData);
       
       if (response.statusCode == 200) {
         return {'success': true, 'data': response.data};
@@ -68,11 +69,11 @@ class BankService {
   }
 
   // Método para obter dados bancários
-  Future<Map<String, dynamic>> getBankDetails() async {
+  Future<Map<String, dynamic>> getBankDetails({required String workshopId}) async {
     try {
       await loadToken();
       
-      final response = await _dio.get('/store/workshops/me/bank-details');
+      final response = await _dio.get('/workshop/$workshopId/banking');
       
       if (response.statusCode == 200) {
         return {'success': true, 'data': response.data};

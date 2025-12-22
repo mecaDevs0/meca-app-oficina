@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isDataBankInvalid = false;
   bool _isAgendaInvalid = false;
   bool _isServiceInvalid = false;
+  bool _hasPagBankData = false; // Tem dados cadastrados mas não verificado
 
   @override
   void initState() {
@@ -41,6 +42,22 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
     
     try {
+      // Carregar notificações para atualizar badge do perfil
+      try {
+        final notificationsResponse = await _apiService.getNotifications();
+        if (notificationsResponse['success'] && mounted) {
+          final data = notificationsResponse['data'] ?? {};
+          final unreadCount = data['unread_count'] is int
+              ? data['unread_count']
+              : int.tryParse('${data['unread_count']}') ?? 0;
+          final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+          notificationProvider.setUnreadNotifications(unreadCount, resetBadge: unreadCount == 0);
+        }
+      } catch (e) {
+        // Erro ao carregar notificações não deve bloquear o carregamento da tela
+        print('⚠️ Erro ao carregar notificações: $e');
+      }
+      
       // Carregar perfil da oficina
       final profileResponse = await _apiService.getProfile();
       if (profileResponse['success']) {
@@ -52,12 +69,28 @@ class _HomeScreenState extends State<HomeScreen> {
       // Buscar status da conta PagBank
       final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
       bool hasPagBankAccount = false;
+      bool hasPagBankData = false; // Tem dados cadastrados mas não verificado
+      
       if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
         final statusData = pagbankStatusResponse['data'];
-        final status = statusData['status']?.toString() ?? 'not_created';
-        // Conta está configurada se foi criada e aprovada
-        hasPagBankAccount = status != 'not_created' && status != 'rejected';
+        // Verificar se tem conta conectada via OAuth E verificada
+        final hasOAuthConnection = statusData['pagbank_account_id'] != null && 
+                                   statusData['pagbank_access_token'] != null;
+        final isVerified = statusData['pagbank_verified'] == true;
+        
+        // Verificar se tem dados cadastrados (mesmo que não verificado)
+        hasPagBankData = statusData['registration_data'] != null || 
+                        statusData['pagbank_account_id'] != null ||
+                        (statusData['email'] != null && statusData['name'] != null);
+        
+        // Conta está configurada APENAS se está conectada via OAuth E verificada
+        hasPagBankAccount = hasOAuthConnection && isVerified;
       }
+      
+      // Salvar estado para usar no card
+      setState(() {
+        _hasPagBankData = hasPagBankData;
+      });
       
       // Buscar agenda diretamente da API
       final scheduleResponse = await _apiService.getSchedule();
@@ -383,9 +416,11 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         if (_isDataBankInvalid)
           _buildConfigCard(
-            title: 'Dados para Cadastro PagBank',
-            description: 'Preencha os dados para criar sua conta PagBank',
-            icon: Icons.account_balance_wallet_outlined,
+            title: _hasPagBankData ? 'Editar Dados PagBank' : 'Cadastrar PagBank',
+            description: _hasPagBankData 
+                ? 'Edite os dados da sua conta PagBank ou complete a verificação'
+                : 'Preencha os dados para criar sua conta PagBank',
+            icon: _hasPagBankData ? Icons.edit_outlined : Icons.account_balance_wallet_outlined,
             iconColor: const Color(0xFF3B82F6),
             bgColor: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDBEAFE),
             onTap: () async {
@@ -1071,6 +1106,5 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Desconhecido';
     }
   }
-
 }
 

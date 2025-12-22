@@ -1,11 +1,12 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
-import '../bookings/evidence_upload_screen.dart';
 import '../bookings/build_quote_screen.dart';
+import '../bookings/evidence_upload_screen.dart';
 
 class BookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -19,6 +20,7 @@ class BookingDetailScreen extends StatefulWidget {
 class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _bookingDetails;
+  Map<String, dynamic>? _paymentData; // PASSO 15: Dados do pagamento
   bool _loading = true;
 
   @override
@@ -213,8 +215,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     _buildInfoCard(
                       'Informações do Agendamento',
                       [
+                        // IMPORTANTE: Adicionar modelo do veículo na seção de Informações do Agendamento
+                        if (booking['vehicle_info'] != null && booking['vehicle_info'].toString().trim().isNotEmpty)
+                          _buildInfoRow('Modelo', booking['vehicle_info'], Icons.directions_car),
                         _buildInfoRow('Data', _formatDate(booking['appointment_date']), Icons.calendar_today),
-                        _buildInfoRow('Hora', _formatTime(booking['appointment_date']), Icons.access_time),
+                        // Exibir horário fixo ou janela de horário
+                        if (booking['schedule_type'] == 'time_window' && 
+                            booking['time_window_start'] != null && 
+                            booking['time_window_end'] != null) ...[
+                          _buildInfoRow(
+                            'Janela de Horário', 
+                            '${_formatTime(booking['time_window_start'])} até ${_formatTime(booking['time_window_end'])}', 
+                            Icons.schedule
+                          ),
+                        ] else ...[
+                          _buildInfoRow('Hora', _formatTime(booking['appointment_date']), Icons.access_time),
+                        ],
                         if (booking['estimated_price'] != null)
                           _buildInfoRow('Valor Estimado', 'R\$ ${(booking['estimated_price'] / 100).toStringAsFixed(2)}', Icons.attach_money),
                       ],
@@ -244,6 +260,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     
                     // Card informativo sobre situação atual
                     _buildStatusInfoCard(booking, isDarkMode, normalizedStatus),
+                    
+                    // PASSO 15: Card de informações de pagamento (se pago)
+                    if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
+                      _buildPaymentInfoCard(booking, isDarkMode),
                     
                     // Ações
                     _buildActionsCard(booking, isDarkMode, statusFinal, normalizedStatus),
@@ -1111,10 +1131,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
 
           if (apiResult['success']) {
             // Mostrar modal informativo
+            final isDarkMode = Theme.of(context).brightness == Brightness.dark;
             await showDialog(
               context: context,
               barrierDismissible: false,
               builder: (context) => AlertDialog(
+                backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -1133,12 +1155,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Sugestão Enviada!',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black87,
                         ),
                       ),
                     ),
@@ -1148,21 +1171,24 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Sua sugestão de horário foi enviada para o cliente com sucesso.',
                       style: TextStyle(
                         fontSize: 16,
                         height: 1.5,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                        color: const Color(0xFFF59E0B).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: const Color(0xFFF59E0B).withOpacity(0.3),
+                          color: const Color(0xFFF59E0B).withOpacity(0.4),
+                          width: 1.5,
                         ),
                       ),
                       child: Row(
@@ -1170,16 +1196,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           Icon(
                             Icons.info_outline,
                             color: const Color(0xFFF59E0B),
-                            size: 20,
+                            size: 22,
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'O cliente recebeu uma notificação e vai analisar sua sugestão. Você será avisado quando ele autorizar ou negar.',
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                height: 1.4,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                                color: isDarkMode ? Colors.white : const Color(0xFF1F2937),
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ),
@@ -1370,6 +1398,161 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           ],
         ],
       ),
+    );
+  }
+
+  // PASSO 15: Card de informações de pagamento
+  Widget _buildPaymentInfoCard(Map<String, dynamic> booking, bool isDarkMode) {
+    if (_paymentData == null) return const SizedBox.shrink();
+
+    final payment = _paymentData!;
+    final amount = (payment['amount'] ?? 0).toDouble();
+    final workshopAmount = (payment['workshop_amount'] ?? 0).toDouble();
+    final mecaFee = (payment['meca_fee_amount'] ?? 0).toDouble();
+    final paymentMethod = payment['payment_method'] ?? 'N/A';
+    
+    final NumberFormat currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1A3A2A) : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.shade300, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.payments,
+                  color: Colors.green,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Pagamento Confirmado',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.green.shade900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Valor pago pelo cliente
+          _buildPaymentRow(
+            'Valor Pago pelo Cliente',
+            currencyFormat.format(amount),
+            Icons.attach_money,
+            isDarkMode,
+            Colors.blue,
+          ),
+          const Divider(height: 24),
+          // Taxa MECA
+          _buildPaymentRow(
+            'Taxa MECA (${((payment['meca_fee_percentage'] ?? 0) * 100).toStringAsFixed(0)}%)',
+            currencyFormat.format(mecaFee),
+            Icons.percent,
+            isDarkMode,
+            Colors.orange,
+          ),
+          const Divider(height: 24),
+          // Valor que a oficina vai receber
+          _buildPaymentRow(
+            'Valor que Você Vai Receber',
+            currencyFormat.format(workshopAmount),
+            Icons.account_balance_wallet,
+            isDarkMode,
+            Colors.green,
+            isHighlight: true,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Método: ${paymentMethod == 'CREDIT_CARD' ? 'Cartão de Crédito' : paymentMethod == 'PIX' ? 'PIX' : paymentMethod}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentRow(String label, String value, IconData icon, bool isDarkMode, Color color, {bool isHighlight = false}) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: isHighlight ? color : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: isHighlight ? 20 : 18,
+                  color: isHighlight ? color : (isDarkMode ? Colors.white : Colors.black87),
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1947,38 +2130,27 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      url,
+                    child: CachedNetworkImage(
+                      imageUrl: url,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
+                      placeholder: (context, url) => Container(
+                        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF00C977)),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        decoration: BoxDecoration(
                           color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                              color: const Color(0xFF00C977),
-                            ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -2006,24 +2178,19 @@ class _ImageFullScreen extends StatelessWidget {
       ),
       body: Center(
         child: InteractiveViewer(
-          child: Image.network(
-            url,
+          child: CachedNetworkImage(
+            imageUrl: url,
             fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: Colors.white,
-                  size: 64,
-                ),
-              );
-            },
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(
+                Icons.broken_image,
+                color: Colors.white,
+                size: 64,
+              ),
+            ),
           ),
         ),
       ),
