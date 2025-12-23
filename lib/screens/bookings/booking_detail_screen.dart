@@ -44,14 +44,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
-  Future<void> _loadBookingDetails() async {
+  Future<void> _loadBookingDetails({bool forceRefresh = false}) async {
     setState(() => _loading = true);
     
     try {
       final bookingId = widget.booking['id']?.toString() ?? '';
       
       if (bookingId.isNotEmpty) {
-        final result = await _apiService.getBookingDetails(bookingId);
+        // IMPORTANTE: Se forceRefresh, adicionar timestamp para forçar nova requisição
+        final result = await _apiService.getBookingDetails(
+          bookingId,
+          forceRefresh: forceRefresh,
+        );
         
         if (result['success'] == true && result['data'] != null) {
           final data = Map<String, dynamic>.from(result['data']);
@@ -1700,7 +1704,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   ],
                   
                   // Botão de montar/enviar orçamento (quando status é confirmado E ainda não foi enviado orçamento)
-                  if (isConfirmed && !hasFinalPrice)
+                  // IMPORTANTE: Também verificar se status é pendente_oficina para permitir enviar orçamento
+                  if ((isConfirmed || isPendingWorkshop) && !hasFinalPrice)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -1712,7 +1717,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             ),
                           );
                           if (result == true) {
-                            await _loadBookingDetails();
+                            // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
+                            // Usar forceRefresh para invalidar cache e garantir dados atualizados
+                            await _loadBookingDetails(forceRefresh: true);
+                            // Aguardar um pouco para garantir que a API processou
+                            await Future.delayed(const Duration(milliseconds: 800));
+                            // Recarregar novamente para garantir dados atualizados
+                            await _loadBookingDetails(forceRefresh: true);
                           }
                         },
                         icon: const Icon(Icons.send, color: Colors.white),
@@ -2102,9 +2113,52 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
               itemCount: uploads.length,
               itemBuilder: (context, index) {
                 final upload = uploads[index];
-                final url = (upload['url'] ?? upload['signed_url'] ?? '').toString();
+                // IMPORTANTE: Extrair URL de diferentes formatos possíveis
+                String? url;
                 
-                if (url.isEmpty) {
+                // Debug: logar estrutura do upload
+                debugPrint('🔍 [BookingDetail] Upload[$index] tipo: ${upload.runtimeType}, valor: ${upload.toString().substring(0, upload.toString().length > 200 ? 200 : upload.toString().length)}');
+                
+                if (upload is Map) {
+                  // Debug: logar todas as chaves do Map
+                  debugPrint('🔍 [BookingDetail] Upload[$index] chaves: ${upload.keys.toList()}');
+                  
+                  // Priorizar signed_url, depois url, depois s3_url
+                  url = (upload['signed_url'] ?? upload['url'] ?? upload['s3_url'] ?? upload['image_url'] ?? '').toString();
+                  
+                  // Se ainda não tem URL, tentar extrair de campos aninhados
+                  if (url.isEmpty) {
+                    final nestedUrl = upload['image']?['url'] ?? upload['file_url'] ?? upload['key'];
+                    url = nestedUrl?.toString();
+                    debugPrint('🔍 [BookingDetail] Tentando extrair URL de campos aninhados: $nestedUrl');
+                  }
+                  
+                  // Se tem key mas não tem URL, pode ser que precise gerar URL assinada
+                  // Mas isso deve ser feito no backend, então apenas logar para debug
+                  if ((url == null || url.isEmpty) && upload['key'] != null) {
+                    debugPrint('⚠️ [BookingDetail] Upload tem key mas não tem URL: ${upload['key']}');
+                  }
+                } else if (upload is String) {
+                  url = upload;
+                  debugPrint('🔍 [BookingDetail] Upload é string direta: ${url.substring(0, url.length > 100 ? 100 : url.length)}...');
+                }
+                
+                // VALIDAÇÃO CRÍTICA: URL deve começar com http:// ou https://
+                // Se não for uma URL válida, não podemos usar
+                if (url != null && url.isNotEmpty && !url.startsWith('http://') && !url.startsWith('https://')) {
+                  debugPrint('⚠️ [BookingDetail] URL inválida (não é http/https): $url');
+                  debugPrint('⚠️ [BookingDetail] Upload completo: $upload');
+                  url = null; // Invalidar URL
+                }
+                
+                // Debug: logar URL extraída
+                if (url != null && url.isNotEmpty) {
+                  debugPrint('🖼️ [BookingDetail] Carregando imagem: ${url.substring(0, url.length > 100 ? 100 : url.length)}...');
+                } else {
+                  debugPrint('⚠️ [BookingDetail] Upload sem URL válida: $upload');
+                }
+                
+                if (url == null || url.isEmpty) {
                   return Container(
                     decoration: BoxDecoration(
                       color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
@@ -2121,36 +2175,60 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                 
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => _ImageFullScreen(url: url),
-                      ),
-                    );
+                    if (url != null && url.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => _ImageFullScreen(url: url!),
+                        ),
+                      );
+                    }
                   },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
                       imageUrl: url,
                       fit: BoxFit.cover,
+                      httpHeaders: {
+                        // IMPORTANTE: Adicionar headers para evitar problemas de CORS
+                        'Accept': 'image/*',
+                      },
                       placeholder: (context, url) => Container(
                         color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                         child: const Center(
                           child: CircularProgressIndicator(color: Color(0xFF00C977)),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        decoration: BoxDecoration(
-                          color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                      errorWidget: (context, url, error) {
+                        // Debug: logar erro de carregamento
+                        debugPrint('❌ [BookingDetail] Erro ao carregar imagem: $url');
+                        debugPrint('❌ [BookingDetail] Erro: $error');
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                      ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                                size: 32,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Imagem não disponível',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ),
                 );

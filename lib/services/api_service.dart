@@ -462,7 +462,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getBookingDetails(String bookingId) async {
+  Future<Map<String, dynamic>> getBookingDetails(String bookingId, {bool forceRefresh = false}) async {
     try {
       await loadToken();
       
@@ -470,7 +470,12 @@ class ApiService {
         return {'success': false, 'error': 'Token de autenticação não encontrado. Faça login novamente.'};
       }
       
-      final response = await _dio.get('/bookings/$bookingId');
+      // IMPORTANTE: Se forceRefresh, adicionar timestamp para forçar nova requisição (bypass cache)
+      final url = forceRefresh 
+          ? '/bookings/$bookingId?_t=${DateTime.now().millisecondsSinceEpoch}'
+          : '/bookings/$bookingId';
+      
+      final response = await _dio.get(url);
       
       if (response.data != null && response.data['success'] == true) {
         final data = response.data['data'];

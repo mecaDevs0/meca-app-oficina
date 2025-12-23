@@ -74,13 +74,17 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   double _calculateItemsTotal() {
     return _items.fold(0.0, (sum, item) {
       final quantity = double.tryParse(item.quantityController.text) ?? 1;
-      final unitPrice = double.tryParse(item.unitPriceController.text.replaceAll(',', '.')) ?? 0;
+      // IMPORTANTE: Usar CurrencyTextInputFormatter.parseToCents para parsear corretamente o valor formatado
+      final unitPriceCents = CurrencyTextInputFormatter.parseToCents(item.unitPriceController.text) ?? 0;
+      final unitPrice = unitPriceCents / 100.0;
       return sum + (quantity * unitPrice);
     });
   }
 
   double _calculateDiagnostic() {
-    return double.tryParse(_diagnosticController.text.replaceAll(',', '.')) ?? 0;
+    // IMPORTANTE: Usar CurrencyTextInputFormatter.parseToCents para parsear corretamente o valor formatado
+    final diagnosticCents = CurrencyTextInputFormatter.parseToCents(_diagnosticController.text) ?? 0;
+    return diagnosticCents / 100.0;
   }
 
   double _calculateTotal() {
@@ -489,7 +493,9 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             Builder(
                               builder: (context) {
                                 final quantity = double.tryParse(item.quantityController.text) ?? 1;
-                                final unitPrice = double.tryParse(item.unitPriceController.text.replaceAll(',', '.')) ?? 0;
+                                // IMPORTANTE: Usar CurrencyTextInputFormatter.parseToCents para parsear corretamente o valor formatado
+                                final unitPriceCents = CurrencyTextInputFormatter.parseToCents(item.unitPriceController.text) ?? 0;
+                                final unitPrice = unitPriceCents / 100.0;
                                 final itemTotal = quantity * unitPrice;
                                 return Container(
                                   padding: const EdgeInsets.all(12),
