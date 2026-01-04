@@ -1306,8 +1306,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       iconColor = Colors.amber.shade800;
     } else if (statusFinal == 'in_progress' || statusFinal == 'started' || statusFinal == 'em_andamento') {
       title = 'Serviço em Andamento 🔧';
-      description = 'O cliente aprovou o orçamento e você iniciou o serviço. Continue realizando o trabalho.';
-      nextStep = '📸 Dica: Tire fotos do serviço durante a execução usando o botão "Enviar Provas". Quando terminar, clique em "Finalizar Serviço" para concluir.';
+      description = 'O serviço está sendo realizado. Continue trabalhando normalmente.';
+      nextStep = '💡 IMPORTANTE: Se durante o serviço você descobrir que precisa alterar o orçamento (aumentar ou diminuir o valor), use o botão "Editar Orçamento" abaixo. Você DEVE explicar claramente o motivo da mudança para o cliente, que precisará aprovar o novo valor antes de continuar.';
       icon = Icons.build_circle;
       cardColor = Colors.green.shade50;
       borderColor = Colors.green.shade200;
@@ -1649,17 +1649,24 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             );
                           }
                         },
-                        icon: const Icon(Icons.check_circle, color: Colors.white),
+                        icon: const Icon(Icons.check_circle, color: Colors.white, size: 22),
                         label: const Text(
                           'Aprovar',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF00C977),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          elevation: 4,
+                          shadowColor: const Color(0xFF00C977).withOpacity(0.4),
                         ),
                       ),
                     ),
@@ -1668,17 +1675,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _showRejectDialog(booking),
-                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        icon: const Icon(Icons.cancel, color: Colors.red, size: 20),
                         label: const Text(
                           'Recusar',
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: Colors.red, 
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.red),
+                          side: const BorderSide(color: Colors.red, width: 1.5),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          backgroundColor: Colors.red.withOpacity(0.05),
                         ),
                       ),
                     ),
@@ -1687,17 +1699,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _showSuggestTimeDialog(booking),
-                        icon: const Icon(Icons.schedule, color: Colors.orange),
+                        icon: const Icon(Icons.schedule, color: Colors.orange, size: 20),
                         label: const Text(
                           'Sugerir Outro Horário',
-                          style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: Colors.orange, 
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.orange),
+                          side: const BorderSide(color: Colors.orange, width: 1.5),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
+                          backgroundColor: Colors.orange.withOpacity(0.05),
                         ),
                       ),
                     ),
@@ -1705,41 +1722,61 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   
                   // Botão de montar/enviar orçamento (quando status é confirmado E ainda não foi enviado orçamento)
                   // IMPORTANTE: Também verificar se status é pendente_oficina para permitir enviar orçamento
-                  if ((isConfirmed || isPendingWorkshop) && !hasFinalPrice)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                  if ((isConfirmed || isPendingWorkshop) && !hasFinalPrice) ...[
+                    const SizedBox(height: 20), // Espaçamento maior antes do botão
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                              ),
+                            );
+                            if (result == true) {
+                              // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
+                              // Usar forceRefresh para invalidar cache e garantir dados atualizados
+                              await _loadBookingDetails(forceRefresh: true);
+                              // Aguardar um pouco para garantir que a API processou
+                              await Future.delayed(const Duration(milliseconds: 800));
+                              // Recarregar novamente para garantir dados atualizados
+                              await _loadBookingDetails(forceRefresh: true);
+                            }
+                          },
+                          icon: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
+                          label: const Text(
+                            'Montar Orçamento',
+                            style: TextStyle(
+                              color: Colors.white, 
+                              fontWeight: FontWeight.w700, 
+                              fontSize: 16,
+                              letterSpacing: 0.5,
                             ),
-                          );
-                          if (result == true) {
-                            // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
-                            // Usar forceRefresh para invalidar cache e garantir dados atualizados
-                            await _loadBookingDetails(forceRefresh: true);
-                            // Aguardar um pouco para garantir que a API processou
-                            await Future.delayed(const Duration(milliseconds: 800));
-                            // Recarregar novamente para garantir dados atualizados
-                            await _loadBookingDetails(forceRefresh: true);
-                          }
-                        },
-                        icon: const Icon(Icons.send, color: Colors.white),
-                        label: const Text(
-                          '📝 Montar Orçamento',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
                           ),
                         ),
                       ),
                     ),
+                  ],
                   
                   // Botão de iniciar serviço (quando status é confirmado E já foi enviado e aprovado orçamento)
                   // Quando o cliente aprova o orçamento inicial, o status volta para "confirmado" e tem final_price
@@ -1849,66 +1886,66 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                        ),
+                ),
                       ),
-          ),
-          
-          // Botão de finalizar serviço (quando já está em_andamento)
-          if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress')
+                    ),
+                  
+                  // Botão de finalizar serviço (quando já está em_andamento)
+                  if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress')
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _showFinishServiceDialog(booking),
-                icon: const Icon(Icons.check_circle, color: Colors.white),
-                label: const Text(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showFinishServiceDialog(booking),
+                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          label: const Text(
                             '✅ Finalizar Serviço',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C977),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C977),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                  ),
-                ),
-              ),
-            ),
-          
-          // Botão de upload de evidências (quando serviço está em andamento)
-          if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress') ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EvidenceUploadScreen(
-                        bookingId: booking['id'] ?? '',
-                        booking: booking,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.photo_camera, color: Color(0xFF00C977)),
-                label: const Text(
-                  'Upload de Evidências',
-                  style: TextStyle(color: Color(0xFF00C977), fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF00C977)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
+                  
+                  // Botão de upload de evidências (quando serviço está em andamento)
+                  if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress') ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EvidenceUploadScreen(
+                                bookingId: booking['id'] ?? '',
+                                booking: booking,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.photo_camera, color: Color(0xFF00C977)),
+                        label: const Text(
+                          'Upload de Evidências',
+                          style: TextStyle(color: Color(0xFF00C977), fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF00C977)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               );
             },

@@ -4,7 +4,7 @@ class AppConfig {
   // CONFIGURAÇÃO DA API - EC2 PRODUÇÃO
   // ========================================
   
-  /// URL base da API (EC2 AWS)
+  /// URL base da API (EC2 AWS) - API REAL PRODUÇÃO
   static const String apiBaseUrl = 'http://18.222.129.59:9000';
   
   /// Timeout de conexão (segundos) - Otimizado para EC2

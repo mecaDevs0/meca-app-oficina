@@ -178,7 +178,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
           TextFormField(
             controller: _emailController,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
             cursorColor: AppColors.primaryColor,
             decoration: FormStyles.decorate(
               context,
@@ -189,7 +193,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[400]),
               prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
               filled: true,
-              fillColor: isDark ? Colors.grey[900] : Colors.white,
+              fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
               ),
             ),
             keyboardType: TextInputType.emailAddress,

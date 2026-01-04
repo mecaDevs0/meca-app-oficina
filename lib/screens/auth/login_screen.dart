@@ -191,9 +191,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _emailController,
                             style: const TextStyle(
-                              color: Color(0xFF9CA3AF),
+                              color: Color(0xFF1F2937),
                               fontSize: 16,
                               height: 1.5,
+                              fontWeight: FontWeight.w500,
                             ),
                             cursorColor: AppColors.primaryColor,
                             keyboardType: TextInputType.emailAddress,
@@ -215,9 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordController,
                             obscureText: _obscurePassword,
                             style: const TextStyle(
-                              color: Color(0xFF9CA3AF),
+                              color: Color(0xFF1F2937),
                               fontSize: 16,
                               height: 1.5,
+                              fontWeight: FontWeight.w500,
                             ),
                             cursorColor: AppColors.primaryColor,
                             textInputAction: TextInputAction.done,
@@ -384,8 +386,8 @@ class _LoginScreenState extends State<LoginScreen> {
         fontWeight: FontWeight.w500,
       ),
       hintText: label == 'Email' ? 'oficina@exemplo.com' : 'Digite sua senha',
-      hintStyle: const TextStyle(
-        color: Color(0xFF9CA3AF),
+      hintStyle: TextStyle(
+        color: Colors.grey[400],
         fontSize: 16,
       ),
       prefixIcon: prefixIcon != null
@@ -408,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen> {
         minHeight: 24,
       ),
       filled: true,
-      fillColor: AppColors.primaryBlueColor,
+      fillColor: Colors.grey[50],
       contentPadding: const EdgeInsets.symmetric(
         vertical: 20,
         horizontal: 16,

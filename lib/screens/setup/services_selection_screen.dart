@@ -79,17 +79,40 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
                           value: isSelected,
                           onChanged: (value) async {
                             if (value == true) {
-                              // Adicionar serviço
-                              final price = await _showPriceDialog(context, service['title']);
-                              if (price != null && mounted) {
-                                await servicesProvider.addService(
-                                  service['id'],
-                                  price: price,
-                                );
+                              // Adicionar serviço - preço e duração são opcionais
+                              final config = await _showServiceConfigDialog(context, service['title']);
+                              if (mounted) {
+                                if (config != null) {
+                                  await servicesProvider.addService(
+                                    service['id'],
+                                    price: config.price,
+                                    duration: config.duration,
+                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(config.price != null || config.duration != null
+                                            ? 'Serviço adicionado com sucesso!'
+                                            : 'Serviço adicionado (sem preço/duração definidos).'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  // Usuário cancelou - não fazer nada
+                                }
                               }
                             } else {
                               // Remover serviço
                               await servicesProvider.removeService(service['id']);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Serviço removido.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             }
                           },
                           title: Text(
@@ -160,20 +183,43 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
     );
   }
 
-  Future<double?> _showPriceDialog(BuildContext context, String serviceName) async {
-    final controller = TextEditingController();
+  Future<ServiceConfig?> _showServiceConfigDialog(BuildContext context, String serviceName) async {
+    final priceController = TextEditingController();
+    final durationController = TextEditingController();
     
-    return showDialog<double>(
+    return showDialog<ServiceConfig>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Preço para $serviceName'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Preço (R\$)',
-            hintText: '150.00',
-            prefixText: 'R\$ ',
+        title: Text('Configurar: $serviceName'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(
+                  labelText: 'Preço (opcional)',
+                  hintText: 'Ex: 150.00',
+                  prefixText: 'R\$ ',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duração em minutos (opcional)',
+                  hintText: 'Ex: 60',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Você pode deixar os campos vazios se preferir.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
           ),
         ),
         actions: [
@@ -183,10 +229,21 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final price = double.tryParse(controller.text.replaceAll(',', '.'));
-              if (price != null && price > 0) {
-                Navigator.pop(ctx, price);
+              final priceText = priceController.text.trim();
+              final durationText = durationController.text.trim();
+              
+              double? price;
+              if (priceText.isNotEmpty) {
+                final cleaned = priceText.replaceAll(RegExp(r'[^\d,.]'), '').replaceAll(',', '.');
+                price = double.tryParse(cleaned);
               }
+              
+              int? duration;
+              if (durationText.isNotEmpty) {
+                duration = int.tryParse(durationText);
+              }
+              
+              Navigator.pop(ctx, ServiceConfig(price: price, duration: duration));
             },
             child: const Text('Confirmar'),
           ),
@@ -194,6 +251,13 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
       ),
     );
   }
+}
+
+class ServiceConfig {
+  final double? price;
+  final int? duration;
+
+  ServiceConfig({this.price, this.duration});
 }
 
 

@@ -218,7 +218,24 @@ class ApiService {
         };
       }
       
+      // Log dos dados que serão enviados para a API
+      print('📤 [API] Enviando para /auth/workshop/register:');
+      print('  - email: ${requestData['email']}');
+      print('  - name: ${requestData['name']}');
+      print('  - cnpj: ${requestData['cnpj']}');
+      print('  - phone: ${requestData['phone']}');
+      print('  - address: ${requestData['address']}');
+      print('  - city: ${requestData['city']}');
+      print('  - state: ${requestData['state']}');
+      print('  - cep: ${requestData['cep']}');
+      print('  - password length: ${requestData['password']?.length ?? 0}');
+      
       final response = await _dio.post('/auth/workshop/register', data: requestData);
+      
+      print('📥 [API] Resposta recebida:');
+      print('  - Status: ${response.statusCode}');
+      print('  - Success: ${response.data['success']}');
+      print('  - Error: ${response.data['error']}');
       
       // Verificar se a resposta é bem-sucedida
       if (response.data['success'] == true) {
@@ -247,15 +264,36 @@ class ApiService {
         final statusCode = e.response?.statusCode;
         final errorData = e.response?.data;
         
-        if (errorData is Map && errorData['error'] != null) {
-          errorMessage = errorData['error'].toString();
-        } else if (statusCode == 404) {
+        // Tentar extrair mensagem de erro de diferentes formatos
+        if (errorData is Map) {
+          if (errorData['error'] != null) {
+            errorMessage = errorData['error'].toString();
+          } else if (errorData['message'] != null) {
+            errorMessage = errorData['message'].toString();
+          } else if (errorData['errors'] != null && errorData['errors'] is List) {
+            errorMessage = (errorData['errors'] as List).join(', ');
+          } else if (errorData['errors'] != null && errorData['errors'] is Map) {
+            errorMessage = (errorData['errors'] as Map).values.join(', ');
+          }
+        }
+        
+        // Mensagens específicas por status code
+        if (statusCode == 404) {
           errorMessage = 'Endpoint não encontrado. Verifique a URL da API.';
-        } else if (statusCode == 400) {
-          errorMessage = errorData?['error']?.toString() ?? 'Dados inválidos';
+        } else if (statusCode == 400 && errorMessage == 'Erro ao registrar oficina') {
+          // Se não conseguiu extrair mensagem específica, tentar mais uma vez
+          if (errorData is Map) {
+            errorMessage = errorData.toString().contains('CNPJ') 
+                ? 'CNPJ inválido ou já cadastrado. Verifique os dados.'
+                : errorData.toString().contains('email') || errorData.toString().contains('Email')
+                    ? 'Email inválido ou já cadastrado. Verifique os dados.'
+                    : 'Dados inválidos. Verifique se todos os campos obrigatórios estão preenchidos corretamente.';
+          } else {
+            errorMessage = 'Dados inválidos. Verifique se todos os campos obrigatórios estão preenchidos corretamente.';
+          }
         } else if (statusCode == 500) {
           errorMessage = 'Erro interno do servidor. Tente novamente mais tarde.';
-        } else {
+        } else if (statusCode != null && statusCode != 400 && errorMessage == 'Erro ao registrar oficina') {
           errorMessage = 'Erro ${statusCode}: ${errorData?.toString() ?? e.message}';
         }
       } else if (e.type == DioExceptionType.connectionTimeout ||
@@ -695,6 +733,7 @@ class ApiService {
     int? finalPriceCents, // Formato antigo (compatibilidade)
     List<Map<String, dynamic>>? items, // Novo formato
     int? diagnosticValueCents, // Novo formato
+    String? quoteReason, // Motivo do orçamento
   }) async {
     try {
       await loadToken();
@@ -714,6 +753,11 @@ class ApiService {
         return {'success': false, 'error': 'Informe items do orçamento ou valor final'};
       }
       
+      // Adicionar quoteReason se fornecido
+      if (quoteReason != null && quoteReason.trim().isNotEmpty) {
+        payload['quoteReason'] = quoteReason.trim();
+      }
+      
       final response = await _dio.put('/bookings/$bookingId/send-quote', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } on DioException catch (e) {
@@ -730,6 +774,7 @@ class ApiService {
     String bookingId, {
     required List<Map<String, dynamic>> items,
     int? diagnosticValueCents,
+    String? quoteReason, // Motivo do orçamento
   }) async {
     try {
       await loadToken();
@@ -738,6 +783,11 @@ class ApiService {
       };
       if (diagnosticValueCents != null && diagnosticValueCents > 0) {
         payload['diagnosticValue'] = diagnosticValueCents;
+      }
+      
+      // Adicionar quoteReason se fornecido
+      if (quoteReason != null && quoteReason.trim().isNotEmpty) {
+        payload['quoteReason'] = quoteReason.trim();
       }
       
       final response = await _dio.put('/bookings/$bookingId/edit-quote', data: payload);
@@ -758,6 +808,7 @@ class ApiService {
     List<Map<String, dynamic>>? items, // Novo formato
     int? diagnosticValueCents, // Novo formato
     String? notes,
+    String? quoteReason, // Motivo do orçamento
   }) async {
     try {
       await loadToken();
@@ -779,6 +830,11 @@ class ApiService {
       
       if (notes != null && notes.trim().isNotEmpty) {
         payload['notes'] = notes.trim();
+      }
+      
+      // Adicionar quoteReason se fornecido
+      if (quoteReason != null && quoteReason.trim().isNotEmpty) {
+        payload['quoteReason'] = quoteReason.trim();
       }
       
       final response = await _dio.put('/bookings/$bookingId/finish', data: payload);
@@ -808,9 +864,11 @@ class ApiService {
       await loadToken();
       // Usar endpoint real: /workshop/:id/services
       final response = await _dio.get('/workshop/$workshopId/services');
+      // A API retorna { success: true, data: [...] } onde data é um array direto
       final raw = response.data['data'] ?? response.data ?? [];
       final services = _extractServicesList(raw);
-      return {'success': true, 'data': {'services': services}};
+      // Retornar no formato esperado pelo provider
+      return {'success': true, 'data': services};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1976,15 +2034,34 @@ class ApiService {
       await loadToken();
       
       // Usar endpoint real: POST /workshop/:id/services
+      // Price e duration são opcionais - NÃO enviar campos se forem null
       final payload = <String, dynamic>{
         'service_id': serviceId,
       };
-      if (price != null) payload['price'] = price;
-      if (duration != null) payload['duration'] = duration;
+      
+      // Apenas adicionar price e duration se não forem null
+      if (price != null) {
+        payload['price'] = price;
+      }
+      if (duration != null) {
+        payload['duration'] = duration;
+      }
+
+      print('📤 [addServiceToWorkshop] Enviando: service_id=$serviceId, price=$price, duration=$duration');
+      print('📤 [addServiceToWorkshop] Payload JSON: $payload');
 
       final response = await _dio.post('/workshop/$workshopId/services', data: payload);
+      
+      print('✅ [addServiceToWorkshop] Sucesso: ${response.data}');
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
+      // Log detalhado para debug
+      print('❌ Erro ao adicionar serviço: serviceId=$serviceId, price=$price, duration=$duration');
+      print('❌ Exception: $e');
+      if (e is DioException && e.response != null) {
+        print('❌ Response status: ${e.response?.statusCode}');
+        print('❌ Response data: ${e.response?.data}');
+      }
       return {'success': false, 'error': e.toString()};
     }
   }

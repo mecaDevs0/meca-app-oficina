@@ -414,28 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_isDataBankInvalid)
-          _buildConfigCard(
-            title: _hasPagBankData ? 'Editar Dados PagBank' : 'Cadastrar PagBank',
-            description: _hasPagBankData 
-                ? 'Edite os dados da sua conta PagBank ou complete a verificação'
-                : 'Preencha os dados para criar sua conta PagBank',
-            icon: _hasPagBankData ? Icons.edit_outlined : Icons.account_balance_wallet_outlined,
-            iconColor: const Color(0xFF3B82F6),
-            bgColor: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDBEAFE),
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                PageTransitions.slideFromRight(const PagBankAccountScreen()),
-              );
-              // Recarregar dados se salvou com sucesso
-              if (result == true) {
-                _loadData();
-              }
-            },
-            isDark: isDark,
-          ),
-        if (_isDataBankInvalid) const SizedBox(height: 12),
+        // 1. Agenda (primeiro)
         if (_isAgendaInvalid)
           _buildConfigCard(
             title: 'Configurar Agenda',
@@ -456,6 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
             isDark: isDark,
           ),
         if (_isAgendaInvalid) const SizedBox(height: 12),
+        // 2. Serviços (segundo)
         if (_isServiceInvalid)
           _buildConfigCard(
             title: 'Serviços',
@@ -467,6 +447,29 @@ class _HomeScreenState extends State<HomeScreen> {
               final result = await Navigator.push(
                 context,
                 PageTransitions.slideFromRight(ServicesConfigScreen()),
+              );
+              // Recarregar dados se salvou com sucesso
+              if (result == true) {
+                _loadData();
+              }
+            },
+            isDark: isDark,
+          ),
+        if (_isServiceInvalid) const SizedBox(height: 12),
+        // 3. Dados Bancários (terceiro - quando não cadastrado)
+        if (_isDataBankInvalid)
+          _buildConfigCard(
+            title: _hasPagBankData ? 'Editar Dados PagBank' : 'Cadastrar PagBank',
+            description: _hasPagBankData 
+                ? 'Edite os dados da sua conta PagBank ou complete a verificação'
+                : 'Preencha os dados para criar sua conta PagBank',
+            icon: _hasPagBankData ? Icons.edit_outlined : Icons.account_balance_wallet_outlined,
+            iconColor: const Color(0xFF3B82F6),
+            bgColor: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDBEAFE),
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                PageTransitions.slideFromRight(const PagBankAccountScreen()),
               );
               // Recarregar dados se salvou com sucesso
               if (result == true) {

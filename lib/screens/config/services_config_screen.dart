@@ -41,6 +41,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
     return Consumer<ServicesProvider>(
       builder: (context, servicesProvider, child) {
         final allServices = servicesProvider.masterServices;
+        final myServices = servicesProvider.myServices;
         final filteredServices = _filterServices(allServices);
 
         return Scaffold(
@@ -59,7 +60,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
           body: _initialLoading || servicesProvider.isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
-            children: [
+                  children: [
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: TextField(
@@ -68,8 +69,8 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                           hintText: 'Buscar serviço por nome',
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           suffixIcon: _searchController.text.isEmpty
                               ? null
                               : IconButton(
@@ -84,7 +85,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                       ),
                     ),
                     if (filteredServices.isEmpty)
-                  Expanded(
+                      Expanded(
                         child: Center(
                           child: Text(
                             _searchController.text.isEmpty
@@ -102,30 +103,21 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                           itemCount: filteredServices.length,
                           itemBuilder: (context, index) {
                             final service = filteredServices[index];
-                            final serviceId = _resolveServiceId(service);
+                            final serviceId = _getServiceId(service);
                             final isSelected = servicesProvider.isServiceSelected(serviceId);
-                            final currentData = _findMyServiceData(
-                              servicesProvider.myServices,
-                              serviceId,
-                            );
-                            final currentPrice = currentData?['price'] ??
-                                currentData?['service_price'] ??
-                                currentData?['workshop_price'];
-                            final currentDuration = _extractDuration(currentData);
-                            final masterDuration = _extractDuration(service);
+                            final myServiceData = servicesProvider.findMyServiceByMasterId(serviceId);
+                            
+                            final currentPrice = myServiceData?['price'];
+                            final currentDuration = myServiceData?['duration'];
                             final isProcessing = _processingServices.contains(serviceId);
 
                             final theme = Theme.of(context);
                             final isDarkMode = theme.brightness == Brightness.dark;
-                            final cardColor = isDarkMode
-                                ? const Color(0xFF1E2533)
-                                : Colors.white;
+                            final cardColor = isDarkMode ? const Color(0xFF1E2533) : Colors.white;
                             final titleColor = isSelected
                                 ? theme.colorScheme.primary
                                 : (isDarkMode ? Colors.white : Colors.black87);
-                            final subtitleColor = isDarkMode
-                                ? Colors.white70
-                                : Colors.black54;
+                            final subtitleColor = isDarkMode ? Colors.white70 : Colors.black54;
 
                             return Card(
                               color: cardColor,
@@ -170,66 +162,64 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                                                     style: TextStyle(fontSize: 13, color: subtitleColor),
                                                   ),
                                                 ),
-                                              if (masterDuration != null && !isSelected)
-                                                Padding(
-                                                  padding: const EdgeInsets.only(top: 6),
-                                                  child: Text(
-                                                    'Duração padrão: $masterDuration min',
-                                                    style: TextStyle(fontSize: 12, color: subtitleColor),
-                                                  ),
-                                                ),
                                               if (isSelected && currentPrice != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                                                    'Preço atual: R\$ ${_formatPrice(currentPrice)}',
+                                                  child: Text(
+                                                    'Preço: R\$ ${_formatPrice(currentPrice)}',
                                                     style: TextStyle(
-                    fontSize: 14,
+                                                      fontSize: 14,
                                                       fontWeight: FontWeight.w600,
-                                                      color: isDarkMode ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
+                                                      color: theme.colorScheme.primary,
+                                                    ),
+                                                  ),
+                                                ),
                                               if (isSelected && currentDuration != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 4),
                                                   child: Text(
-                                                    'Duração atual: $currentDuration min',
+                                                    'Duração: $currentDuration min',
                                                     style: TextStyle(
                                                       fontSize: 13,
-                                                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-              ),
+                                                      color: subtitleColor,
+                                                    ),
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                         ),
                                         Switch(
                                           value: isSelected,
-                                          onChanged: isProcessing ? null : (value) => _toggleService(
-                                            service,
-                                            value,
-                                            currentPrice: currentPrice,
-                                            currentDuration: currentDuration,
-                                          ),
-                                          activeThumbColor: theme.colorScheme.primary,
-                                          activeTrackColor: theme.colorScheme.primary.withOpacity(0.35),
+                                          onChanged: isProcessing
+                                              ? null
+                                              : (value) => _toggleService(
+                                                    service,
+                                                    serviceId,
+                                                    value,
+                                                    currentPrice: currentPrice,
+                                                    currentDuration: currentDuration,
+                                                  ),
+                                          activeColor: theme.colorScheme.primary,
                                         ),
                                       ],
                                     ),
                                     if (isSelected)
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton.icon(
-                                          onPressed: isProcessing
-                                              ? null
-                                              : () => _editServiceConfig(
-                                                    service,
-                                                    currentPrice: currentPrice,
-                                                    currentDuration: currentDuration,
-                                                  ),
-                                          icon: const Icon(Icons.tune),
-                                          label: const Text('Configurar preço/duração'),
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 12),
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton.icon(
+                                            onPressed: isProcessing
+                                                ? null
+                                                : () => _editServiceConfig(
+                                                      service,
+                                                      serviceId,
+                                                      currentPrice: currentPrice,
+                                                      currentDuration: currentDuration,
+                                                    ),
+                                            icon: const Icon(Icons.tune, size: 18),
+                                            label: const Text('Configurar preço/duração'),
+                                          ),
                                         ),
                                       ),
                                     if (isProcessing)
@@ -242,10 +232,10 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                               ),
                             );
                           },
-                    ),
-                  ),
-                ],
-              ),
+                        ),
+                      ),
+                  ],
+                ),
         );
       },
     );
@@ -262,19 +252,21 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
           final description = (service['description'] ?? '').toString().toLowerCase();
           return title.contains(query) || description.contains(query);
         })
-        .map((service) => Map<String, dynamic>.from(service))
         .toList();
+  }
+
+  String _getServiceId(Map<String, dynamic> service) {
+    // Serviços master têm 'id' como campo principal
+    return service['id']?.toString() ?? '';
   }
 
   Future<void> _toggleService(
     Map<String, dynamic> service,
+    String serviceId,
     bool value, {
     dynamic currentPrice,
     int? currentDuration,
   }) async {
-    final servicesProvider = context.read<ServicesProvider>();
-    final serviceId = _resolveServiceId(service);
-
     if (serviceId.isEmpty) return;
 
     setState(() {
@@ -283,17 +275,15 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
 
     try {
       if (value) {
-        final currentData = _findMyServiceData(servicesProvider.myServices, serviceId);
-        final initialPrice = _parsePrice(currentPrice ?? currentData?['price'] ?? currentData?['service_price']);
-        final initialDuration = currentDuration ?? _extractDuration(currentData);
-
+        // Adicionar serviço
         final config = await _showServiceConfigDialog(
           serviceName: service['title'] ?? service['name'] ?? 'Serviço',
-          initialPrice: initialPrice,
-          initialDuration: initialDuration,
+          initialPrice: _parsePrice(currentPrice),
+          initialDuration: currentDuration,
         );
 
         if (config != null && mounted) {
+          final servicesProvider = context.read<ServicesProvider>();
           await servicesProvider.addService(
             serviceId,
             price: config.price,
@@ -319,8 +309,13 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
               ),
             );
           }
+        } else if (config == null && mounted) {
+          // Usuário cancelou - o Switch vai voltar automaticamente porque
+          // o Consumer vai reconstruir com o estado real
         }
       } else {
+        // Remover serviço
+        final servicesProvider = context.read<ServicesProvider>();
         await servicesProvider.removeService(serviceId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -341,20 +336,20 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
         );
       }
     } finally {
-      setState(() {
-        _processingServices.remove(serviceId);
-      });
+      if (mounted) {
+        setState(() {
+          _processingServices.remove(serviceId);
+        });
+      }
     }
   }
 
   Future<void> _editServiceConfig(
-    Map<String, dynamic> service, {
+    Map<String, dynamic> service,
+    String serviceId, {
     dynamic currentPrice,
     int? currentDuration,
   }) async {
-    final servicesProvider = context.read<ServicesProvider>();
-    final serviceId = _resolveServiceId(service);
-
     if (serviceId.isEmpty) return;
 
     final config = await _showServiceConfigDialog(
@@ -370,11 +365,13 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
     });
 
     try {
+      final servicesProvider = context.read<ServicesProvider>();
       await servicesProvider.addService(
         serviceId,
         price: config.price,
         duration: config.duration,
       );
+      
       if (mounted) {
         final parts = <String>[];
         if (config.price != null) {
@@ -384,8 +381,8 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
           parts.add('duração ${config.duration} min');
         }
         final content = parts.isEmpty
-            ? 'Serviço atualizado na sua oficina.'
-            : 'Serviço atualizado (${parts.join(' · ')}).';
+            ? 'Configuração atualizada.'
+            : 'Configuração atualizada: ${parts.join(' e ')}.';
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -396,189 +393,113 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
       }
     } catch (e) {
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erro ao atualizar preço/duração: $e'),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar configuração: $e'),
             backgroundColor: Colors.red,
-        ),
-      );
+          ),
+        );
       }
     } finally {
-      setState(() {
-        _processingServices.remove(serviceId);
-      });
+      if (mounted) {
+        setState(() {
+          _processingServices.remove(serviceId);
+        });
+      }
     }
   }
 
-  Future<_ServiceConfigResult?> _showServiceConfigDialog({
+  Future<ServiceConfig?> _showServiceConfigDialog({
     required String serviceName,
     double? initialPrice,
     int? initialDuration,
   }) async {
     final priceController = TextEditingController(
-      text: initialPrice != null ? initialPrice.toStringAsFixed(2) : '',
+      text: initialPrice != null ? _formatPrice(initialPrice) : '',
     );
     final durationController = TextEditingController(
-      text: initialDuration != null && initialDuration > 0 ? initialDuration.toString() : '',
+      text: initialDuration != null ? initialDuration.toString() : '',
     );
 
-    return showDialog<_ServiceConfigResult>(
+    return showDialog<ServiceConfig>(
       context: context,
-      builder: (dialogContext) {
-        String? priceError;
-        String? durationError;
-
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text('Configurar $serviceName'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                            children: [
-                  TextField(
-                    controller: priceController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'Preço (opcional)',
-                      prefixText: 'R\$ ',
-                      hintText: '150,00',
-                      errorText: priceError,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: durationController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Duração média (minutos) – opcional',
-                      hintText: 'Ex: 60',
-                      errorText: durationError,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Você pode deixar em branco para não informar preço ou duração.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+      builder: (context) => AlertDialog(
+        title: Text('Configurar: $serviceName'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(
+                  labelText: 'Preço (opcional)',
+                  hintText: 'Ex: 150.00',
+                  prefixText: 'R\$ ',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duração em minutos (opcional)',
+                  hintText: 'Ex: 60',
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    String? localPriceError;
-                    String? localDurationError;
-
-                    final priceText = priceController.text.trim().replaceAll(',', '.');
-                    double? priceValue;
-                    if (priceText.isNotEmpty) {
-                      priceValue = double.tryParse(priceText);
-                      if (priceValue == null || priceValue < 0) {
-                        localPriceError = 'Informe um valor numérico válido';
-                      }
-                    }
-
-                    final durationText = durationController.text.trim();
-                    int? durationValue;
-                    if (durationText.isNotEmpty) {
-                      durationValue = int.tryParse(durationText);
-                      if (durationValue == null || durationValue <= 0) {
-                        localDurationError = 'Informe minutos válidos (inteiro > 0)';
-                      }
-                    }
-
-                    if (localPriceError != null || localDurationError != null) {
-                      setStateDialog(() {
-                        priceError = localPriceError;
-                        durationError = localDurationError;
-                      });
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop(
-                      _ServiceConfigResult(
-                        price: priceValue,
-                        duration: durationValue,
-                      ),
-                    );
-                  },
-                  child: const Text('Confirmar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Você pode deixar os campos vazios se preferir.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final price = _parsePrice(priceController.text);
+              final duration = durationController.text.trim().isEmpty
+                  ? null
+                  : int.tryParse(durationController.text.trim());
+              Navigator.pop(
+                context,
+                ServiceConfig(price: price, duration: duration),
+              );
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
     );
   }
 
   double? _parsePrice(dynamic value) {
     if (value == null) return null;
-    if (value is num) return value.toDouble();
-    final parsed = double.tryParse(value.toString());
-    return parsed;
-  }
-
-  int? _extractDuration(dynamic data) {
-    if (data == null) return null;
-    dynamic raw;
-    if (data is Map) {
-      raw = data['duration'] ??
-          data['service_duration'] ??
-          data['duration_minutes'] ??
-          data['workshop_duration'];
-    } else {
-      raw = data;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final cleaned = value.replaceAll(RegExp(r'[^\d,.]'), '').replaceAll(',', '.');
+      return double.tryParse(cleaned);
     }
-
-    if (raw == null) return null;
-    if (raw is int) return raw > 0 ? raw : null;
-    if (raw is num) {
-      final result = raw.round();
-      return result > 0 ? result : null;
-    }
-    final parsed = int.tryParse(raw.toString());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
-  }
-
-  Map<String, dynamic>? _findMyServiceData(List<Map<String, dynamic>> services, String serviceId) {
-    try {
-      return services.firstWhere(
-        (service) =>
-            service['id'] == serviceId ||
-            service['service_id'] == serviceId ||
-            service['serviceId'] == serviceId,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String _resolveServiceId(Map<String, dynamic> service) {
-    final id = service['id'] ?? service['service_id'] ?? service['serviceId'];
-    return id?.toString() ?? '';
+    return null;
   }
 
   String _formatPrice(dynamic price) {
-    if (price is num) {
-      return price.toStringAsFixed(2);
-    }
-    final parsed = double.tryParse(price.toString());
-    return parsed != null ? parsed.toStringAsFixed(2) : '0,00';
+    if (price == null) return '0.00';
+    final value = _parsePrice(price) ?? 0.0;
+    return value.toStringAsFixed(2).replaceAll('.', ',');
   }
 }
 
-class _ServiceConfigResult {
-  const _ServiceConfigResult({this.price, this.duration});
-
+class ServiceConfig {
   final double? price;
   final int? duration;
+
+  ServiceConfig({this.price, this.duration});
 }
-
-
-
-

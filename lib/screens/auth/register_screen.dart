@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/form_styles.dart';
 import '../../utils/cnpj_formatter.dart';
+import '../../utils/cnpj_validator.dart';
 import '../../utils/phone_formatter.dart';
 import '../../utils/email_formatter.dart';
 import '../../utils/cep_formatter.dart';
@@ -43,6 +44,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isSearchingCNPJ = false;
   bool _isSearchingCEP = false;
 
+  /// Limpa os campos preenchidos automaticamente
+  void _limparCamposPreenchidos() {
+    setState(() {
+      _nomeController.clear();
+      _emailController.clear();
+      _phoneController.clear();
+      _logradouroController.clear();
+      _numeroController.clear();
+      _bairroController.clear();
+      _cidadeController.clear();
+      _estadoController.clear();
+      _cepController.clear();
+    });
+  }
+
   /// Busca dados do CNPJ na API (ReceitaWS - grátis)
   Future<void> _buscarDadosCNPJ(String cnpj) async {
     final cnpjLimpo = cnpj.replaceAll(RegExp(r'[^\d]'), '');
@@ -55,12 +71,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // API pública e gratuita da ReceitaWS
       final response = await http.get(
         Uri.parse('https://www.receitaws.com.br/v1/cnpj/$cnpjLimpo'),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         
-        if (data['status'] != 'ERROR') {
+        if (data['status'] != 'ERROR' && data['nome'] != null) {
           setState(() {
             _nomeController.text = data['nome'] ?? '';
             _emailController.text = data['email'] ?? '';
@@ -75,17 +91,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _cepController.text = data['cep']?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
           });
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ Dados preenchidos automaticamente!'),
+              content: Text('✅ Dados preenchidos automaticamente! Você pode editar qualquer campo.'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          // CNPJ inválido ou não encontrado
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ CNPJ não encontrado ou inválido. Preencha os dados manualmente.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
             ),
           );
         }
+      } else {
+        // Erro na API
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Erro ao buscar CNPJ. Tente novamente ou preencha manualmente.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     } catch (e) {
-      // Não mostrar erro ao usuário, apenas não preenche
+      // Erro de conexão ou timeout
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Erro de conexão ao buscar CNPJ. Verifique sua internet e tente novamente.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
 
     setState(() => _isSearchingCNPJ = false);
@@ -131,23 +176,96 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validar formulário primeiro - isso vai marcar campos inválidos em vermelho
+    if (!_formKey.currentState!.validate()) {
+      // Se a validação falhou, os campos já foram marcados como inválidos
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Por favor, preencha todos os campos obrigatórios corretamente'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Validação adicional do CNPJ antes de enviar
+    final cnpjLimpo = _cnpjController.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (cnpjLimpo.length != 14) {
+      _formKey.currentState!.validate(); // Re-validar para marcar o campo
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('CNPJ deve ter 14 dígitos'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      setState(() {}); // Atualizar UI para mostrar campo inválido
+      return;
+    }
+    
+    // Validar dígitos verificadores do CNPJ
+    if (!CnpjValidator.isValid(_cnpjController.text)) {
+      _formKey.currentState!.validate(); // Re-validar para marcar o campo
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('CNPJ inválido. Verifique os dígitos verificadores.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      setState(() {}); // Atualizar UI para mostrar campo inválido
+      return;
+    }
+
+    // Verificar se todos os campos obrigatórios estão preenchidos
+    final camposVazios = <String>[];
+    if (_nomeController.text.trim().isEmpty) camposVazios.add('Nome da Oficina');
+    if (_emailController.text.trim().isEmpty) camposVazios.add('Email');
+    if (_passwordController.text.isEmpty) camposVazios.add('Senha');
+    if (_phoneController.text.replaceAll(RegExp(r'[^\d]'), '').length < 10) camposVazios.add('Telefone');
+    if (_cepController.text.replaceAll(RegExp(r'[^\d]'), '').length != 8) camposVazios.add('CEP');
+    if (_logradouroController.text.trim().isEmpty) camposVazios.add('Rua');
+    if (_numeroController.text.trim().isEmpty) camposVazios.add('Número');
+    if (_bairroController.text.trim().isEmpty) camposVazios.add('Bairro');
+    if (_cidadeController.text.trim().isEmpty) camposVazios.add('Cidade');
+    if (_estadoController.text.trim().length != 2) camposVazios.add('UF');
+
+    if (camposVazios.isNotEmpty) {
+      _formKey.currentState!.validate(); // Re-validar para marcar campos
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Campos obrigatórios não preenchidos: ${camposVazios.join(', ')}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      setState(() {}); // Atualizar UI
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     final data = {
-      'name': _nomeController.text,
-      'cnpj': _cnpjController.text,
-      'email': _emailController.text,
+      'name': _nomeController.text.trim(),
+      'cnpj': _cnpjController.text, // Será normalizado no api_service
+      'email': _emailController.text.trim(),
       'password': _passwordController.text,
       'phone': _phoneController.text,
       'address': {
         'cep': _cepController.text,
-        'logradouro': _logradouroController.text,
-        'numero': _numeroController.text,
-        'bairro': _bairroController.text,
-        'cidade': _cidadeController.text,
-        'estado': _estadoController.text,
+        'logradouro': _logradouroController.text.trim(),
+        'numero': _numeroController.text.trim(),
+        'bairro': _bairroController.text.trim(),
+        'cidade': _cidadeController.text.trim(),
+        'estado': _estadoController.text.trim().toUpperCase(),
       },
       'horario_funcionamento': {
         'segunda': '08:00-18:00',
@@ -158,9 +276,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     };
 
+    // Log dos dados que serão enviados (sem senha) para debug
+    final address = data['address'] as Map<String, dynamic>? ?? {};
+    print('📤 [Register] Enviando dados de cadastro:');
+    print('  - Nome: ${data['name']}');
+    print('  - CNPJ: ${data['cnpj']}');
+    print('  - Email: ${data['email']}');
+    print('  - Telefone: ${data['phone']}');
+    print('  - CEP: ${address['cep']}');
+    print('  - Endereço: ${address['logradouro']}, ${address['numero']}');
+    print('  - Bairro: ${address['bairro']}');
+    print('  - Cidade: ${address['cidade']}');
+    print('  - Estado: ${address['estado']}');
+
     final result = await _apiService.registerWorkshop(data);
 
     setState(() => _isLoading = false);
+    
+    // Log do resultado
+    print('📥 [Register] Resultado: ${result['success'] ? '✅ Sucesso' : '❌ Erro'}');
+    if (!result['success']) {
+      print('  - Erro: ${result['error']}');
+    }
 
     if (result['success']) {
       showDialog(
@@ -452,14 +589,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               LengthLimitingTextInputFormatter(18),
                             ],
                             validator: (value) {
-                              if (value?.isEmpty ?? true) return 'Campo obrigatório';
-                              if (value!.replaceAll(RegExp(r'[^\d]'), '').length != 14) {
-                                return 'CNPJ deve ter 14 dígitos';
-                              }
-                              return null;
+                              // Usar validador completo de CNPJ
+                              return CnpjValidator.validate(value);
                             },
                             onChanged: (value) {
-                              if (value.length == 14) {
+                              final cnpjLimpo = value.replaceAll(RegExp(r'[^\d]'), '');
+                              
+                              // Se o CNPJ foi reduzido (números removidos), limpar campos
+                              if (cnpjLimpo.length < 14) {
+                                _limparCamposPreenchidos();
+                              }
+                              
+                              // Se o CNPJ está completo (14 dígitos), buscar dados
+                              if (cnpjLimpo.length == 14) {
                                 _buscarDadosCNPJ(value);
                               }
                             },
@@ -553,7 +695,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';
-                              if (value!.length != 8) return 'CEP inválido';
+                              final cepLimpo = value!.replaceAll(RegExp(r'[^\d]'), '');
+                              if (cepLimpo.length != 8) return 'CEP deve ter 8 dígitos';
                               return null;
                             },
                             onChanged: (value) {
@@ -781,6 +924,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Widget? prefixIcon,
     Widget? suffixIcon,
   }) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    
     return FormStyles.decorate(
       context,
       InputDecoration(
@@ -788,7 +934,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
-        fillColor: AppColors.primaryBlueColor,
+        fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
       ),
     );
   }

@@ -12,8 +12,9 @@ class FormStyles {
   static TextStyle inputTextStyle(BuildContext context) {
     final isDark = _isDark(context);
     return TextStyle(
-      color: ThemeService.getTextColor(isDark),
-      fontSize: 14,
+      color: isDark ? Colors.white : const Color(0xFF1F2937),
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
     );
   }
 
@@ -53,6 +54,24 @@ class FormStyles {
             width: 2,
           ),
         );
+    
+    final errorBorder = decoration.errorBorder ??
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(
+            color: Colors.red,
+            width: 2,
+          ),
+        );
+    
+    final focusedErrorBorder = decoration.focusedErrorBorder ??
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(
+            color: Colors.red,
+            width: 2.5,
+          ),
+        );
 
     return decoration.copyWith(
       filled: decoration.filled ?? true,
@@ -62,6 +81,13 @@ class FormStyles {
       enabledBorder: enabledBorder,
       border: decoration.border ?? enabledBorder,
       focusedBorder: focusedBorder,
+      errorBorder: errorBorder,
+      focusedErrorBorder: focusedErrorBorder,
+      errorStyle: decoration.errorStyle ?? TextStyle(
+        color: Colors.red[700],
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
       contentPadding: decoration.contentPadding ??
           const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
     );

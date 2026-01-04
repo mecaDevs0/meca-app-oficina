@@ -28,6 +28,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   final ApiService _apiService = ApiService();
   final List<QuoteItem> _items = [];
   final TextEditingController _diagnosticController = TextEditingController();
+  final TextEditingController _quoteReasonController = TextEditingController();
   bool _isLoading = false;
 
   @override
@@ -48,6 +49,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   @override
   void dispose() {
     _diagnosticController.dispose();
+    _quoteReasonController.dispose();
     for (var item in _items) {
       item.descriptionController.dispose();
       item.quantityController.dispose();
@@ -143,22 +145,41 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       final diagnosticValueCents = CurrencyTextInputFormatter.parseToCents(_diagnosticController.text);
       final diagnosticValue = diagnosticValueCents != null && diagnosticValueCents > 0 ? diagnosticValueCents : null;
 
+      final quoteReason = _quoteReasonController.text.trim().isNotEmpty 
+          ? _quoteReasonController.text.trim() 
+          : null;
+
+      // IMPORTANTE: Durante edição de orçamento, o motivo é OBRIGATÓRIO
+      if (widget.isEditMode && (quoteReason == null || quoteReason.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ É obrigatório informar o motivo da mudança do orçamento. Explique claramente por que o orçamento foi alterado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+
       final result = widget.isFinishMode
           ? await _apiService.finishService(
               widget.bookingId,
               items: itemsPayload,
               diagnosticValueCents: diagnosticValueCents,
+              quoteReason: quoteReason,
             )
           : widget.isEditMode
               ? await _apiService.editQuote(
                   widget.bookingId,
                   items: itemsPayload,
                   diagnosticValueCents: diagnosticValueCents,
+                  quoteReason: quoteReason,
                 )
               : await _apiService.sendQuote(
                   widget.bookingId,
                   items: itemsPayload,
                   diagnosticValueCents: diagnosticValueCents,
+                  quoteReason: quoteReason,
                 );
 
       if (!mounted) return;
@@ -166,10 +187,12 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       if (result['success'] == true) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Orçamento enviado com sucesso! O cliente receberá uma notificação.'),
+          SnackBar(
+            content: Text(widget.isEditMode
+                ? '✅ Orçamento atualizado! O serviço foi pausado e aguarda aprovação do cliente. O cliente receberá uma notificação.'
+                : '✅ Orçamento enviado com sucesso! O cliente receberá uma notificação.'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
           ),
         );
       } else {
@@ -227,15 +250,20 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        Colors.orange.withOpacity(0.1),
-                        Colors.orange.withOpacity(0.05),
-                      ],
+                      colors: widget.isEditMode
+                          ? [
+                              Colors.orange.withOpacity(0.2),
+                              Colors.orange.withOpacity(0.1),
+                            ]
+                          : [
+                              Colors.orange.withOpacity(0.1),
+                              Colors.orange.withOpacity(0.05),
+                            ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.orange.withOpacity(0.3),
-                      width: 1.5,
+                      color: widget.isEditMode ? Colors.orange : Colors.orange.withOpacity(0.3),
+                      width: widget.isEditMode ? 2 : 1.5,
                     ),
                   ),
                   child: Row(
@@ -243,11 +271,11 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.2),
+                          color: widget.isEditMode ? Colors.orange.withOpacity(0.3) : Colors.orange.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.receipt_long,
+                        child: Icon(
+                          widget.isEditMode ? Icons.edit : Icons.receipt_long,
                           color: Colors.orange,
                           size: 24,
                         ),
@@ -257,22 +285,25 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Montar Orçamento',
+                            Text(
+                              widget.isEditMode ? '⚠️ EDITAR Orçamento Durante Serviço' : 'Montar Orçamento',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.orange,
+                                color: widget.isEditMode ? Colors.orange.shade900 : Colors.orange,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               widget.isFinishMode
                                   ? 'Orçamento final após conclusão do serviço'
-                                  : 'Adicione os itens do serviço e o valor do diagnóstico (opcional)',
+                                  : widget.isEditMode
+                                      ? '⚠️ ATENÇÃO: Ao alterar o orçamento, o serviço será PAUSADO e o cliente precisará aprovar o novo valor. Se rejeitado, o orçamento anterior será restaurado automaticamente.'
+                                      : 'Adicione os itens do serviço e o valor do diagnóstico (opcional)',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: widget.isEditMode ? Colors.orange.shade800 : Colors.grey[600],
+                                fontWeight: widget.isEditMode ? FontWeight.w600 : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -606,6 +637,101 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             borderSide: const BorderSide(color: Colors.blue, width: 2),
                           ),
                           hintText: 'R\$ 0,00',
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Campo de motivo do orçamento
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: widget.isEditMode
+                          ? [
+                              Colors.orange.withOpacity(0.2),
+                              Colors.orange.withOpacity(0.1),
+                            ]
+                          : [
+                              Colors.purple.withOpacity(0.1),
+                              Colors.purple.withOpacity(0.05),
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: widget.isEditMode ? Colors.orange : Colors.purple.withOpacity(0.3),
+                      width: widget.isEditMode ? 2 : 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: widget.isEditMode ? Colors.orange.withOpacity(0.3) : Colors.purple.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              widget.isEditMode ? Icons.warning : Icons.note_alt,
+                              color: widget.isEditMode ? Colors.orange : Colors.purple,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.isEditMode
+                                  ? 'Motivo da Mudança do Orçamento (Obrigatório) ⚠️'
+                                  : 'Motivo do Orçamento (Opcional)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: widget.isEditMode ? Colors.orange : null,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.isEditMode
+                            ? '⚠️ OBRIGATÓRIO: Explique claramente por que o orçamento foi alterado. Esta informação será enviada ao cliente para que ele possa entender a mudança antes de aprovar ou rejeitar.'
+                            : 'Explique o motivo deste orçamento, das peças e do preço. Esta informação será visível para o cliente.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: widget.isEditMode ? Colors.orange.shade700 : Colors.grey[600],
+                          height: 1.4,
+                          fontWeight: widget.isEditMode ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _quoteReasonController,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: widget.isEditMode ? 'Motivo da mudança *' : 'Motivo do orçamento',
+                          hintText: widget.isEditMode
+                              ? 'Ex: Durante o serviço, descobrimos que além das pastilhas de freio, os discos também precisam ser trocados. Isso aumenta o valor em R\$ 200,00, mas garante maior segurança e durabilidade.'
+                              : 'Ex: Necessária troca de pastilhas de freio devido ao desgaste excessivo. Utilizaremos peças originais com garantia de 6 meses. Mão de obra inclui alinhamento e balanceamento das rodas.',
+                          prefixIcon: Icon(Icons.description, color: widget.isEditMode ? Colors.orange : Colors.purple),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: widget.isEditMode ? Colors.orange : Colors.purple, width: 2),
+                          ),
+                          helperText: widget.isEditMode
+                              ? '⚠️ Explique claramente o motivo da mudança. O cliente precisa entender por que o valor foi alterado.'
+                              : 'Descreva o problema identificado, as peças necessárias e o motivo dos valores.',
+                          helperMaxLines: 2,
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
