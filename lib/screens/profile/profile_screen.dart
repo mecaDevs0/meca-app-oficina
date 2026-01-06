@@ -320,7 +320,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : [const Color(0xFF34D399), const Color(0xFF22C55E)];
 
     final workshopName = _workshopData?['name'] ?? 'Oficina MECA';
-    final workshopEmail = _workshopData?['email'] ?? 'oficina@meca.com';
+    final workshopEmail = _workshopData?['email'] ?? 'oficina@mecabr.com';
     final workshopPhone = _workshopData?['phone'] ?? 'Sem telefone cadastrado';
     final cnpj = _workshopData?['cnpj'] ?? 'CNPJ indisponível';
     final status = (_workshopData?['status'] ?? 'pending').toString();
