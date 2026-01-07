@@ -31,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isAgendaInvalid = false;
   bool _isServiceInvalid = false;
   bool _hasPagBankData = false; // Tem dados cadastrados mas não verificado
+  int _activeBookingsCount = 0; // Contador de serviços em andamento
 
   @override
   void initState() {
@@ -143,6 +144,16 @@ class _HomeScreenState extends State<HomeScreen> {
               status == 'pending_oficina';
         }).length;
 
+        // Calcular serviços em andamento (Ativos)
+        final activeBookings = bookings.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          return status == 'em_andamento' ||
+              status == 'in_progress' ||
+              status == 'started' ||
+              status == 'confirmado' ||
+              status == 'confirmed';
+        }).toList();
+
         final upcoming = bookings.where((b) {
           final status = (b['status'] ?? '').toString().toLowerCase();
           return status == 'pending' ||
@@ -171,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _upcomingBookings = upcoming;
           _historyBookings = history;
+          _activeBookingsCount = activeBookings.length;
         });
         if (mounted) {
           final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
@@ -355,12 +367,12 @@ class _HomeScreenState extends State<HomeScreen> {
               isDark: isDark,
             ),
           ),
-          // Coluna 3: Serviços
+          // Coluna 3: Ativos (serviços em andamento)
           Expanded(
             child: _buildStatColumn(
-              icon: Icons.build_outlined,
-              value: '${_services.length}',
-              label: 'Serviços',
+              icon: Icons.play_circle_outline,
+              value: '${_activeBookingsCount}',
+              label: 'Ativos',
               color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF3B82F6),
               isDark: isDark,
             ),

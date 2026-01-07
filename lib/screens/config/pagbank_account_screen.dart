@@ -807,11 +807,25 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
         throw Exception(errorMessage);
       }
     } catch (e) {
+      String errorMessage = 'Erro ao vincular conta';
+      final errorString = e.toString();
+      
+      if (errorString.contains('authorizationUrl') || errorString.contains('URL')) {
+        errorMessage = 'Erro ao obter URL de autorização. Verifique sua conexão e tente novamente.';
+      } else if (errorString.contains('workshopId') || errorString.contains('Token')) {
+        errorMessage = 'Erro de autenticação. Faça login novamente.';
+      } else if (errorString.contains('404')) {
+        errorMessage = 'Endpoint não encontrado. Verifique se a API está atualizada.';
+      } else if (errorString.contains('500')) {
+        errorMessage = 'Erro no servidor. Tente novamente em alguns instantes.';
+      } else {
+        errorMessage = 'Erro ao vincular conta: ${errorString.replaceAll('Exception: ', '').replaceAll('Error: ', '')}';
+      }
+      
       if (mounted) {
-        final errorText = e.toString().replaceAll('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao vincular conta: $errorText'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),

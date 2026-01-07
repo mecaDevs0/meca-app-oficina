@@ -11,12 +11,115 @@ class ServicesSelectionScreen extends StatefulWidget {
 }
 
 class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
+  bool _hasShownInfoDialog = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ServicesProvider>(context, listen: false).loadMasterServices();
+      // Mostrar popup explicativo na primeira vez
+      _showInfoDialog();
     });
+  }
+
+  Future<void> _showInfoDialog() async {
+    if (_hasShownInfoDialog) return;
+    _hasShownInfoDialog = true;
+    
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: AppColors.primary, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Configuração de Serviços',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ao selecionar um serviço, você pode configurar:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              _buildInfoItem(Icons.attach_money, 'Preço', 'Valor que será cobrado pelo serviço (opcional)'),
+              const SizedBox(height: 12),
+              _buildInfoItem(Icons.access_time, 'Duração', 'Tempo estimado em minutos (opcional)'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Você pode deixar os campos vazios e configurar depois nas configurações.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Entendi',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String title, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.primary, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -189,65 +292,166 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> {
     
     return showDialog<ServiceConfig>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Configurar: $serviceName'),
-        content: SingleChildScrollView(
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 400),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Preço (opcional)',
-                  hintText: 'Ex: 150.00',
-                  prefixText: 'R\$ ',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: durationController,
-                decoration: const InputDecoration(
-                  labelText: 'Duração em minutos (opcional)',
-                  hintText: 'Ex: 60',
-                ),
-                keyboardType: TextInputType.number,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.settings, color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Configurar Serviço',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Você pode deixar os campos vazios se preferir.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              Text(
+                serviceName,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Campo de Preço
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: priceController,
+                  decoration: InputDecoration(
+                    labelText: 'Preço (opcional)',
+                    hintText: 'Ex: 150,00',
+                    prefixIcon: Icon(Icons.attach_money, color: AppColors.primary),
+                    prefixText: 'R\$ ',
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Campo de Duração
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: TextField(
+                  controller: durationController,
+                  decoration: InputDecoration(
+                    labelText: 'Duração em minutos (opcional)',
+                    hintText: 'Ex: 60',
+                    prefixIcon: Icon(Icons.access_time, color: AppColors.primary),
+                    suffixText: 'min',
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                  ),
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Você pode deixar os campos vazios e configurar depois.',
+                        style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Botões
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: Text(
+                      'Cancelar',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      final priceText = priceController.text.trim();
+                      final durationText = durationController.text.trim();
+                      
+                      double? price;
+                      if (priceText.isNotEmpty) {
+                        final cleaned = priceText.replaceAll(RegExp(r'[^\d,.]'), '').replaceAll(',', '.');
+                        price = double.tryParse(cleaned);
+                      }
+                      
+                      int? duration;
+                      if (durationText.isNotEmpty) {
+                        duration = int.tryParse(durationText);
+                      }
+                      
+                      Navigator.pop(ctx, ServiceConfig(price: price, duration: duration));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Confirmar'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final priceText = priceController.text.trim();
-              final durationText = durationController.text.trim();
-              
-              double? price;
-              if (priceText.isNotEmpty) {
-                final cleaned = priceText.replaceAll(RegExp(r'[^\d,.]'), '').replaceAll(',', '.');
-                price = double.tryParse(cleaned);
-              }
-              
-              int? duration;
-              if (durationText.isNotEmpty) {
-                duration = int.tryParse(durationText);
-              }
-              
-              Navigator.pop(ctx, ServiceConfig(price: price, duration: duration));
-            },
-            child: const Text('Confirmar'),
-          ),
-        ],
       ),
     );
   }

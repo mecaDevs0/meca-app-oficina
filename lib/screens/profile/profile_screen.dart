@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/verify_account_modal.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -248,6 +249,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildMenuOption(
+                        icon: Icons.access_time_outlined,
+                        title: 'Horários de Funcionamento',
+                        subtitle: 'Editar agenda e horários de atendimento',
+                        isDark: isDark,
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/config/agenda');
+                          if (mounted) {
+                            await _loadWorkshopData();
+                          }
+                        },
+                      ),
+                      _buildMenuOption(
                         icon: Icons.notifications_active_outlined,
                         title: 'Notificações',
                         subtitle: 'Configurar alertas e notificações',
@@ -439,7 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                workshopPhone,
+                                Formatters.formatPhone(workshopPhone),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,

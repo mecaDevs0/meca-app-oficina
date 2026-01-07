@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
+import '../../utils/formatters.dart';
 
 class WorkshopDetailScreen extends StatefulWidget {
   final Map<String, dynamic> workshop;
@@ -146,7 +147,7 @@ class _WorkshopDetailScreenState extends State<WorkshopDetailScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                widget.workshop['phone'],
+                                Formatters.formatPhone(widget.workshop['phone']?.toString()),
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: isDarkMode ? Colors.grey[300] : Colors.grey[600],
