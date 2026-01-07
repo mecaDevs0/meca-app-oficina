@@ -1720,9 +1720,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     ),
                   ],
                   
-                  // Botão de montar/enviar orçamento (quando status é confirmado E ainda não foi enviado orçamento)
-                  // IMPORTANTE: Também verificar se status é pendente_oficina para permitir enviar orçamento
-                  if ((isConfirmed || isPendingWorkshop) && !hasFinalPrice) ...[
+                  // Botão de montar/enviar orçamento (APENAS quando status é confirmado E ainda não foi enviado orçamento)
+                  // REMOVIDO: Não permitir montar orçamento em status pendente - apenas aprovar/rejeitar/sugerir
+                  if (isConfirmed && !hasFinalPrice) ...[
                     const SizedBox(height: 20), // Espaçamento maior antes do botão
                     Container(
                       decoration: BoxDecoration(

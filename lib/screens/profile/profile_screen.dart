@@ -13,6 +13,7 @@ import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/verify_account_modal.dart';
+import '../setup/services_selection_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -258,6 +259,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (mounted) {
                             await _loadWorkshopData();
                           }
+                        },
+                      ),
+                      _buildMenuOption(
+                        icon: Icons.build_outlined,
+                        title: 'Editar Serviços',
+                        subtitle: 'Selecionar ou remover serviços oferecidos',
+                        isDark: isDark,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ServicesSelectionScreen(),
+                            ),
+                          );
                         },
                       ),
                       _buildMenuOption(
