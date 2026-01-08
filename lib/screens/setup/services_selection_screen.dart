@@ -321,10 +321,10 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
     final filteredServices = _searchQuery.isEmpty
         ? servicesProvider.masterServices
         : servicesProvider.masterServices.where((service) {
-            final title = (service['title'] ?? '').toString().toLowerCase();
+            final name = (service['name'] ?? service['title'] ?? '').toString().toLowerCase();
             final description = (service['description'] ?? '').toString().toLowerCase();
             final query = _searchQuery.toLowerCase();
-            return title.contains(query) || description.contains(query);
+            return name.contains(query) || description.contains(query);
           }).toList();
 
     return Scaffold(
@@ -607,7 +607,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 );
               }
             } else {
-              final serviceTitle = service['title']?.toString() ?? 'Serviço';
+              final serviceTitle = (service['name'] ?? service['title'] ?? 'Serviço').toString();
               final config = await _showServiceConfigDialog(context, serviceTitle);
               if (mounted && config != null) {
                 await servicesProvider.addService(
@@ -669,7 +669,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        service['title'] ?? '',
+                        service['name'] ?? service['title'] ?? 'Serviço',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
