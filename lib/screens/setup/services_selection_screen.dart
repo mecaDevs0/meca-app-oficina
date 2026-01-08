@@ -119,6 +119,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
+                  color: Colors.black87,
                 ),
               ),
               
@@ -325,7 +326,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios_new_rounded,
@@ -333,12 +334,13 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Selecionar Serviços',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         centerTitle: false,
@@ -376,18 +378,18 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                       decoration: InputDecoration(
                         hintText: 'Buscar serviços...',
                         hintStyle: TextStyle(
-                          color: Colors.grey.shade500,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
                           fontSize: 16,
                         ),
                         prefixIcon: Icon(
                           Icons.search_rounded,
-                          color: Colors.grey.shade400,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
                         ),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
                                 icon: Icon(
                                   Icons.clear_rounded,
-                                  color: Colors.grey.shade400,
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
                                 ),
                                 onPressed: () {
                                   _searchController.clear();
@@ -431,7 +433,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         'Selecione os serviços que sua oficina oferece',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey.shade600,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           height: 1.4,
                         ),
                       ),
@@ -440,8 +442,8 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         '${servicesProvider.myServices.length} selecionado${servicesProvider.myServices.length != 1 ? 's' : ''}',
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppColors.secondary : AppColors.primary,
                         ),
                       ),
                     ],
@@ -468,7 +470,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade600,
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                 ),
                               ),
                             ],
@@ -672,7 +674,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                           service['description'],
                           style: TextStyle(
                             fontSize: 15,
-                            color: Colors.grey.shade600,
+                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -686,7 +688,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 // Arrow
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.grey.shade400,
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                   size: 24,
                 ),
               ],
@@ -764,12 +766,13 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Configurar Serviço',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.5,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -777,7 +780,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                             serviceName,
                             style: TextStyle(
                               fontSize: 15,
-                              color: Colors.grey.shade600,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
@@ -969,7 +972,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(
-                color: Colors.grey.shade500,
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                 fontSize: 17,
               ),
               prefixIcon: Icon(
@@ -985,7 +988,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
               ),
               suffixText: suffixText,
               suffixStyle: TextStyle(
-                color: Colors.grey.shade600,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 fontSize: 17,
                 fontWeight: FontWeight.w500,
               ),
