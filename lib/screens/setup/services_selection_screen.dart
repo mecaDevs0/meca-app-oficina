@@ -536,7 +536,8 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey.shade300,
+                          disabledBackgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                          disabledForegroundColor: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -545,10 +546,13 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         ),
                         child: Text(
                           'Salvar Serviços (${servicesProvider.myServices.length})',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.3,
+                            color: servicesProvider.myServices.isEmpty
+                                ? (isDark ? Colors.grey.shade500 : Colors.grey.shade600)
+                                : Colors.white,
                           ),
                         ),
                       ),
