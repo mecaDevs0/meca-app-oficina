@@ -647,7 +647,9 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   decoration: BoxDecoration(
                     color: isSelected ? AppColors.primary : Colors.transparent,
                     border: Border.all(
-                      color: isSelected ? AppColors.primary : Colors.grey.shade400,
+                      color: isSelected 
+                          ? AppColors.primary 
+                          : (isDark ? Colors.grey.shade500 : Colors.grey.shade400),
                       width: 2,
                     ),
                     borderRadius: BorderRadius.circular(8),
