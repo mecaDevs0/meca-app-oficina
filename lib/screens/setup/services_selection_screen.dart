@@ -53,10 +53,12 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
   }
 
   Widget _buildInfoBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade900 : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         child: Padding(
@@ -72,7 +74,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -112,25 +114,25 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
               const SizedBox(height: 24),
               
               // Title
-              const Text(
+              Text(
                 'Configuração de Serviços',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               
               const SizedBox(height: 12),
               
-              const Text(
+              Text(
                 'Ao selecionar um serviço, você pode configurar:',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+                  color: isDark ? Colors.grey.shade300 : Colors.black87,
                 ),
               ),
               
@@ -142,6 +144,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 title: 'Preço',
                 description: 'Valor que será cobrado pelo serviço',
                 isOptional: true,
+                isDark: isDark,
               ),
               
               const SizedBox(height: 16),
@@ -151,6 +154,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 title: 'Duração',
                 description: 'Tempo estimado em minutos',
                 isOptional: true,
+                isDark: isDark,
               ),
               
               const SizedBox(height: 24),
@@ -159,10 +163,10 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.blue.shade100,
+                    color: isDark ? Colors.blue.shade700 : Colors.blue.shade100,
                     width: 1,
                   ),
                 ),
@@ -171,7 +175,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   children: [
                     Icon(
                       Icons.lightbulb_outline_rounded,
-                      color: Colors.blue.shade700,
+                      color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
                       size: 22,
                     ),
                     const SizedBox(width: 12),
@@ -180,7 +184,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         'Você pode deixar os campos vazios e configurar depois nas configurações.',
                         style: TextStyle(
                           fontSize: 15,
-                          color: Colors.blue.shade900,
+                          color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
                           height: 1.4,
                         ),
                       ),
@@ -229,14 +233,15 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
     required String title,
     required String description,
     required bool isOptional,
+    required bool isDark,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? Colors.grey.shade800 : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
           width: 1,
         ),
       ),
@@ -265,10 +270,11 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.3,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                     if (isOptional) ...[
@@ -276,15 +282,15 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
+                          color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Opcional',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black54,
+                            color: isDark ? Colors.grey.shade300 : Colors.black54,
                           ),
                         ),
                       ),
@@ -296,7 +302,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   description,
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade700,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
                     height: 1.3,
                   ),
                 ),
@@ -601,7 +607,8 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 );
               }
             } else {
-              final config = await _showServiceConfigDialog(context, service['title']);
+              final serviceTitle = service['title']?.toString() ?? 'Serviço';
+              final config = await _showServiceConfigDialog(context, serviceTitle);
               if (mounted && config != null) {
                 await servicesProvider.addService(
                   service['id'],
@@ -674,7 +681,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                           service['description'],
                           style: TextStyle(
                             fontSize: 15,
-                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
                             height: 1.4,
                           ),
                           maxLines: 2,
