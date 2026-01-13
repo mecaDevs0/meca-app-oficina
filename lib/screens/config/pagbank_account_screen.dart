@@ -398,6 +398,12 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
       
       if (motherName.isEmpty) {
         validationErrors.add('Nome da mãe é obrigatório');
+      } else {
+        // PagBank exige que o nome da mãe tenha mais de uma palavra
+        final motherNameWords = motherName.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+        if (motherNameWords.length < 2) {
+          validationErrors.add('Nome da mãe deve possuir mais de uma palavra (ex: Maria Silva)');
+        }
       }
       
       // Debug: mostrar erros encontrados
@@ -420,21 +426,37 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
       String phoneNumber;
       
       if (phoneDigits.length >= 10) {
-        // Tem DDD: pegar últimos 10 dígitos (DDD + número)
-        final last10 = phoneDigits.substring(phoneDigits.length - 10);
-        phoneArea = last10.substring(0, 2);
-        phoneNumber = last10.substring(2); // 8 dígitos
+        // Tem DDD: pegar últimos 10 ou 11 dígitos (DDD + número)
+        final lastDigits = phoneDigits.length >= 11 
+            ? phoneDigits.substring(phoneDigits.length - 11) // 11 dígitos (DDD + 9 dígitos)
+            : phoneDigits.substring(phoneDigits.length - 10); // 10 dígitos (DDD + 8 dígitos)
+        phoneArea = lastDigits.substring(0, 2);
+        phoneNumber = lastDigits.substring(2);
+        
+        // Garantir que phoneNumber tem 9 dígitos (formato MOBILE do PagBank)
+        if (phoneNumber.length == 8) {
+          phoneNumber = '9' + phoneNumber; // Adicionar 9 no início para celular
+        } else if (phoneNumber.length > 9) {
+          phoneNumber = phoneNumber.substring(phoneNumber.length - 9); // Pegar últimos 9 dígitos
+        }
       } else if (phoneDigits.length >= 8) {
         // Só tem número (8-9 dígitos)
         phoneArea = '11'; // Default
         phoneNumber = phoneDigits;
+        
+        // Garantir que phoneNumber tem 9 dígitos
+        if (phoneNumber.length == 8) {
+          phoneNumber = '9' + phoneNumber; // Adicionar 9 no início para celular
+        } else if (phoneNumber.length > 9) {
+          phoneNumber = phoneNumber.substring(phoneNumber.length - 9); // Pegar últimos 9 dígitos
+        }
       } else {
         throw Exception('Telefone deve ter pelo menos 8 dígitos');
       }
       
-      // Garantir que phoneNumber tem 8-9 dígitos (sem DDD)
-      if (phoneNumber.length < 8 || phoneNumber.length > 9) {
-        throw Exception('Número de telefone deve ter 8 ou 9 dígitos (sem DDD)');
+      // Validar que phoneNumber tem exatamente 9 dígitos (formato MOBILE do PagBank)
+      if (phoneNumber.length != 9) {
+        throw Exception('Número de telefone deve ter 9 dígitos (formato MOBILE)');
       }
       
       final regionCode = state.toUpperCase().substring(0, 2);

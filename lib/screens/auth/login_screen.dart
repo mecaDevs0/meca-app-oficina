@@ -410,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen> {
         minHeight: 24,
       ),
       filled: true,
-      fillColor: Colors.grey[50],
+      fillColor: AppColors.primaryBlueColor.withOpacity(0.05),
       contentPadding: const EdgeInsets.symmetric(
         vertical: 20,
         horizontal: 16,

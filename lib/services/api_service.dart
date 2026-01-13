@@ -728,6 +728,29 @@ class ApiService {
     }
   }
 
+  /// Inicia o serviço mas deixa pendente aguardando confirmação do cliente
+  Future<Map<String, dynamic>> startServicePending(
+    String bookingId, {
+    int? estimatedPriceCents,
+  }) async {
+    try {
+      await loadToken();
+      final payload = <String, dynamic>{};
+      if (estimatedPriceCents != null) {
+        payload['estimatedPrice'] = estimatedPriceCents;
+      }
+      final response = await _dio.put('/bookings/$bookingId/start-pending', data: payload);
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data?['error']?.toString() ?? 
+                          e.message ?? 
+                          'Erro ao iniciar o serviço';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> sendQuote(
     String bookingId, {
     int? finalPriceCents, // Formato antigo (compatibilidade)

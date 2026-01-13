@@ -81,6 +81,64 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
+  /// Verifica se é o dia do agendamento (considera apenas a data, não a hora)
+  bool _isAppointmentDay(Map<String, dynamic> booking) {
+    try {
+      final appointmentDateStr = booking['appointment_date']?.toString() ?? 
+                                  booking['scheduled_date']?.toString() ?? 
+                                  booking['date']?.toString();
+      
+      if (appointmentDateStr == null || appointmentDateStr.isEmpty) {
+        return false;
+      }
+
+      final appointmentDate = DateTime.parse(appointmentDateStr);
+      final now = DateTime.now();
+      
+      // Comparar apenas dia, mês e ano (sem considerar hora)
+      final appointmentDay = DateTime(appointmentDate.year, appointmentDate.month, appointmentDate.day);
+      final today = DateTime(now.year, now.month, now.day);
+      
+      return appointmentDay.isAtSameMomentAs(today);
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  /// Retorna informações sobre o dia do agendamento para mensagens
+  String _getAppointmentDayInfo(Map<String, dynamic> booking) {
+    try {
+      final appointmentDateStr = booking['appointment_date']?.toString() ?? 
+                                  booking['scheduled_date']?.toString() ?? 
+                                  booking['date']?.toString();
+      
+      if (appointmentDateStr == null || appointmentDateStr.isEmpty) {
+        return 'Data não informada';
+      }
+
+      final appointmentDate = DateTime.parse(appointmentDateStr);
+      final now = DateTime.now();
+      
+      final appointmentDay = DateTime(appointmentDate.year, appointmentDate.month, appointmentDate.day);
+      final today = DateTime(now.year, now.month, now.day);
+      
+      if (appointmentDay.isAtSameMomentAs(today)) {
+        return 'Hoje';
+      } else if (appointmentDay.isBefore(today)) {
+        return 'Passado';
+      } else {
+        final difference = appointmentDay.difference(today).inDays;
+        if (difference == 1) {
+          return 'Amanhã';
+        } else {
+          return 'Em $difference dias';
+        }
+      }
+    } catch (e) {
+      return 'Data não informada';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -353,6 +411,30 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoItem(String text, IconData icon, bool isDarkMode) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: const Color(0xFF00B4D8),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.grey[300] : Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1720,67 +1802,432 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     ),
                   ],
                   
-                  // Botão de montar/enviar orçamento (APENAS quando status é confirmado E ainda não foi enviado orçamento)
-                  // REMOVIDO: Não permitir montar orçamento em status pendente - apenas aprovar/rejeitar/sugerir
-                  if (isConfirmed && !hasFinalPrice) ...[
-                    const SizedBox(height: 20), // Espaçamento maior antes do botão
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.orange.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                  // Quando status é confirmado, mostrar opções baseadas no dia do agendamento
+                  if (isConfirmed) ...[
+                    Builder(
+                      builder: (context) {
+                        final isAppointmentDay = _isAppointmentDay(booking);
+                        final appointmentDayInfo = _getAppointmentDayInfo(booking);
+                        
+                        // Se NÃO for o dia do agendamento, mostrar mensagem didática
+                        if (!isAppointmentDay) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: isDarkMode 
+                                  ? Colors.blue[900]!.withOpacity(0.2) 
+                                  : Colors.blue[50]!,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDarkMode 
+                                    ? Colors.blue[700]!.withOpacity(0.5) 
+                                    : Colors.blue[200]!,
+                                width: 2,
                               ),
-                            );
-                            if (result == true) {
-                              // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
-                              // Usar forceRefresh para invalidar cache e garantir dados atualizados
-                              await _loadBookingDetails(forceRefresh: true);
-                              // Aguardar um pouco para garantir que a API processou
-                              await Future.delayed(const Duration(milliseconds: 800));
-                              // Recarregar novamente para garantir dados atualizados
-                              await _loadBookingDetails(forceRefresh: true);
-                            }
-                          },
-                          icon: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
-                          label: const Text(
-                            'Montar Orçamento',
-                            style: TextStyle(
-                              color: Colors.white, 
-                              fontWeight: FontWeight.w700, 
-                              fontSize: 16,
-                              letterSpacing: 0.5,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.info_outline,
+                                        color: Colors.blue,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Aguardando o dia do agendamento',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDarkMode ? Colors.white : Colors.blue[900]!,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'O agendamento está confirmado, mas você deve aguardar o dia marcado para montar o orçamento ou iniciar o serviço.',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: isDarkMode ? Colors.grey[300] : Colors.blue[800]!,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode 
+                                        ? Colors.white.withOpacity(0.1) 
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today,
+                                        size: 20,
+                                        color: Colors.blue[600]!,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Dia do agendamento: $appointmentDayInfo',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.blue[700]!,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '📋 No dia do agendamento, você terá duas opções:\n\n1️⃣ Montar Orçamento - Criar um orçamento detalhado para o cliente aprovar\n2️⃣ Iniciar Serviço - Iniciar o serviço diretamente (aguardará confirmação do cliente)',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDarkMode ? Colors.grey[300] : Colors.blue[800]!,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(
+                          ],
+                        );
+                        } else {
+                          // É o dia do agendamento - mostrar as 2 opções
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Opção 1: Montar Orçamento (se ainda não foi enviado)
+                              if (!hasFinalPrice) ...[
+                            const SizedBox(height: 20),
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.orange.withOpacity(0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                                      ),
+                                    );
+                                    if (result == true) {
+                                      // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
+                                      // Usar forceRefresh para invalidar cache e garantir dados atualizados
+                                      await _loadBookingDetails(forceRefresh: true);
+                                      // Aguardar um pouco para garantir que a API processou
+                                      await Future.delayed(const Duration(milliseconds: 800));
+                                      // Recarregar novamente para garantir dados atualizados
+                                      await _loadBookingDetails(forceRefresh: true);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
+                                  label: const Text(
+                                    '1️⃣ Montar Orçamento',
+                                    style: TextStyle(
+                                      color: Colors.white, 
+                                      fontWeight: FontWeight.w700, 
+                                      fontSize: 16,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // Mensagem explicativa sobre "Montar Orçamento"
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDarkMode 
+                                    ? Colors.orange[900]!.withOpacity(0.2) 
+                                    : Colors.orange[50]!,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.orange[200]!.withOpacity(0.5),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 18,
+                                    color: Colors.orange[700]!,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Após montar o orçamento, ele ficará pendente aguardando a aprovação do cliente antes de prosseguir.',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDarkMode ? Colors.orange[300]! : Colors.orange[900]!,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          
+                          // Opção 2: Iniciar Serviço (sempre disponível no dia, mesmo sem orçamento)
+                          const SizedBox(height: 12),
+                          Container(
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF00B4D8).withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            elevation: 0,
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  try {
+                                    final bookingId = booking['id']?.toString() ?? '';
+                                    if (bookingId.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Erro: ID do agendamento não encontrado.'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    
+                                    // Mostrar diálogo de confirmação
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        backgroundColor: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.play_circle_outline,
+                                              color: const Color(0xFF00B4D8),
+                                              size: 28,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(
+                                                'Iniciar Serviço',
+                                                style: TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Ao iniciar o serviço:',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: isDarkMode ? Colors.white : Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            _buildInfoItem(
+                                              'O serviço ficará pendente aguardando confirmação do cliente',
+                                              Icons.pending_actions,
+                                              isDarkMode,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildInfoItem(
+                                              'O cliente receberá uma notificação para confirmar',
+                                              Icons.notifications,
+                                              isDarkMode,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _buildInfoItem(
+                                              'Após a confirmação, o serviço será iniciado oficialmente',
+                                              Icons.check_circle_outline,
+                                              isDarkMode,
+                                            ),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, false),
+                                            child: Text(
+                                              'Cancelar',
+                                              style: TextStyle(
+                                                color: isDarkMode ? Colors.grey[400]! : Colors.grey[700]!,
+                                              ),
+                                            ),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(context, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF00B4D8),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Confirmar',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    
+                                    if (confirm != true) return;
+                                    
+                                    final result = await _apiService.startServicePending(bookingId);
+                                    
+                                    if (!mounted) return;
+                                    
+                                    if (result['success'] == true) {
+                                      await _loadBookingDetails(forceRefresh: true);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+                                          backgroundColor: Colors.green,
+                                          duration: Duration(seconds: 3),
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Erro: ${e.toString()}'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.play_arrow, color: Colors.white),
+                                label: const Text(
+                                  '2️⃣ Iniciar Serviço',
+                                  style: TextStyle(
+                                    color: Colors.white, 
+                                    fontWeight: FontWeight.w700, 
+                                    fontSize: 16,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00B4D8),
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                          const SizedBox(height: 12),
+                          // Mensagem explicativa sobre "Iniciar Serviço"
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode 
+                                  ? const Color(0xFF00B4D8).withOpacity(0.2) 
+                                  : const Color(0xFF00B4D8).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF00B4D8).withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 18,
+                                  color: const Color(0xFF00B4D8),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Ao iniciar o serviço, ele ficará pendente aguardando a confirmação do cliente antes de prosseguir oficialmente.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isDarkMode 
+                                          ? const Color(0xFF00B4D8).withOpacity(0.9) 
+                                          : const Color(0xFF00677F),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                            ],
+                          );
+                        }
+                      },
                     ),
                   ],
                   
-                  // Botão de iniciar serviço (quando status é confirmado E já foi enviado e aprovado orçamento)
+                  // Botão de iniciar serviço quando já tem orçamento aprovado (comportamento antigo mantido)
                   // Quando o cliente aprova o orçamento inicial, o status volta para "confirmado" e tem final_price
-                  if (isConfirmed && hasFinalPrice && !isPendingClient)
+                  if (isConfirmed && hasFinalPrice && !isPendingClient && _isAppointmentDay(booking)) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: SizedBox(
@@ -1844,6 +2291,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         ),
                       ),
                     ),
+                  ],
                   
                   // Botão de editar orçamento (quando já está em_andamento)
                   if (statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress')

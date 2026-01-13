@@ -934,7 +934,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
-        fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
+        fillColor: isDark ? const Color(0xFF2A2A2A) : AppColors.primaryBlueColor.withOpacity(0.05),
       ),
     );
   }

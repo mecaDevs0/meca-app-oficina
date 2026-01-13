@@ -193,7 +193,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[400]),
               prefixIcon: const Icon(Icons.email, color: AppColors.primaryColor),
               filled: true,
-              fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
+              fillColor: isDark ? const Color(0xFF2A2A2A) : AppColors.primaryBlueColor.withOpacity(0.05),
               ),
             ),
             keyboardType: TextInputType.emailAddress,
