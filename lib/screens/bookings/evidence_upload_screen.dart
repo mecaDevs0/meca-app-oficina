@@ -71,7 +71,14 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(source: source, imageQuality: 75);
+      // Reduzir tamanho para evitar erro 413 (Request Entity Too Large)
+      // maxWidth/maxHeight + imageQuality garantem upload leve mesmo em iPhone (fotos grandes).
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
       if (picked != null) {
         setState(() {
           _selectedFile = File(picked.path);
@@ -143,8 +150,20 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // iOS-like grouped background
+    final backgroundColor = isDarkMode ? const Color(0xFF0B0B0F) : const Color(0xFFF2F2F7);
+    final cardColor = isDarkMode ? const Color(0xFF1C1C1E) : Colors.white;
+    final cardBorder = isDarkMode ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.04);
+    final primaryText = isDarkMode ? Colors.white : Colors.black87;
+    final secondaryText = isDarkMode ? Colors.white70 : Colors.black54;
+
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: backgroundColor,
+        surfaceTintColor: Colors.transparent,
         title: const Text('Evidências do Serviço'),
         actions: [
           IconButton(
@@ -157,108 +176,176 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadEvidences,
-              child: SingleChildScrollView(
+              child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-                    if (_errorMessage != null)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.withOpacity(0.4)),
-                        ),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-                        ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  if (_errorMessage != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(isDarkMode ? 0.18 : 0.10),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.red.withOpacity(0.28)),
                       ),
-                    _buildUploaderSection(),
-                    const SizedBox(height: 24),
-          const Text(
-                      'Evidências enviadas',
-            style: TextStyle(
-                        fontSize: 18,
-              fontWeight: FontWeight.bold,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    if (_evidences.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Nenhuma evidência enviada para este agendamento.',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      )
-                    else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1,
-                        ),
-                        itemCount: _evidences.length,
-                        itemBuilder: (context, index) {
-                          final item = _evidences[index];
-                          final url = _resolveEvidenceUrl(item);
-                          final description = _resolveEvidenceDescription(item);
 
-                          if (url == null) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'Arquivo não suportado',
-                                textAlign: TextAlign.center,
-      ),
-    );
-  }
+                  _buildUploaderSection(
+                    context,
+                    cardColor: cardColor,
+                    cardBorder: cardBorder,
+                    primaryText: primaryText,
+                    secondaryText: secondaryText,
+                  ),
 
-                          return GestureDetector(
-                            onTap: () => _showImagePreview(url, description),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Evidências enviadas',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (_evidences.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: cardBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.06),
+                            blurRadius: 18,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'Nenhuma evidência enviada para este agendamento.',
+                        style: TextStyle(color: secondaryText, fontWeight: FontWeight.w600),
+                      ),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: _evidences.length,
+                      itemBuilder: (context, index) {
+                        final item = _evidences[index];
+                        final url = _resolveEvidenceUrl(item);
+                        final description = _resolveEvidenceDescription(item);
+
+                        if (url == null) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: cardBorder),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Arquivo não suportado',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: secondaryText, fontWeight: FontWeight.w600),
+                            ),
+                          );
+                        }
+
+                        return GestureDetector(
+                          onTap: () => _showImagePreview(url, description),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: cardBorder),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(18),
                               child: Stack(
                                 fit: StackFit.expand,
-        children: [
+                                children: [
                                   Image.network(
                                     url,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
-                                        color: Colors.grey.shade200,
+                                        color: cardColor,
                                         alignment: Alignment.center,
-                                        child: const Icon(Icons.broken_image),
+                                        child: Icon(Icons.broken_image, color: secondaryText),
                                       );
                                     },
+                                  ),
+                                  Positioned(
+                                    left: 10,
+                                    top: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.35),
+                                        borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(color: Colors.white.withOpacity(0.10)),
+                                      ),
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                   if (description != null && description.isNotEmpty)
                                     Align(
                                       alignment: Alignment.bottomCenter,
                                       child: Container(
                                         width: double.infinity,
-                                        color: Colors.black.withOpacity(0.5),
-                                        padding: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              Colors.transparent,
+                                              Colors.black.withOpacity(0.55),
+                                            ],
+                                          ),
+                                        ),
                                         child: Text(
                                           description,
-                                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -267,45 +354,84 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                                 ],
                               ),
                             ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
       ),
     );
   }
 
-  Widget _buildUploaderSection() {
+  Widget _buildUploaderSection(
+    BuildContext context, {
+    required Color cardColor,
+    required Color cardBorder,
+    required Color primaryText,
+    required Color secondaryText,
+  }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Enviar nova evidência',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF00C977)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enviar nova evidência',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: primaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Foto do progresso do serviço',
+                      style: TextStyle(
+                        color: secondaryText,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Selecione uma imagem da galeria ou tire uma foto para registrar o progresso do serviço.',
-            style: TextStyle(color: Colors.black54),
+          Text(
+            'Selecione uma imagem da galeria ou tire uma foto para registrar o progresso.',
+            style: TextStyle(color: secondaryText, height: 1.35),
           ),
           const SizedBox(height: 16),
           Row(
@@ -315,6 +441,11 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                   onPressed: _isUploading ? null : () => _pickImage(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera),
                   label: const Text('Câmera'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    side: BorderSide(color: cardBorder),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -323,19 +454,37 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                   onPressed: _isUploading ? null : () => _pickImage(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library),
                   label: const Text('Galeria'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    side: BorderSide(color: cardBorder),
+                  ),
                 ),
               ),
             ],
           ),
           if (_selectedFile != null) ...[
             const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                _selectedFile!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: cardBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.file(
+                  _selectedFile!,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           ],
@@ -350,11 +499,15 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                       width: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.cloud_upload),
+                  : const Icon(Icons.cloud_upload_rounded),
               label: Text(_isUploading ? 'Enviando...' : 'Enviar evidência'),
               style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C977),
+                disabledBackgroundColor: const Color(0xFF00C977).withOpacity(0.55),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+                shadowColor: Colors.transparent,
               ),
             ),
           ),
@@ -386,34 +539,66 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
     showDialog<void>(
       context: context,
       builder: (context) {
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
         return Dialog(
           insetPadding: const EdgeInsets.all(16),
+          backgroundColor: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AspectRatio(
-                aspectRatio: 1,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-    return Container(
-                      color: Colors.black,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image, color: Colors.white, size: 48),
-                    );
-                  },
-                ),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image, color: Colors.white, size: 48),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Material(
+                      color: Colors.black.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(999),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: () => Navigator.pop(context),
+                        child: const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Icon(Icons.close, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (description != null && description.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(description),
+                  child: Text(
+                    description,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDarkMode ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
                 ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fechar'),
-              ),
+              const SizedBox(height: 6),
             ],
           ),
         );

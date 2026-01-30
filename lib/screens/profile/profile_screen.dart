@@ -24,7 +24,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = true;
@@ -37,10 +37,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadWorkshopData();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Quando o app volta ao foreground, recarregar dados PagBank
+    // Isso garante que após o OAuth, os dados sejam atualizados
+    if (state == AppLifecycleState.resumed && mounted) {
+      // Aguardar um pouco para garantir que o callback foi processado
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          _loadWorkshopData();
+        }
+      });
+    }
+  }
+
   Future<void> _loadWorkshopData() async {
+    if (!mounted) return;
+    
     setState(() => _isLoading = true);
 
     try {
@@ -60,24 +84,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
         print('⚠️ Erro ao carregar notificações: $e');
       }
       
+      if (!mounted) return;
+      
       final response = await _apiService.getProfile();
-      if (response['success']) {
+      if (response['success'] && mounted) {
         setState(() {
           _workshopData = response['data'];
           _logoUrl = _workshopData?['logo_url'] ?? _workshopData?['logo'];
         });
       }
 
+      if (!mounted) return;
+
       // Buscar dados PagBank (account-status retorna email, name, status)
       final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
-      if (pagbankStatusResponse['success']) {
+      if (pagbankStatusResponse['success'] && mounted) {
         setState(() {
           _pagbankData = pagbankStatusResponse['data'] as Map<String, dynamic>?;
         });
       }
     } catch (e) {
+      print('❌ Erro ao carregar dados: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -120,6 +151,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ? '✅ Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
                     : '✅ Autorização PagBank aberta em uma nova janela.';
                 snackBarColor = Colors.green;
+                // Aguardar alguns segundos após abrir o navegador e recarregar dados
+                // Isso garante que quando o usuário voltar do OAuth, os dados sejam atualizados
+                Future.delayed(const Duration(seconds: 3), () {
+                  if (mounted) {
+                    _loadWorkshopData();
+                  }
+                });
               }
             }
           } catch (e) {
@@ -681,9 +719,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final borderColor = secondaryText.withOpacity(0.18);
     final data = _pagbankData ?? const {};
     final accountId = data['pagbank_account_id'] ?? data['account_id'];
-    final hasOAuthConnection = accountId != null && 
-                               (data['pagbank_access_token'] != null || data['has_authorization'] == true);
-    final isVerified = data['pagbank_verified'] == true;
+    
+    // IMPORTANTE: Reconhecer OAuth mesmo sem account_id se houver tokens e verificação
+    // O account_id pode ser null temporariamente, mas se há tokens salvos e verified=true, há conexão OAuth
+    // Se há token OU has_authorization, então há conexão OAuth (não precisa de account_id)
+    // A API retorna pagbank_access_token como 'authorized' quando há token, ou null quando não há
+    final hasAccessToken = data['pagbank_access_token'] != null && data['pagbank_access_token'].toString().isNotEmpty;
+    final hasAuthorization = data['has_authorization'] == true;
+    final hasOAuthConnection = hasAccessToken || hasAuthorization;
+    
+    // pagbank_verified pode ser true mesmo sem account_id quando há OAuth
+    final isVerified = data['pagbank_verified'] == true || data['verified'] == true;
     final status = (data['status'] ?? 'not_created').toString().toLowerCase();
     final email = data['email']?.toString();
     final name = data['name']?.toString();
@@ -1157,10 +1203,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _checkAccountStatus() async {
+    if (!mounted) return;
+    
     try {
       setState(() => _isLoading = true);
       
+      if (!mounted) return;
+      
       final response = await _apiService.getPagBankAccountStatus();
+      
+      if (!mounted) return;
       
       if (response['success']) {
         setState(() {
@@ -1168,13 +1220,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
         
         final status = (response['data']?['status'] ?? '').toString().toLowerCase();
+        final hasAuth = response['data']?['has_authorization'] == true;
+        final isVerified = response['data']?['pagbank_verified'] == true;
         
         if (mounted) {
-          if (status == 'approved') {
+          if (isVerified && hasAuth) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Conta PagBank conectada e verificada!'),
+                backgroundColor: Color(0xFF22C55E),
+              ),
+            );
+          } else if (status == 'approved') {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('✅ Conta PagBank aprovada!'),
                 backgroundColor: Color(0xFF22C55E),
+              ),
+            );
+          } else if (hasAuth) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('⏳ Conta conectada, aguardando verificação.'),
+                backgroundColor: Colors.orange,
               ),
             );
           } else {

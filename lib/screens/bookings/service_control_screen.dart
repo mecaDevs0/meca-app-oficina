@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../services/evidence_service.dart';
 import '../../services/service_control_service.dart';
 import 'evidence_upload_screen.dart';
+import 'build_quote_screen.dart';
 
 class ServiceControlScreen extends StatefulWidget {
   final String bookingId;
@@ -583,13 +584,14 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
     });
 
     try {
-      final result = await _serviceControlService.updateBookingStatus(widget.bookingId, 'in_progress');
+      // IMPORTANTE: Usar startServicePending para aguardar confirmação do cliente
+      final result = await _apiService.startServicePending(widget.bookingId);
       
       if (result['success']) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Serviço iniciado! O cliente receberá uma notificação.'),
+            content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
             backgroundColor: Color(0xFF00C977),
           ),
         );
@@ -612,63 +614,37 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
   }
 
   Future<void> _finishService() async {
-    // Mostrar dialog para inserir preço, notas e imagens
-    final result = await _showFinishServiceDialog();
+    // IMPORTANTE: Usar BuildQuoteScreen para permitir adicionar items do orçamento
+    // Buscar items existentes do orçamento (se houver)
+    final existingItems = widget.booking['quote_items'] as List<dynamic>?;
+    final existingDiagnostic = widget.booking['diagnostic_value'] as int?;
     
-    if (result == null || !result['confirmed']) {
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-
-    try {
-      // Primeiro, fazer upload das imagens se houver
-      if (result['images'] != null && (result['images'] as List<File>).isNotEmpty) {
-        for (final imageFile in result['images'] as List<File>) {
-          try {
-            await _evidenceService.uploadBookingEvidence(widget.bookingId, imageFile);
-          } catch (e) {
-            // Continuar mesmo se houver erro no upload de imagem
-          }
-        }
-      }
-
-      // Depois, finalizar o serviço com preço e notas
-      final finishResult = await _apiService.finishService(
-        widget.bookingId,
-        finalPriceCents: result['priceCents'] as int,
-        notes: result['notes'] as String?,
+    // Navegar para tela de montar orçamento final
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BuildQuoteScreen(
+          bookingId: widget.bookingId,
+          existingItems: existingItems?.map((item) => {
+            'description': item['description'] ?? '',
+            'quantity': item['quantity'] ?? 1,
+            'unit_price': item['unit_price'] ?? 0,
+          }).toList(),
+          existingDiagnosticValue: existingDiagnostic,
+          isEditMode: false,
+          isFinishMode: true, // Modo de finalização
+        ),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      Navigator.pop(context, true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Serviço finalizado! O cliente receberá uma notificação para aprovar o orçamento.'),
+          backgroundColor: Color(0xFF00C977),
+        ),
       );
-      
-      if (finishResult['success'] == true) {
-        if (mounted) {
-          Navigator.pop(context, true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Serviço finalizado! O cliente receberá uma notificação para aprovar o orçamento.'),
-              backgroundColor: Color(0xFF00C977),
-            ),
-          );
-        }
-      } else {
-        setState(() {
-          _error = finishResult['error']?.toString() ?? 'Erro ao finalizar serviço';
-        });
-        _showError(_error);
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'Erro de conexão: ${e.toString()}';
-      });
-      _showError(_error);
-    } finally {
-      setState(() {
-        _loading = false;
-        _selectedImages = [];
-      });
     }
   }
 

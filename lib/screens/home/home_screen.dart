@@ -45,7 +45,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       // Carregar notificações para atualizar badge do perfil
       try {
-        final notificationsResponse = await _apiService.getNotifications();
+        final notificationsResponse = await _apiService.getNotifications()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar notificações');
+          return {'success': false, 'error': 'Timeout'};
+        });
         if (notificationsResponse['success'] && mounted) {
           final data = notificationsResponse['data'] ?? {};
           final unreadCount = data['unread_count'] is int
@@ -60,32 +64,53 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       
       // Carregar perfil da oficina
-      final profileResponse = await _apiService.getProfile();
-      if (profileResponse['success']) {
-        setState(() {
-          _workshopData = profileResponse['data'];
+      try {
+        final profileResponse = await _apiService.getProfile()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar perfil');
+          return {'success': false, 'error': 'Timeout'};
         });
+        if (profileResponse['success']) {
+          setState(() {
+            _workshopData = profileResponse['data'];
+          });
+        }
+      } catch (e) {
+        print('⚠️ Erro ao carregar perfil: $e');
       }
       
       // Buscar status da conta PagBank
-      final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
       bool hasPagBankAccount = false;
       bool hasPagBankData = false; // Tem dados cadastrados mas não verificado
       
-      if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
-        final statusData = pagbankStatusResponse['data'];
-        // Verificar se tem conta conectada via OAuth E verificada
-        final hasOAuthConnection = statusData['pagbank_account_id'] != null && 
-                                   statusData['pagbank_access_token'] != null;
-        final isVerified = statusData['pagbank_verified'] == true;
+      try {
+        final pagbankStatusResponse = await _apiService.getPagBankAccountStatus()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar status PagBank');
+          return {'success': false, 'error': 'Timeout'};
+        });
         
-        // Verificar se tem dados cadastrados (mesmo que não verificado)
-        hasPagBankData = statusData['registration_data'] != null || 
-                        statusData['pagbank_account_id'] != null ||
-                        (statusData['email'] != null && statusData['name'] != null);
-        
-        // Conta está configurada APENAS se está conectada via OAuth E verificada
-        hasPagBankAccount = hasOAuthConnection && isVerified;
+        if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
+          final statusData = pagbankStatusResponse['data'];
+          // CORRIGIDO: Verificar se tem conta conectada via OAuth E verificada
+          // O account_id pode ser null temporariamente após OAuth
+          // O que importa é ter access_token (OAuth) E estar verificado
+          final hasOAuthConnection = (statusData['pagbank_access_token'] != null && 
+                                      statusData['pagbank_access_token'].toString().isNotEmpty) ||
+                                     statusData['has_authorization'] == true;
+          final isVerified = statusData['pagbank_verified'] == true;
+          
+          // Verificar se tem dados cadastrados (mesmo que não verificado)
+          hasPagBankData = statusData['registration_data'] != null || 
+                          statusData['pagbank_account_id'] != null ||
+                          hasOAuthConnection ||
+                          (statusData['email'] != null && statusData['name'] != null);
+          
+          // Conta está configurada APENAS se está conectada via OAuth E verificada
+          hasPagBankAccount = hasOAuthConnection && isVerified;
+        }
+      } catch (e) {
+        print('⚠️ Erro ao carregar status PagBank: $e');
       }
       
       // Salvar estado para usar no card
@@ -94,34 +119,50 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       
       // Buscar agenda diretamente da API
-      final scheduleResponse = await _apiService.getSchedule();
       bool hasSchedule = false;
-      if (scheduleResponse['success'] && scheduleResponse['data'] != null) {
-        final scheduleData = scheduleResponse['data'];
-        // Verificar se tem pelo menos um dia configurado
-        if (scheduleData is Map) {
-          hasSchedule = scheduleData.entries.any((entry) {
-            final dayData = entry.value;
-            if (dayData is Map) {
-              return dayData['is_open'] == true;
-            }
-            return false;
-          });
+      try {
+        final scheduleResponse = await _apiService.getSchedule()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar agenda');
+          return {'success': false, 'error': 'Timeout'};
+        });
+        if (scheduleResponse['success'] && scheduleResponse['data'] != null) {
+          final scheduleData = scheduleResponse['data'];
+          // Verificar se tem pelo menos um dia configurado
+          if (scheduleData is Map) {
+            hasSchedule = scheduleData.entries.any((entry) {
+              final dayData = entry.value;
+              if (dayData is Map) {
+                return dayData['is_open'] == true;
+              }
+              return false;
+            });
+          }
         }
+      } catch (e) {
+        print('⚠️ Erro ao carregar agenda: $e');
       }
       
       // Buscar serviços da oficina diretamente da API
-      final servicesResponse = await _apiService.getMyServices();
       bool hasServices = false;
-      if (servicesResponse['success'] && servicesResponse['data'] != null) {
-        final servicesData = servicesResponse['data'];
-        final servicesList = servicesData is Map 
-            ? (servicesData['services'] ?? [])
-            : (servicesData is List ? servicesData : []);
-        hasServices = servicesList.isNotEmpty;
-        setState(() {
-          _services = List<Map<String, dynamic>>.from(servicesList);
+      try {
+        final servicesResponse = await _apiService.getMyServices()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar serviços');
+          return {'success': false, 'error': 'Timeout'};
         });
+        if (servicesResponse['success'] && servicesResponse['data'] != null) {
+          final servicesData = servicesResponse['data'];
+          final servicesList = servicesData is Map 
+              ? (servicesData['services'] ?? [])
+              : (servicesData is List ? servicesData : []);
+          hasServices = servicesList.isNotEmpty;
+          setState(() {
+            _services = List<Map<String, dynamic>>.from(servicesList);
+          });
+        }
+      } catch (e) {
+        print('⚠️ Erro ao carregar serviços: $e');
       }
       
       // Atualizar flags de validação
@@ -132,62 +173,70 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       
       // Carregar agendamentos
-      final bookingsResponse = await _apiService.getMyBookings();
-      if (bookingsResponse['success']) {
-        final data = bookingsResponse['data'];
-        final bookingsList = data is Map ? (data['bookings'] ?? []) : data ?? [];
-        final bookings = List<Map<String, dynamic>>.from(bookingsList);
-        final pendingCount = bookings.where((b) {
-          final status = (b['status'] ?? '').toString().toLowerCase();
-          return status == 'pending' ||
-              status == 'pendente_oficina' ||
-              status == 'pending_oficina';
-        }).length;
-
-        // Calcular serviços em andamento (Ativos)
-        final activeBookings = bookings.where((b) {
-          final status = (b['status'] ?? '').toString().toLowerCase();
-          return status == 'em_andamento' ||
-              status == 'in_progress' ||
-              status == 'started' ||
-              status == 'confirmado' ||
-              status == 'confirmed';
-        }).toList();
-
-        final upcoming = bookings.where((b) {
-          final status = (b['status'] ?? '').toString().toLowerCase();
-          return status == 'pending' ||
-              status == 'pendente_oficina' ||
-              status == 'confirmed' ||
-              status == 'confirmado' ||
-              status == 'started' ||
-              status == 'in_progress' ||
-              status == 'em_andamento';
-        }).toList()
-          ..sort(
-            (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
-          );
-
-        final history = bookings.where((b) {
-          final status = (b['status'] ?? '').toString().toLowerCase();
-          return status == 'completed' ||
-              status == 'finished' ||
-              status == 'concluido' ||
-              status == 'cancelled';
-        }).toList()
-          ..sort(
-            (a, b) => (b['sort_timestamp'] ?? 0).compareTo(a['sort_timestamp'] ?? 0),
-          );
-
-        setState(() {
-          _upcomingBookings = upcoming;
-          _historyBookings = history;
-          _activeBookingsCount = activeBookings.length;
+      try {
+        final bookingsResponse = await _apiService.getMyBookings()
+            .timeout(const Duration(seconds: 10), onTimeout: () {
+          print('⚠️ Timeout ao carregar agendamentos');
+          return {'success': false, 'error': 'Timeout'};
         });
-        if (mounted) {
-          final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-          notificationProvider.setPendingBookingsCount(pendingCount, resetBadge: pendingCount == 0);
+        if (bookingsResponse['success']) {
+          final data = bookingsResponse['data'];
+          final bookingsList = data is Map ? (data['bookings'] ?? []) : data ?? [];
+          final bookings = List<Map<String, dynamic>>.from(bookingsList);
+          final pendingCount = bookings.where((b) {
+            final status = (b['status'] ?? '').toString().toLowerCase();
+            return status == 'pending' ||
+                status == 'pendente_oficina' ||
+                status == 'pending_oficina';
+          }).length;
+
+          // Calcular serviços em andamento (Ativos)
+          final activeBookings = bookings.where((b) {
+            final status = (b['status'] ?? '').toString().toLowerCase();
+            return status == 'em_andamento' ||
+                status == 'in_progress' ||
+                status == 'started' ||
+                status == 'confirmado' ||
+                status == 'confirmed';
+          }).toList();
+
+          final upcoming = bookings.where((b) {
+            final status = (b['status'] ?? '').toString().toLowerCase();
+            return status == 'pending' ||
+                status == 'pendente_oficina' ||
+                status == 'confirmed' ||
+                status == 'confirmado' ||
+                status == 'started' ||
+                status == 'in_progress' ||
+                status == 'em_andamento';
+          }).toList()
+            ..sort(
+              (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
+            );
+
+          final history = bookings.where((b) {
+            final status = (b['status'] ?? '').toString().toLowerCase();
+            return status == 'completed' ||
+                status == 'finished' ||
+                status == 'concluido' ||
+                status == 'cancelled';
+          }).toList()
+            ..sort(
+              (a, b) => (b['sort_timestamp'] ?? 0).compareTo(a['sort_timestamp'] ?? 0),
+            );
+
+          setState(() {
+            _upcomingBookings = upcoming;
+            _historyBookings = history;
+            _activeBookingsCount = activeBookings.length;
+          });
+          if (mounted) {
+            final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+            notificationProvider.setPendingBookingsCount(pendingCount, resetBadge: pendingCount == 0);
+          }
         }
+      } catch (e) {
+        print('⚠️ Erro ao carregar agendamentos: $e');
       }
       
     } catch (e) {

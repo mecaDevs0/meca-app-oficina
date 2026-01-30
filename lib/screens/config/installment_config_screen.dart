@@ -231,7 +231,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                     });
                                     _saveInstallmentConfig();
                                   },
-                                  activeThumbColor: const Color(0xFF00C977),
+                                  thumbColor: WidgetStateProperty.all(const Color(0xFF00C977)),
                                 ),
                               ],
                             ),

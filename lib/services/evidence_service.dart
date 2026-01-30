@@ -48,14 +48,17 @@ class EvidenceService {
       await loadToken();
       
       final formData = FormData.fromMap({
-        'evidence': await MultipartFile.fromFile(
+        // IMPORTANTE: Backend aceita 'image' (padrão) e também 'evidence' (compatibilidade).
+        // Usar 'image' aqui para garantir compatibilidade máxima.
+        'image': await MultipartFile.fromFile(
           file.path,
           filename: file.path.split('/').last,
         ),
       });
 
       final response = await _dio.post(
-        '/bookings/$bookingId/images',
+        // Oficina envia evidências no endpoint /bookings/:id/evidence (salva em provas_oficina)
+        '/bookings/$bookingId/evidence',
         data: formData,
         options: Options(
           headers: {
@@ -82,7 +85,7 @@ class EvidenceService {
       if (e is DioException) {
         if (e.response != null) {
           final errorData = e.response?.data;
-          if (errorData is Map && errorData['error']) {
+          if (errorData is Map && errorData['error'] != null) {
             errorMessage = errorData['error'].toString();
           } else {
             errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';
@@ -102,7 +105,8 @@ class EvidenceService {
     try {
       await loadToken();
       
-      final response = await _dio.get('/bookings/$bookingId/images');
+      // Oficina visualiza evidências do endpoint /bookings/:id/evidence (provas_oficina)
+      final response = await _dio.get('/bookings/$bookingId/evidence');
       
       if (response.statusCode == 200) {
         final responseData = response.data;
@@ -129,7 +133,7 @@ class EvidenceService {
             return {'success': true, 'data': []};
           }
           final errorData = e.response?.data;
-          if (errorData is Map && errorData['error']) {
+          if (errorData is Map && errorData['error'] != null) {
             errorMessage = errorData['error'].toString();
           } else {
             errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';

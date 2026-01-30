@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -22,6 +23,70 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   Map<String, dynamic>? _bookingDetails;
   Map<String, dynamic>? _paymentData; // PASSO 15: Dados do pagamento
   bool _loading = true;
+
+  void _showSnackBar(SnackBar snackBar) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(snackBar);
+  }
+
+  bool _hasCheckIn(Map<String, dynamic> booking) {
+    final v = booking['check_in_at'] ?? booking['checkInAt'] ?? booking['check_in'];
+    return v != null && v.toString().trim().isNotEmpty;
+  }
+
+  String? _formatCheckInAt(Map<String, dynamic> booking) {
+    final raw = booking['check_in_at'] ?? booking['checkInAt'] ?? booking['check_in'];
+    if (raw == null) return null;
+    try {
+      final dt = DateTime.parse(raw.toString());
+      return DateFormat('dd/MM/yyyy HH:mm').format(dt.toLocal());
+    } catch (_) {
+      return raw.toString();
+    }
+  }
+
+  Future<void> _promptCheckInAndDo(String bookingId) async {
+    if (bookingId.trim().isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Check-in obrigatório'),
+        content: const Text(
+          'Para iniciar o serviço (Opção 2), registre a chegada do veículo (check-in) primeiro.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Agora não'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Fazer check-in'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await _apiService.checkInVehicle(bookingId);
+    if (!mounted) return;
+    if (result['success'] == true) {
+      await _loadBookingDetails(forceRefresh: true);
+      _showSnackBar(const SnackBar(
+        content: Text('✅ Check-in realizado! Agora você já pode iniciar o serviço.'),
+        backgroundColor: Colors.green,
+      ));
+    } else {
+      _showSnackBar(SnackBar(
+        content: Text(result['error']?.toString() ?? 'Não foi possível fazer o check-in.'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
 
   @override
   void initState() {
@@ -92,15 +157,29 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         return false;
       }
 
+      // Parse da data do agendamento
       final appointmentDate = DateTime.parse(appointmentDateStr);
       final now = DateTime.now();
       
-      // Comparar apenas dia, mês e ano (sem considerar hora)
-      final appointmentDay = DateTime(appointmentDate.year, appointmentDate.month, appointmentDate.day);
-      final today = DateTime(now.year, now.month, now.day);
+      // Converter para UTC para evitar problemas de timezone (igual à API)
+      final appointmentUTC = DateTime.utc(
+        appointmentDate.year,
+        appointmentDate.month,
+        appointmentDate.day,
+      );
+      final todayUTC = DateTime.utc(
+        now.year,
+        now.month,
+        now.day,
+      );
       
-      return appointmentDay.isAtSameMomentAs(today);
+      // Comparar diretamente ano, mês e dia
+      return appointmentUTC.year == todayUTC.year &&
+             appointmentUTC.month == todayUTC.month &&
+             appointmentUTC.day == todayUTC.day;
     } catch (e) {
+      print('❌ [_isAppointmentDay] Erro ao verificar data: $e');
+      print('   - appointment_date: ${booking['appointment_date']}');
       return false;
     }
   }
@@ -119,15 +198,29 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       final appointmentDate = DateTime.parse(appointmentDateStr);
       final now = DateTime.now();
       
-      final appointmentDay = DateTime(appointmentDate.year, appointmentDate.month, appointmentDate.day);
-      final today = DateTime(now.year, now.month, now.day);
+      // Converter para UTC para evitar problemas de timezone (igual à API)
+      final appointmentUTC = DateTime.utc(
+        appointmentDate.year,
+        appointmentDate.month,
+        appointmentDate.day,
+      );
+      final todayUTC = DateTime.utc(
+        now.year,
+        now.month,
+        now.day,
+      );
       
-      if (appointmentDay.isAtSameMomentAs(today)) {
+      // Comparar diretamente ano, mês e dia
+      final isToday = appointmentUTC.year == todayUTC.year &&
+                      appointmentUTC.month == todayUTC.month &&
+                      appointmentUTC.day == todayUTC.day;
+      
+      if (isToday) {
         return 'Hoje';
-      } else if (appointmentDay.isBefore(today)) {
+      } else if (appointmentUTC.isBefore(todayUTC)) {
         return 'Passado';
       } else {
-        final difference = appointmentDay.difference(today).inDays;
+        final difference = appointmentUTC.difference(todayUTC).inDays;
         if (difference == 1) {
           return 'Amanhã';
         } else {
@@ -693,7 +786,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       if (!mounted) return;
       
         if (apiResult['success'] == true) {
-        await _loadBookingDetails();
+        await _loadBookingDetails(forceRefresh: true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Agendamento recusado com sucesso. O cliente foi notificado.'),
@@ -1372,8 +1465,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       iconColor = Colors.orange.shade700;
     } else if (statusFinal == 'confirmado' || statusFinal == 'confirmed') {
       title = 'Agendamento Confirmado ✓';
-      description = 'Ótimo! Você aprovou este agendamento. O próximo passo é enviar um orçamento para o cliente.';
-      nextStep = '📝 IMPORTANTE: Clique no botão "Enviar Orçamento" abaixo para informar o valor do serviço ao cliente. Após o cliente aprovar, você poderá iniciar o serviço.';
+      description = 'Ótimo! Você aprovou este agendamento. Agora você pode escolher como deseja prosseguir.';
+      nextStep = 'Escolha uma das opções abaixo: enviar orçamento prévio ou iniciar o serviço e orçar depois. Ambas são válidas!';
       icon = Icons.check_circle;
       cardColor = Colors.blue.shade50;
       borderColor = Colors.blue.shade200;
@@ -1706,7 +1799,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             if (!mounted) return;
                             
                             if (result['success'] == true) {
-                              await _loadBookingDetails();
+                              await _loadBookingDetails(forceRefresh: true);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('✅ Agendamento aprovado com sucesso!'),
@@ -1899,7 +1992,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  '📋 No dia do agendamento, você terá duas opções:\n\n1️⃣ Montar Orçamento - Criar um orçamento detalhado para o cliente aprovar\n2️⃣ Iniciar Serviço - Iniciar o serviço diretamente (aguardará confirmação do cliente)',
+                                  '📋 No dia do agendamento, você terá duas opções independentes:\n\n1️⃣ Orçamento Prévio - Envie o orçamento ANTES de iniciar o serviço\n2️⃣ Iniciar e Orçar Depois - Inicie o serviço AGORA e envie o orçamento ao FINALIZAR\n\nAmbas as opções são válidas! Escolha a que fizer mais sentido para você.',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: isDarkMode ? Colors.grey[300] : Colors.blue[800]!,
@@ -1916,303 +2009,702 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Opção 1: Montar Orçamento (se ainda não foi enviado)
-                              if (!hasFinalPrice) ...[
-                            const SizedBox(height: 20),
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.orange.withOpacity(0.3),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
-                                      ),
-                                    );
-                                    if (result == true) {
-                                      // IMPORTANTE: Forçar recarregamento completo dos dados após enviar orçamento
-                                      // Usar forceRefresh para invalidar cache e garantir dados atualizados
-                                      await _loadBookingDetails(forceRefresh: true);
-                                      // Aguardar um pouco para garantir que a API processou
-                                      await Future.delayed(const Duration(milliseconds: 800));
-                                      // Recarregar novamente para garantir dados atualizados
-                                      await _loadBookingDetails(forceRefresh: true);
-                                    }
-                                  },
-                                  icon: const Icon(Icons.receipt_long, color: Colors.white, size: 22),
-                                  label: const Text(
-                                    '1️⃣ Montar Orçamento',
-                                    style: TextStyle(
-                                      color: Colors.white, 
-                                      fontWeight: FontWeight.w700, 
-                                      fontSize: 16,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    padding: const EdgeInsets.symmetric(vertical: 18),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    elevation: 0,
+                              // Título explicativo
+                              const SizedBox(height: 20),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode 
+                                      ? Colors.green[900]!.withOpacity(0.2) 
+                                      : Colors.green[50]!,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.green[300]!.withOpacity(0.5),
+                                    width: 2,
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // Mensagem explicativa sobre "Montar Orçamento"
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isDarkMode 
-                                    ? Colors.orange[900]!.withOpacity(0.2) 
-                                    : Colors.orange[50]!,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.orange[200]!.withOpacity(0.5),
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 18,
-                                    color: Colors.orange[700]!,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Após montar o orçamento, ele ficará pendente aguardando a aprovação do cliente antes de prosseguir.',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: isDarkMode ? Colors.orange[300]! : Colors.orange[900]!,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          
-                          // Opção 2: Iniciar Serviço (sempre disponível no dia, mesmo sem orçamento)
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF00B4D8).withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () async {
-                                  try {
-                                    final bookingId = booking['id']?.toString() ?? '';
-                                    if (bookingId.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Erro: ID do agendamento não encontrado.'),
-                                          backgroundColor: Colors.red,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_outline,
+                                          color: Colors.green[700]!,
+                                          size: 24,
                                         ),
-                                      );
-                                      return;
-                                    }
-                                    
-                                    // Mostrar diálogo de confirmação
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        backgroundColor: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        title: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.play_circle_outline,
-                                              color: const Color(0xFF00B4D8),
-                                              size: 28,
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                'Iniciar Serviço',
-                                                style: TextStyle(
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isDarkMode ? Colors.white : Colors.black87,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Ao iniciar o serviço:',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: isDarkMode ? Colors.white : Colors.black87,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            _buildInfoItem(
-                                              'O serviço ficará pendente aguardando confirmação do cliente',
-                                              Icons.pending_actions,
-                                              isDarkMode,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            _buildInfoItem(
-                                              'O cliente receberá uma notificação para confirmar',
-                                              Icons.notifications,
-                                              isDarkMode,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            _buildInfoItem(
-                                              'Após a confirmação, o serviço será iniciado oficialmente',
-                                              Icons.check_circle_outline,
-                                              isDarkMode,
-                                            ),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: Text(
-                                              'Cancelar',
-                                              style: TextStyle(
-                                                color: isDarkMode ? Colors.grey[400]! : Colors.grey[700]!,
-                                              ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Escolha como deseja prosseguir',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDarkMode ? Colors.white : Colors.green[900]!,
                                             ),
                                           ),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(context, true),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF00B4D8),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Você pode escolher qualquer uma das opções abaixo. Ambas são válidas e independentes:',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: isDarkMode ? Colors.grey[300] : Colors.green[800]!,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              
+                              // Opção 1: Montar Orçamento (se ainda não foi enviado)
+                              if (!hasFinalPrice) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final systemOrange = CupertinoColors.systemOrange.resolveFrom(context);
+                                    final labelColor = CupertinoColors.label.resolveFrom(context);
+                                    final secondaryLabel = CupertinoColors.secondaryLabel.resolveFrom(context);
+                                    final cardBg = isDarkMode ? const Color(0xFF1C1C1E) : Colors.white;
+                                    final headerBg = isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        color: cardBg,
+                                        borderRadius: BorderRadius.circular(22),
+                                        border: Border.all(
+                                          color: systemOrange.withOpacity(isDarkMode ? 0.28 : 0.22),
+                                          width: 1,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(isDarkMode ? 0.28 : 0.10),
+                                            blurRadius: 26,
+                                            offset: const Offset(0, 12),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                                            decoration: BoxDecoration(
+                                              color: headerBg,
+                                              borderRadius: const BorderRadius.only(
+                                                topLeft: Radius.circular(22),
+                                                topRight: Radius.circular(22),
                                               ),
                                             ),
-                                            child: const Text(
-                                              'Confirmar',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 40,
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: systemOrange.withOpacity(0.16),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.receipt_long_rounded,
+                                                    color: systemOrange,
+                                                    size: 22,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        'OPÇÃO 1 • Orçamento prévio',
+                                                        style: TextStyle(
+                                                          color: secondaryLabel,
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w600,
+                                                          letterSpacing: 0.2,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        'Montar orçamento',
+                                                        style: TextStyle(
+                                                          color: labelColor,
+                                                          fontSize: 18,
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: headerBg,
+                                              borderRadius: const BorderRadius.only(
+                                                bottomLeft: Radius.circular(22),
+                                                bottomRight: Radius.circular(22),
                                               ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Envie o orçamento antes de iniciar o serviço',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: labelColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  '• O cliente recebe o orçamento para aprovar\n• Após aprovação, você poderá iniciar o serviço\n• Ideal quando você já sabe o que precisa fazer',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: secondaryLabel,
+                                                    height: 1.45,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 14),
+                                                SizedBox(
+                                                  width: double.infinity,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () async {
+                                                      final result = await Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (context) => BuildQuoteScreen(bookingId: booking['id'] ?? ''),
+                                                        ),
+                                                      );
+                                                      if (result == true) {
+                                                        await _loadBookingDetails(forceRefresh: true);
+                                                        await Future.delayed(const Duration(milliseconds: 800));
+                                                        await _loadBookingDetails(forceRefresh: true);
+                                                      }
+                                                    },
+                                                    icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 18),
+                                                    label: const Text(
+                                                      'Montar orçamento',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 16,
+                                                      ),
+                                                    ),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: systemOrange,
+                                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(14),
+                                                      ),
+                                                      elevation: 0,
+                                                      shadowColor: Colors.transparent,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
                                       ),
                                     );
-                                    
-                                    if (confirm != true) return;
-                                    
-                                    final result = await _apiService.startServicePending(bookingId);
-                                    
-                                    if (!mounted) return;
-                                    
-                                    if (result['success'] == true) {
-                                      await _loadBookingDetails(forceRefresh: true);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
-                                          backgroundColor: Colors.green,
-                                          duration: Duration(seconds: 3),
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Erro: ${e.toString()}'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
-                                },
-                                icon: const Icon(Icons.play_arrow, color: Colors.white),
-                                label: const Text(
-                                  '2️⃣ Iniciar Serviço',
-                                  style: TextStyle(
-                                    color: Colors.white, 
-                                    fontWeight: FontWeight.w700, 
-                                    fontSize: 16,
-                                    letterSpacing: 0.5,
-                                  ),
+                                  },
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00B4D8),
-                                  padding: const EdgeInsets.symmetric(vertical: 18),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  elevation: 0,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Mensagem explicativa sobre "Iniciar Serviço"
+                            const SizedBox(height: 16),
+                          ],
+                          
+                          // Opção 2: Iniciar Serviço (sempre disponível no dia, mesmo sem orçamento)
                           Container(
-                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDarkMode 
-                                  ? const Color(0xFF00B4D8).withOpacity(0.2) 
-                                  : const Color(0xFF00B4D8).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                              color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+                              borderRadius: BorderRadius.circular(22),
                               border: Border.all(
-                                color: const Color(0xFF00B4D8).withOpacity(0.3),
+                                color: CupertinoColors.systemBlue
+                                    .resolveFrom(context)
+                                    .withOpacity(isDarkMode ? 0.22 : 0.18),
+                                width: 1,
                               ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 18,
-                                  color: const Color(0xFF00B4D8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(isDarkMode ? 0.28 : 0.10),
+                                  blurRadius: 26,
+                                  offset: const Offset(0, 12),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Ao iniciar o serviço, ele ficará pendente aguardando a confirmação do cliente antes de prosseguir oficialmente.',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isDarkMode 
-                                          ? const Color(0xFF00B4D8).withOpacity(0.9) 
-                                          : const Color(0xFF00677F),
-                                      height: 1.4,
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(22),
+                                      topRight: Radius.circular(22),
                                     ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: CupertinoColors.systemBlue.resolveFrom(context).withOpacity(0.14),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: CupertinoColors.systemBlue.resolveFrom(context),
+                                          size: 26,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'OPÇÃO 2 • Iniciar e orçar depois',
+                                              style: TextStyle(
+                                                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.2,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Iniciar serviço',
+                                              style: TextStyle(
+                                                color: CupertinoColors.label.resolveFrom(context),
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+                                    borderRadius: const BorderRadius.only(
+                                      bottomLeft: Radius.circular(22),
+                                      bottomRight: Radius.circular(22),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Inicie o serviço agora e envie o orçamento ao finalizar',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: CupertinoColors.label.resolveFrom(context),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '• Você inicia o serviço imediatamente\n• Ao finalizar, monta o orçamento do que foi feito\n• O cliente aprova o orçamento final',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                                          height: 1.45,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Builder(
+                                        builder: (context) {
+                                          final hasCheckIn = _hasCheckIn(booking);
+                                          final checkInText = _formatCheckInAt(booking);
+                                          final systemBlue = CupertinoColors.systemBlue.resolveFrom(context);
+                                          final systemGreen = CupertinoColors.systemGreen.resolveFrom(context);
+                                          final labelColor = CupertinoColors.label.resolveFrom(context);
+                                          final secondaryLabel = CupertinoColors.secondaryLabel.resolveFrom(context);
+                                          final tileBg = isDarkMode ? const Color(0xFF1C1C1E) : Colors.white;
+                                          final tileBorder = CupertinoColors.separator
+                                              .resolveFrom(context)
+                                              .withOpacity(isDarkMode ? 0.25 : 0.16);
+                                          final tileShadow = Colors.black.withOpacity(isDarkMode ? 0.22 : 0.07);
+                                          final checkInAccent = hasCheckIn ? systemGreen : systemBlue;
+
+                                          return Column(
+                                            children: [
+                                              // PASSO 1: Check-in
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(14),
+                                                decoration: BoxDecoration(
+                                                  color: tileBg,
+                                                  borderRadius: BorderRadius.circular(18),
+                                                  border: Border.all(color: tileBorder),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: tileShadow,
+                                                      blurRadius: 14,
+                                                      offset: const Offset(0, 8),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 26,
+                                                          height: 26,
+                                                          alignment: Alignment.center,
+                                                          decoration: BoxDecoration(
+                                                            color: checkInAccent.withOpacity(0.16),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          child: Text(
+                                                            '1',
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                              color: checkInAccent,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        Expanded(
+                                                          child: Text(
+                                                            'Check-in do veículo',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: labelColor,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Icon(
+                                                          hasCheckIn ? Icons.check_circle : Icons.info_outline,
+                                                          size: 18,
+                                                          color: checkInAccent,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      hasCheckIn
+                                                          ? 'Check-in realizado${checkInText != null ? ' em $checkInText' : ''}.'
+                                                          : 'Obrigatório para liberar o botão “Iniciar serviço”.',
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        height: 1.3,
+                                                        color: secondaryLabel,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    SizedBox(
+                                                      width: double.infinity,
+                                                      child: ElevatedButton.icon(
+                                                        onPressed: hasCheckIn
+                                                            ? null
+                                                            : () async {
+                                                                final bookingId = booking['id']?.toString() ?? '';
+                                                                await _promptCheckInAndDo(bookingId);
+                                                              },
+                                                        icon: Icon(
+                                                          hasCheckIn ? Icons.check : Icons.directions_car,
+                                                          color: Colors.white,
+                                                          size: 18,
+                                                        ),
+                                                        label: Text(
+                                                          hasCheckIn ? 'Check-in feito' : 'Fazer check-in do veículo',
+                                                          style: const TextStyle(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: hasCheckIn ? systemGreen : systemBlue,
+                                                          disabledBackgroundColor: systemGreen.withOpacity(0.75),
+                                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(14),
+                                                          ),
+                                                          elevation: 0,
+                                                          shadowColor: Colors.transparent,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 14),
+
+                                              // PASSO 2: Iniciar serviço (mesmo estilo do Check-in)
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(14),
+                                                decoration: BoxDecoration(
+                                                  color: tileBg,
+                                                  borderRadius: BorderRadius.circular(18),
+                                                  border: Border.all(color: tileBorder),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: tileShadow,
+                                                      blurRadius: 14,
+                                                      offset: const Offset(0, 8),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Container(
+                                                          width: 26,
+                                                          height: 26,
+                                                          alignment: Alignment.center,
+                                                          decoration: BoxDecoration(
+                                                            color: systemGreen.withOpacity(0.16),
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          child: Text(
+                                                            '2',
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                              color: systemGreen,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        Expanded(
+                                                          child: Text(
+                                                            'Iniciar serviço',
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: labelColor,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Icon(
+                                                          hasCheckIn ? Icons.play_circle : Icons.lock_outline,
+                                                          size: 18,
+                                                          color: hasCheckIn ? systemGreen : secondaryLabel,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      hasCheckIn
+                                                          ? 'Ao iniciar, o cliente receberá uma notificação para confirmar.'
+                                                          : 'Disponível após o check-in do veículo.',
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        height: 1.3,
+                                                        color: secondaryLabel,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    SizedBox(
+                                                      width: double.infinity,
+                                                      child: ElevatedButton(
+                                                        onPressed: hasCheckIn
+                                                            ? () async {
+                                                                try {
+                                                                  final bookingId = booking['id']?.toString() ?? '';
+                                                                  if (bookingId.isEmpty) {
+                                                                    _showSnackBar(
+                                                                      const SnackBar(
+                                                                        content: Text('Erro: ID do agendamento não encontrado.'),
+                                                                        backgroundColor: Colors.red,
+                                                                      ),
+                                                                    );
+                                                                    return;
+                                                                  }
+
+                                                                  // Mostrar diálogo de confirmação
+                                                                  final confirm = await showDialog<bool>(
+                                                                    context: context,
+                                                                    builder: (context) => AlertDialog(
+                                                                      backgroundColor: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+                                                                      shape: RoundedRectangleBorder(
+                                                                        borderRadius: BorderRadius.circular(20),
+                                                                      ),
+                                                                      title: Row(
+                                                                        children: [
+                                                                          const Icon(
+                                                                            Icons.play_circle_outline,
+                                                                            color: Color(0xFF00B4D8),
+                                                                            size: 28,
+                                                                          ),
+                                                                          const SizedBox(width: 12),
+                                                                          Expanded(
+                                                                            child: Text(
+                                                                              'Iniciar Serviço',
+                                                                              style: TextStyle(
+                                                                                fontSize: 20,
+                                                                                fontWeight: FontWeight.bold,
+                                                                                color: isDarkMode ? Colors.white : Colors.black87,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                      content: Column(
+                                                                        mainAxisSize: MainAxisSize.min,
+                                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                                        children: [
+                                                                          Text(
+                                                                            'Ao iniciar o serviço:',
+                                                                            style: TextStyle(
+                                                                              fontSize: 16,
+                                                                              fontWeight: FontWeight.w600,
+                                                                              color: isDarkMode ? Colors.white : Colors.black87,
+                                                                            ),
+                                                                          ),
+                                                                          const SizedBox(height: 12),
+                                                                          _buildInfoItem(
+                                                                            'O serviço ficará pendente aguardando confirmação do cliente',
+                                                                            Icons.pending_actions,
+                                                                            isDarkMode,
+                                                                          ),
+                                                                          const SizedBox(height: 8),
+                                                                          _buildInfoItem(
+                                                                            'O cliente receberá uma notificação para confirmar',
+                                                                            Icons.notifications,
+                                                                            isDarkMode,
+                                                                          ),
+                                                                          const SizedBox(height: 8),
+                                                                          _buildInfoItem(
+                                                                            'Após a confirmação, o serviço será iniciado oficialmente',
+                                                                            Icons.check_circle_outline,
+                                                                            isDarkMode,
+                                                                          ),
+                                                                          const SizedBox(height: 8),
+                                                                          _buildInfoItem(
+                                                                            'Ao finalizar o serviço, você montará o orçamento do que foi feito',
+                                                                            Icons.receipt_long,
+                                                                            isDarkMode,
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                      actions: [
+                                                                        TextButton(
+                                                                          onPressed: () => Navigator.pop(context, false),
+                                                                          child: Text(
+                                                                            'Cancelar',
+                                                                            style: TextStyle(
+                                                                              color: isDarkMode ? Colors.grey[400]! : Colors.grey[700]!,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        ElevatedButton(
+                                                                          onPressed: () => Navigator.pop(context, true),
+                                                                          style: ElevatedButton.styleFrom(
+                                                                            backgroundColor: systemGreen,
+                                                                            shape: RoundedRectangleBorder(
+                                                                              borderRadius: BorderRadius.circular(12),
+                                                                            ),
+                                                                            elevation: 0,
+                                                                            shadowColor: Colors.transparent,
+                                                                          ),
+                                                                          child: const Text(
+                                                                            'Confirmar',
+                                                                            style: TextStyle(
+                                                                              color: Colors.white,
+                                                                              fontWeight: FontWeight.w600,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  );
+
+                                                                  if (confirm != true) return;
+
+                                                                  final result = await _apiService.startServicePending(bookingId);
+
+                                                                  if (!mounted) return;
+
+                                                                  if (result['success'] == true) {
+                                                                    await _loadBookingDetails(forceRefresh: true);
+                                                                    _showSnackBar(
+                                                                      const SnackBar(
+                                                                        content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+                                                                        backgroundColor: Colors.green,
+                                                                        duration: Duration(seconds: 3),
+                                                                      ),
+                                                                    );
+                                                                  } else {
+                                                                    _showSnackBar(
+                                                                      SnackBar(
+                                                                        content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
+                                                                        backgroundColor: Colors.red,
+                                                                      ),
+                                                                    );
+                                                                  }
+                                                                } catch (e) {
+                                                                  if (!mounted) return;
+                                                                  _showSnackBar(
+                                                                    SnackBar(
+                                                                      content: Text('Erro: ${e.toString()}'),
+                                                                      backgroundColor: Colors.red,
+                                                                    ),
+                                                                  );
+                                                                }
+                                                              }
+                                                            : null,
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: systemGreen,
+                                                          disabledBackgroundColor: CupertinoColors.systemGrey4.resolveFrom(context),
+                                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(14),
+                                                          ),
+                                                          elevation: 0,
+                                                          shadowColor: Colors.transparent,
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            Icon(
+                                                              Icons.play_arrow_rounded,
+                                                              color: hasCheckIn
+                                                                  ? Colors.white
+                                                                  : CupertinoColors.systemGrey.resolveFrom(context),
+                                                              size: 20,
+                                                            ),
+                                                            const SizedBox(width: 8),
+                                                            Text(
+                                                              'Iniciar serviço',
+                                                              style: TextStyle(
+                                                                color: hasCheckIn
+                                                                    ? Colors.white
+                                                                    : CupertinoColors.systemGrey.resolveFrom(context),
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 16,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -2237,7 +2729,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             try {
                               final bookingId = booking['id']?.toString() ?? '';
                               if (bookingId.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                _showSnackBar(
                                   const SnackBar(
                                     content: Text('Erro: ID do agendamento não encontrado.'),
                                     backgroundColor: Colors.red,
@@ -2245,21 +2737,27 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                 );
                                 return;
                               }
+
+                              if (!_hasCheckIn(booking)) {
+                                await _promptCheckInAndDo(bookingId);
+                                return;
+                              }
                               
-                              final result = await _apiService.startService(bookingId);
+                              // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
+                              final result = await _apiService.startServicePending(bookingId);
                               
                               if (!mounted) return;
                               
                               if (result['success'] == true) {
-                                await _loadBookingDetails();
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                await _loadBookingDetails(forceRefresh: true);
+                                _showSnackBar(
                                   const SnackBar(
-                                    content: Text('✅ Serviço iniciado com sucesso! O cliente foi notificado.'),
+                                    content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                _showSnackBar(
                                   SnackBar(
                                     content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
                                     backgroundColor: Colors.red,
@@ -2268,7 +2766,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                               }
                             } catch (e) {
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              _showSnackBar(
                                 SnackBar(
                                   content: Text('Erro: ${e.toString()}'),
                                   backgroundColor: Colors.red,
@@ -2278,15 +2776,17 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           },
                           icon: const Icon(Icons.play_arrow, color: Colors.white),
                           label: const Text(
-                            '▶️ Iniciar Serviço',
+                            'Iniciar Serviço',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00B4D8),
+                            backgroundColor: CupertinoColors.systemGreen.resolveFrom(context),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
                           ),
                         ),
                       ),
@@ -2323,17 +2823,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     await _loadBookingDetails();
                   }
                 },
-                icon: const Icon(Icons.edit, color: Colors.orange),
+                icon: const Icon(Icons.edit_note_rounded, color: Colors.orange),
                 label: const Text(
-                  '✏️ Editar Orçamento',
-                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w600),
+                  'Editar orçamento',
+                  style: TextStyle(color: Colors.orange, fontWeight: FontWeight.w700),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.orange, width: 2),
+                  side: BorderSide(color: Colors.orange.withOpacity(0.8), width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  backgroundColor: Colors.orange.withOpacity(0.06),
                 ),
                       ),
                     ),
@@ -2346,10 +2847,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () => _showFinishServiceDialog(booking),
-                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
                           label: const Text(
-                            '✅ Finalizar Serviço',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                            'Finalizar serviço',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00C977),
@@ -2357,6 +2858,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
                           ),
                         ),
                       ),

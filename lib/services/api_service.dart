@@ -297,7 +297,8 @@ class ApiService {
           errorMessage = 'Erro ${statusCode}: ${errorData?.toString() ?? e.message}';
         }
       } else if (e.type == DioExceptionType.connectionTimeout ||
-                 e.type == DioExceptionType.receiveTimeout) {
+                 e.type == DioExceptionType.receiveTimeout ||
+                 e.type == DioExceptionType.connectionError) {
         errorMessage = 'Tempo de conexão esgotado. Verifique sua conexão com a internet.';
       } else if (e.type == DioExceptionType.connectionError) {
         errorMessage = 'Erro de conexão. Verifique se a API está online.';
@@ -648,6 +649,21 @@ class ApiService {
       // Usar endpoint real: /bookings/:id/status
       final response = await _dio.put('/bookings/$bookingId/status', data: {'status': 'confirmed'});
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> checkInVehicle(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.put('/bookings/$bookingId/check-in', data: {});
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final errorMessage = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Erro ao fazer check-in do veículo';
+      return {'success': false, 'error': errorMessage};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1829,19 +1845,63 @@ class ApiService {
         payload['scope'] = scope;
       }
 
-      final response = await _dio.post(
-        '/workshop/$workshopId/pagbank/connect/start',
-        data: payload.isEmpty ? null : payload,
-      );
-      return {'success': true, 'data': response.data['data'] ?? response.data};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao iniciar PagBank Connect';
-      return {'success': false, 'error': errorMessage};
+      // Adicionar timeout maior para esta requisição específica
+      // Salvar timeouts originais
+      final originalConnectTimeout = _dio.options.connectTimeout;
+      final originalReceiveTimeout = _dio.options.receiveTimeout;
+      
+      try {
+        // Configurar timeouts maiores temporariamente
+        _dio.options.connectTimeout = const Duration(seconds: 30);
+        _dio.options.receiveTimeout = const Duration(seconds: 30);
+        
+        final response = await _dio.post(
+          '/workshop/$workshopId/pagbank/connect/start',
+          // Nunca enviar null: backend pode tentar ler req.body
+          data: payload,
+        );
+        
+        return {'success': true, 'data': response.data['data'] ?? response.data};
+      } catch (e) {
+        // Restaurar timeouts em caso de erro também
+        _dio.options.connectTimeout = originalConnectTimeout;
+        _dio.options.receiveTimeout = originalReceiveTimeout;
+        
+        if (e is DioException) {
+          final dioError = e;
+          print('❌ [ApiService] Erro ao iniciar PagBank Connect: ${dioError.type}');
+          print('❌ [ApiService] Mensagem: ${dioError.message}');
+          print('❌ [ApiService] Response: ${dioError.response?.data}');
+          
+          final errorData = dioError.response?.data;
+          String errorMessage;
+          
+          if (dioError.type == DioExceptionType.connectionTimeout) {
+            errorMessage = 'Timeout de conexão. Verifique sua internet e tente novamente.';
+          } else if (dioError.type == DioExceptionType.receiveTimeout) {
+            errorMessage = 'Timeout ao receber resposta. Tente novamente.';
+          } else if (dioError.type == DioExceptionType.connectionError) {
+            errorMessage = 'Erro de conexão. Verifique se a API está online e sua internet está funcionando.';
+          } else if (errorData is Map && errorData['error'] != null) {
+            errorMessage = errorData['error'].toString();
+          } else {
+            errorMessage = dioError.message ?? 'Erro ao iniciar PagBank Connect';
+          }
+          
+          return {'success': false, 'error': errorMessage};
+        } else {
+          print('❌ [ApiService] Erro inesperado: $e');
+          return {'success': false, 'error': 'Erro inesperado: ${e.toString()}'};
+        }
+      } finally {
+        // Restaurar timeouts originais
+        _dio.options.connectTimeout = originalConnectTimeout;
+        _dio.options.receiveTimeout = originalReceiveTimeout;
+      }
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      // Erro ao carregar token ou obter workshopId
+      print('❌ [ApiService] Erro ao preparar PagBank Connect: $e');
+      return {'success': false, 'error': 'Erro ao preparar conexão: ${e.toString()}'};
     }
   }
 

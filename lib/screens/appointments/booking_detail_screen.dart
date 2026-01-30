@@ -21,6 +21,59 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   Map<String, dynamic>? _bookingDetails;
   bool _loading = true;
 
+  void _showSnackBar(SnackBar snackBar) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(snackBar);
+  }
+
+  bool _hasCheckIn(Map<String, dynamic> booking) {
+    final v = booking['check_in_at'] ?? booking['checkInAt'] ?? booking['check_in'];
+    return v != null && v.toString().trim().isNotEmpty;
+  }
+
+  Future<void> _promptCheckInAndDo(String bookingId) async {
+    if (bookingId.trim().isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Check-in obrigatório'),
+        content: const Text(
+          'Para iniciar o serviço, registre a chegada do veículo (check-in) primeiro.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Agora não'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Fazer check-in'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await _apiService.checkInVehicle(bookingId);
+    if (!mounted) return;
+    if (result['success'] == true) {
+      await _loadBookingDetails();
+      _showSnackBar(const SnackBar(
+        content: Text('✅ Check-in realizado! Agora você já pode iniciar o serviço.'),
+        backgroundColor: Colors.green,
+      ));
+    } else {
+      _showSnackBar(SnackBar(
+        content: Text(result['error']?.toString() ?? 'Não foi possível fazer o check-in.'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -91,17 +144,29 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     final statusFromWidget = (widget.booking['status'] ?? '').toString().toLowerCase().trim();
     final statusFinal = statusFromDetails.isNotEmpty ? statusFromDetails : statusFromWidget;
     
+    // CRITICAL: Se service_start_pending = true e não há orçamento, forçar status para aguardando_autorizacao_inicio
+    // Isso garante que a UI mostre a mensagem correta mesmo se a API retornar pendente_cliente (compatibilidade)
+    final booking = Map<String, dynamic>.from(_bookingDetails ?? widget.booking);
+    final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
+    final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
+                    (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
+    
+    // Se é início de serviço sem orçamento, forçar status correto
+    final correctedStatus = (serviceStartPending && !hasQuote && (statusFinal == 'pendente_cliente' || statusFinal == 'pending_customer'))
+        ? 'aguardando_autorizacao_inicio'
+        : statusFinal;
+    
     // Normalizar status para garantir comparação correta
-    final normalizedStatus = statusFinal == 'confirmed' ? 'confirmado' : 
-                            statusFinal == 'confirmado' ? 'confirmado' :
-                            statusFinal;
+    final normalizedStatus = correctedStatus == 'confirmed' ? 'confirmado' : 
+                            correctedStatus == 'confirmado' ? 'confirmado' :
+                            correctedStatus;
     
     // Debug: verificar status
     debugPrint('🔍 [Appointments Detail] Status final: $normalizedStatus (original: $statusFinal, from details: $statusFromDetails, from widget: $statusFromWidget)');
     
-    // Criar booking com status correto
+    // Criar booking com status correto (usar correctedStatus se foi corrigido)
     final booking = Map<String, dynamic>.from(_bookingDetails ?? widget.booking);
-    booking['status'] = normalizedStatus; // Garantir que o status usado é o correto
+    booking['status'] = correctedStatus; // Usar status corrigido se necessário
     
     
     return Scaffold(
@@ -149,23 +214,64 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(statusFinal).withOpacity(0.1),
+                            color: _getStatusColor(correctedStatus).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            _getStatusText(statusFinal),
+                            _getStatusText(correctedStatus),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: _getStatusColor(statusFinal),
+                              color: _getStatusColor(correctedStatus),
                             ),
                           ),
                         ),
-                        // Aviso especial para status aguardando aprovação - APENAS quando status for pendente_cliente
-                        // IMPORTANTE: Este card só aparece quando a OFICINA finalizou o serviço e está aguardando o CLIENTE aprovar o orçamento
-                        // NUNCA mostrar para confirmado, em_andamento, etc.
-                        // VERIFICAÇÃO ABSOLUTA: SÓ MOSTRAR SE STATUS FOR EXATAMENTE pendente_cliente
-                        if (statusFinal == 'pendente_cliente') ...[
+                        // Aviso especial para status aguardando aprovação
+                        // CRITICAL: Verificar se é orçamento OU início de serviço usando novos estados
+                        // IMPORTANTE: Verificar service_start_pending PRIMEIRO para evitar mostrar mensagem de orçamento quando é início de serviço
+                        // Usar correctedStatus (já foi corrigido acima se necessário)
+                        final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
+                        final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
+                                        (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
+                        
+                        // Usar correctedStatus para verificação (já foi corrigido se service_start_pending = true e não há orçamento)
+                        final isAwaitingServiceStart = correctedStatus == 'aguardando_autorizacao_inicio' || 
+                                                      correctedStatus == 'awaiting_service_start' ||
+                                                      (serviceStartPending && !hasQuote); // Se service_start_pending e não há orçamento, é início de serviço
+                        
+                        final isAwaitingQuoteApproval = (correctedStatus == 'aguardando_aprovacao_orcamento' || 
+                                                        correctedStatus == 'awaiting_quote_approval') && hasQuote; // Só é orçamento se HÁ orçamento E status é de orçamento
+                        
+                        // CRITICAL: Se é início de serviço (service_start_pending = true e não há orçamento), mostrar card azul
+                        if (isAwaitingServiceStart) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 20, color: Colors.blue.shade800),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Aguardando confirmação do cliente. O cliente precisa confirmar o início do serviço antes de prosseguir.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue.shade900,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Se é aguardando aprovação de orçamento (e NÃO é início de serviço), mostrar card amarelo
+                        if (isAwaitingQuoteApproval && !isAwaitingServiceStart) ...[
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -260,10 +366,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   ),
                   
                   // Card informativo sobre situação atual
-                  _buildStatusInfoCard(booking, isDarkMode, normalizedStatus),
+                  _buildStatusInfoCard(booking, isDarkMode, correctedStatus),
                   
                   // Ações
-                  _buildActionsCard(booking, isDarkMode, statusFinal, normalizedStatus),
+                  _buildActionsCard(booking, isDarkMode, correctedStatus, normalizedStatus),
                   
                   const SizedBox(height: 20),
                 ],
@@ -579,7 +685,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
-  Widget _buildStatusInfoCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal) {
+  Widget _buildStatusInfoCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinalRaw) {
+    // CRITICAL: Verificar se é início de serviço (service_start_pending = true e não há orçamento)
+    // Se for, corrigir status para aguardando_autorizacao_inicio
+    final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
+    final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
+                    (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
+    
+    // Se é início de serviço sem orçamento, forçar status correto
+    final statusFinal = (serviceStartPending && !hasQuote && (statusFinalRaw == 'pendente_cliente' || statusFinalRaw == 'pending_customer'))
+        ? 'aguardando_autorizacao_inicio'
+        : statusFinalRaw;
+    
     String title = '';
     String description = '';
     String nextStep = '';
@@ -604,14 +721,80 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       cardColor = Colors.blue.shade50;
       borderColor = Colors.blue.shade200;
       iconColor = Colors.blue.shade700;
-    } else if (statusFinal == 'pendente_cliente') {
-      title = 'Aguardando Aprovação do Cliente';
-      description = 'Você enviou um orçamento. O cliente precisa aprovar antes de prosseguir.';
-      nextStep = 'Aguarde o cliente aprovar o orçamento. Você receberá uma notificação.';
-      icon = Icons.hourglass_empty;
-      cardColor = Colors.amber.shade50;
-      borderColor = Colors.amber.shade200;
-      iconColor = Colors.amber.shade800;
+    } else if (statusFinal == 'aguardando_aprovacao_orcamento' || statusFinal == 'awaiting_quote_approval' || statusFinal == 'pendente_cliente') {
+      // Estado explícito: aguardando aprovação de orçamento (compatibilidade com estado antigo)
+      // CRITICAL: Verificar PRIMEIRO se é início de serviço (service_start_pending = true e não há orçamento)
+      final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
+      final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
+                      (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
+      
+      // CRITICAL: Se service_start_pending = true e não há orçamento, é início de serviço (NÃO é orçamento)
+      // NÃO mostrar mensagem de orçamento neste caso
+      if (serviceStartPending && !hasQuote) {
+        // É início de serviço, não orçamento
+        title = 'Aguardando Confirmação do Cliente';
+        description = 'Você iniciou o serviço. O cliente precisa confirmar o início antes de prosseguir.';
+        nextStep = 'Aguarde o cliente confirmar o início do serviço. Você receberá uma notificação.';
+        icon = Icons.play_circle_outline;
+        cardColor = Colors.blue.shade50;
+        borderColor = Colors.blue.shade200;
+        iconColor = Colors.blue.shade700;
+      } else if (hasQuote) {
+        // É orçamento pendente (há orçamento válido)
+        title = 'Aguardando Aprovação do Cliente';
+        description = 'Você enviou um orçamento. O cliente precisa aprovar antes de prosseguir.';
+        nextStep = 'Aguarde o cliente aprovar o orçamento. Você receberá uma notificação.';
+        icon = Icons.hourglass_empty;
+        cardColor = Colors.amber.shade50;
+        borderColor = Colors.amber.shade200;
+        iconColor = Colors.amber.shade800;
+      } else {
+        // Status é pendente_cliente mas não há orçamento nem service_start_pending
+        // Pode ser sugestão de horário ou outro caso
+        title = 'Aguardando Ação do Cliente';
+        description = 'Aguardando resposta do cliente.';
+        nextStep = 'Aguarde a resposta do cliente.';
+        icon = Icons.hourglass_empty;
+        cardColor = Colors.amber.shade50;
+        borderColor = Colors.amber.shade200;
+        iconColor = Colors.amber.shade800;
+      }
+    } else if (statusFinal == 'aguardando_autorizacao_inicio' || statusFinal == 'awaiting_service_start') {
+      // Estado explícito: aguardando autorização de início de serviço
+      title = 'Aguardando Confirmação do Cliente';
+      description = 'Você iniciou o serviço. O cliente precisa confirmar o início antes de prosseguir.';
+      nextStep = 'Aguarde o cliente confirmar o início do serviço. Você receberá uma notificação.';
+      icon = Icons.play_circle_outline;
+      cardColor = Colors.blue.shade50;
+      borderColor = Colors.blue.shade200;
+      iconColor = Colors.blue.shade700;
+    } else if (statusFinal == 'veiculo_na_oficina' || statusFinal == 'vehicle_at_workshop') {
+      // Estado explícito: veículo está na oficina (check-in realizado)
+      title = 'Veículo na Oficina';
+      description = 'O veículo está na oficina e pronto para atendimento.';
+      nextStep = 'Você pode iniciar o serviço ou enviar um orçamento prévio.';
+      icon = Icons.local_parking;
+      cardColor = Colors.blue.shade50;
+      borderColor = Colors.blue.shade200;
+      iconColor = Colors.blue.shade700;
+    } else if (statusFinal == 'aguardando_aprovacao_finalizacao' || statusFinal == 'awaiting_finalization_approval') {
+      // Estado explícito: aguardando aprovação da finalização
+      title = 'Aguardando Aprovação da Finalização';
+      description = 'Você finalizou o serviço e enviou o orçamento final. Aguardando aprovação do cliente.';
+      nextStep = 'O cliente precisa aprovar a finalização para liberar o pagamento.';
+      icon = Icons.check_circle_outline;
+      cardColor = Colors.cyan.shade50;
+      borderColor = Colors.cyan.shade200;
+      iconColor = Colors.cyan.shade700;
+    } else if (statusFinal == 'em_disputa' || statusFinal == 'in_dispute') {
+      // Estado explícito: em disputa
+      title = 'Serviço em Disputa';
+      description = 'Há uma pendência que precisa ser resolvida com o cliente.';
+      nextStep = 'Entre em contato com o cliente para resolver a questão.';
+      icon = Icons.warning_amber_rounded;
+      cardColor = Colors.red.shade50;
+      borderColor = Colors.red.shade200;
+      iconColor = Colors.red.shade700;
     } else if (statusFinal == 'in_progress' || statusFinal == 'started' || statusFinal == 'em_andamento') {
       title = 'Serviço em Andamento';
       description = 'Você iniciou o atendimento. O serviço está sendo realizado agora.';
@@ -774,7 +957,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   try {
                     final bookingId = booking['id']?.toString() ?? '';
                     if (bookingId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      _showSnackBar(
                         const SnackBar(
                           content: Text('Erro: ID do agendamento não encontrado.'),
                           backgroundColor: Colors.red,
@@ -782,21 +965,28 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       );
                       return;
                     }
+
+                    if (!_hasCheckIn(booking)) {
+                      await _promptCheckInAndDo(bookingId);
+                      return;
+                    }
                     
-                    final result = await _apiService.startService(bookingId);
+                    // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
+                    // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
+                    final result = await _apiService.startServicePending(bookingId);
                     
                     if (!mounted) return;
                     
                     if (result['success'] == true) {
                       await _loadBookingDetails();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      _showSnackBar(
                         const SnackBar(
-                          content: Text('✅ Serviço iniciado com sucesso! O cliente foi notificado.'),
+                          content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
                           backgroundColor: Colors.green,
                         ),
                       );
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      _showSnackBar(
                         SnackBar(
                           content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
                           backgroundColor: Colors.red,
@@ -805,7 +995,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     }
                   } catch (e) {
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    _showSnackBar(
                       SnackBar(
                         content: Text('Erro: ${e.toString()}'),
                         backgroundColor: Colors.red,
@@ -932,6 +1122,21 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       case 'em_andamento':
       case 'em andamento':
         return Colors.purple;
+      case 'aguardando_aprovacao_orcamento':
+      case 'awaiting_quote_approval':
+        return Colors.amber.shade700;
+      case 'aguardando_autorizacao_inicio':
+      case 'awaiting_service_start':
+        return Colors.blue.shade700;
+      case 'veiculo_na_oficina':
+      case 'vehicle_at_workshop':
+        return Colors.cyan.shade700;
+      case 'aguardando_aprovacao_finalizacao':
+      case 'awaiting_finalization_approval':
+        return Colors.cyan.shade700;
+      case 'em_disputa':
+      case 'in_dispute':
+        return Colors.red.shade700;
       case 'pendente_cliente':
         return Colors.amber.shade700;
       case 'finalizado_aguardando_pagamento':
@@ -964,6 +1169,21 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       case 'em_andamento':
       case 'em andamento':
         return 'Em Andamento';
+      case 'aguardando_aprovacao_orcamento':
+      case 'awaiting_quote_approval':
+        return 'Aguardando Aprovação do Orçamento';
+      case 'aguardando_autorizacao_inicio':
+      case 'awaiting_service_start':
+        return 'Aguardando Autorização de Início';
+      case 'veiculo_na_oficina':
+      case 'vehicle_at_workshop':
+        return 'Veículo na Oficina';
+      case 'aguardando_aprovacao_finalizacao':
+      case 'awaiting_finalization_approval':
+        return 'Aguardando Aprovação da Finalização';
+      case 'em_disputa':
+      case 'in_dispute':
+        return 'Em Disputa';
       case 'pendente_cliente':
         return 'Aguardando Aprovação do Cliente';
       case 'finalizado_aguardando_pagamento':

@@ -112,6 +112,10 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
         _accountStatus = data['status'];
         final registrationData = data['registration_data'] as Map<String, dynamic>?;
         final hasAccountId = data['pagbank_account_id'] != null;
+        // CORRIGIDO: Reconhecer OAuth mesmo sem account_id
+        final hasOAuthConnection = (data['pagbank_access_token'] != null && 
+                                    data['pagbank_access_token'].toString().isNotEmpty) ||
+                                   data['has_authorization'] == true;
         
         if (registrationData != null) {
           _nameController.text = registrationData['name'] ?? '';
@@ -244,14 +248,13 @@ class _PagBankAccountScreenState extends State<PagBankAccountScreen> {
           }
         }
         
-        // Verificar se já tem conta conectada via OAuth
-        final hasOAuthConnection = data['pagbank_account_id'] != null && 
-                                   data['pagbank_access_token'] != null;
+        // hasOAuthConnection já foi declarado acima (linha ~116)
+        // Verificar se está verificado
         final isVerified = data['pagbank_verified'] == true;
         
         // Verificar se já tem dados cadastrados (registration_data)
-        // Considera que tem dados se tem registration_data OU account_id (mesmo que não validado)
-        _hasExistingData = (registrationData != null && registrationData.isNotEmpty) || hasAccountId;
+        // Considera que tem dados se tem registration_data OU account_id OU OAuth
+        _hasExistingData = (registrationData != null && registrationData.isNotEmpty) || hasAccountId || hasOAuthConnection;
 
         // Definir step baseado no status
         if (isVerified && hasOAuthConnection) {

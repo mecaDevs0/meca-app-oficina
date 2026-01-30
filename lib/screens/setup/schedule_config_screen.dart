@@ -135,7 +135,7 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                 ),
                 Switch(
                   value: isActive,
-                  activeThumbColor: AppColors.primary,
+                  thumbColor: WidgetStateProperty.all(AppColors.primary),
                   onChanged: (value) {
                     setState(() {
                       _schedule[day]!['ativo'] = value.toString();

@@ -151,7 +151,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     );
                     _loadServices();
                   },
-                  activeThumbColor: const Color(0xFF00C977),
+                  thumbColor: WidgetStateProperty.all(const Color(0xFF00C977)),
                 ),
               ],
             ),
