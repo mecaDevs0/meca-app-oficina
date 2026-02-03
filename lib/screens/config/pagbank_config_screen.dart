@@ -14,6 +14,7 @@ class PagBankConfigScreen extends StatefulWidget {
 
 class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
+  final TextEditingController _accountIdController = TextEditingController();
   bool _isLoading = true;
   bool _isConnecting = false;
   Map<String, dynamic>? _pagbankData;
@@ -39,6 +40,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
 
   @override
   void dispose() {
+    _accountIdController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -212,7 +214,48 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
     }
   }
 
-  // Fluxo manual removido: somente PagBank Connect (OAuth).
+  bool _isPagBankConnected() {
+    final d = _pagbankData;
+    if (d == null) return false;
+    final hasAccountId = d['has_account_id'] == true ||
+        (d['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+    return d['connected'] == true ||
+        d['has_authorization'] == true ||
+        hasAccountId;
+  }
+
+  Future<void> _handleLinkByAccountId(String accountId) async {
+    final id = accountId.trim().toUpperCase();
+    if (id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe o Account ID (começa com ACCO_)'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    if (!id.startsWith('ACCO_')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account ID deve começar com ACCO_'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    _safeSetState(() => _isConnecting = true);
+    try {
+      final res = await _apiService.updatePagBankAccountId(id);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Conta PagBank vinculada com sucesso. Você já pode receber pagamentos.'), backgroundColor: Colors.green),
+        );
+        await _loadPagBankData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['error']?.toString() ?? 'Erro ao vincular'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) _safeSetState(() => _isConnecting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +290,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         icon: Icon(_pagbankData == null ? Icons.link : Icons.refresh),
-                        label: Text((_pagbankData?['connected'] == true || _pagbankData?['has_authorization'] == true)
+                        label: Text(_isPagBankConnected()
                             ? 'Reautorizar PagBank'
                             : 'Conectar PagBank'),
                         style: ElevatedButton.styleFrom(
@@ -258,6 +301,8 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
                         ),
                         onPressed: _isConnecting ? null : _handleConnectPagBank,
                       ),
+                      const SizedBox(height: 24),
+                      _buildLinkByAccountIdSection(isDark, textColor, secondaryText),
                     ],
                   ),
                 ),
@@ -267,7 +312,12 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
   }
 
   Widget _buildStatusCard(bool isDark, Color textColor, Color secondaryText) {
-    final connected = _pagbankData?['connected'] == true || _pagbankData?['has_authorization'] == true;
+    final hasAccountId = _pagbankData?['has_account_id'] == true ||
+        (_pagbankData?['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+    final connected = _pagbankData?['connected'] == true ||
+        _pagbankData?['has_authorization'] == true ||
+        hasAccountId;
+    final linkedByAccountId = _pagbankData?['linked_by_account_id'] == true;
     final verified = _pagbankData?['pagbank_verified'] == true || _pagbankData?['approved_by_workshop'] == true;
     final status = (_pagbankData?['status'] ?? 'pending').toString();
     final statusLabel = !connected
@@ -326,6 +376,32 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (connected && (linkedByAccountId || hasAccountId))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          linkedByAccountId
+                              ? 'Vinculado por Account ID (informado manualmente)'
+                              : 'Account ID vinculado',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: secondaryText,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    if (connected && !linkedByAccountId && hasAccountId == false)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Vinculado por OAuth (autorização no PagBank)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: secondaryText,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -338,6 +414,66 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
               style: const TextStyle(color: Colors.redAccent),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkByAccountIdSection(bool isDark, Color textColor, Color secondaryText) {
+    final cardColor = isDark ? const Color(0xFF101826) : Colors.white;
+    final borderColor = secondaryText.withOpacity(0.2);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.pin_outlined, size: 20, color: secondaryText),
+              const SizedBox(width: 8),
+              Text(
+                'Ou vincule informando o Account ID',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Se você já tem conta PagBank e o Account ID (começa com ACCO_), informe abaixo e toque em Vincular. Assim sua oficina passa a receber pagamentos.',
+            style: TextStyle(fontSize: 13, color: secondaryText, height: 1.35),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _accountIdController,
+            decoration: InputDecoration(
+              hintText: 'ACCO_68F4577A-FFD6-4C11-B98D-C6E08C51441E',
+              labelText: 'Account ID PagBank',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.account_balance_wallet_outlined, size: 20),
+            ),
+            textCapitalization: TextCapitalization.characters,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: _isConnecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.link),
+              label: const Text('Vincular Account ID'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF00C977),
+                side: const BorderSide(color: Color(0xFF00C977)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _isConnecting ? null : () => _handleLinkByAccountId(_accountIdController.text),
+            ),
+          ),
         ],
       ),
     );
@@ -402,12 +538,22 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
 
     // Dados principais
     final accountData = _pagbankData;
-    final connected = accountData?['connected'] == true || accountData?['has_authorization'] == true;
+    final hasAccountId = accountData?['has_account_id'] == true ||
+        (accountData?['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+    final connected = accountData?['connected'] == true ||
+        accountData?['has_authorization'] == true ||
+        hasAccountId;
+    final linkedByAccountId = accountData?['linked_by_account_id'] == true;
     
     // Lista de campos para exibir, com prioridade
     final fieldsToShow = <MapEntry<String, dynamic>>[];
     
     if (accountData != null) {
+      // Account ID (sempre mostrar quando existir - transparência total)
+      if (accountData['pagbank_account_id'] != null &&
+          accountData['pagbank_account_id'].toString().trim().isNotEmpty) {
+        fieldsToShow.add(MapEntry('Account ID PagBank', accountData['pagbank_account_id']));
+      }
       // Campos diretos (não objetos)
       if (accountData['account_name'] != null) {
         fieldsToShow.add(MapEntry('Nome', accountData['account_name']));

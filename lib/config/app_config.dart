@@ -13,6 +13,9 @@ class AppConfig {
   /// Timeout de recebimento (segundos) - Otimizado para EC2
   static const int receiveTimeout = 60;
   
+  /// Timeout para carregamento da home (notificações, perfil, PagBank, agenda, etc.)
+  static const int homeLoadTimeoutSeconds = 30;
+  
   /// Usar endpoints admin (sempre false - usar endpoints reais)
   static const bool useAdminEndpoints = false;
   

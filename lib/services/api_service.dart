@@ -1262,9 +1262,18 @@ class ApiService {
   Future<Map<String, dynamic>> getWorkshops() async {
     try {
       await loadToken();
-      // Usar endpoint real: /workshop
       final response = await _dio.get('/workshop');
-      return {'success': true, 'data': response.data['data'] ?? response.data ?? []};
+      if (response.data == null || response.data['success'] != true) {
+        return {'success': false, 'error': 'Erro ao buscar oficinas'};
+      }
+      final data = response.data['data'];
+      List<dynamic> workshops = [];
+      if (data is Map) {
+        workshops = data['workshops'] ?? data['workshop'] ?? data['data'] ?? [];
+      } else if (data is List) {
+        workshops = data;
+      }
+      return {'success': true, 'data': workshops};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

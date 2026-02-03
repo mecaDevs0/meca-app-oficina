@@ -718,9 +718,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     final cardColor = ThemeService.getCardColor(isDark);
     final borderColor = secondaryText.withOpacity(0.18);
     final data = _pagbankData ?? const {};
-    final connected = data['connected'] == true || data['has_authorization'] == true;
+    final hasAccountId = data['has_account_id'] == true ||
+        (data['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+    final connected = data['connected'] == true ||
+        data['has_authorization'] == true ||
+        hasAccountId;
     final accountId = data['pagbank_account_id'];
-    final hasAccountId = data['has_account_id'] == true;
     final isVerified =
         data['pagbank_verified'] == true ||
         data['approved_by_workshop'] == true ||
@@ -783,9 +786,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     const SizedBox(height: 4),
                     Text(
                       pagbankState == 'not_connected'
-                          ? (hasAccountId
-                              ? 'Encontramos sua conta PagBank, falta autorizar a conexão.'
-                              : 'Conecte sua conta PagBank para receber pagamentos.')
+                          ? 'Conecte sua conta PagBank ou informe o Account ID (ACCO_...) para receber pagamentos.'
                           : pagbankState == 'connected'
                               ? 'Conta PagBank conectada'
                               : pagbankState == 'verified'

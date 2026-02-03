@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/app_config.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
@@ -48,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Carregar notificações para atualizar badge do perfil
       try {
         final notificationsResponse = await _apiService.getNotifications()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar notificações');
           return {'success': false, 'error': 'Timeout'};
         });
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Carregar perfil da oficina
       try {
         final profileResponse = await _apiService.getProfile()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar perfil');
           return {'success': false, 'error': 'Timeout'};
         });
@@ -88,16 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         // Importante: usar /workshop/:id/pagbank (estado interno) para refletir imediatamente
         final pagbankStatusResponse = await _apiService.getPagBankAccount()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar status PagBank');
           return {'success': false, 'error': 'Timeout'};
         });
         
         if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
           final statusData = pagbankStatusResponse['data'];
-          final connected = statusData['connected'] == true || statusData['has_authorization'] == true;
           final hasAccountId = statusData['has_account_id'] == true || (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-          // Dados existentes (ex.: já tem algum registro), mas vínculo real exige OAuth Connect
+          // Conectado = OAuth OU Account ID informado (vinculação manual). Oficina pode vincular por Account ID.
+          final connected = statusData['connected'] == true ||
+              statusData['has_authorization'] == true ||
+              hasAccountId;
           hasPagBankData = hasAccountId;
           hasPagBankAccount = connected;
           _isPagBankConnected = connected;
@@ -119,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bool hasSchedule = false;
       try {
         final scheduleResponse = await _apiService.getSchedule()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar agenda');
           return {'success': false, 'error': 'Timeout'};
         });
@@ -144,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bool hasServices = false;
       try {
         final servicesResponse = await _apiService.getMyServices()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar serviços');
           return {'success': false, 'error': 'Timeout'};
         });
@@ -172,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Carregar agendamentos
       try {
         final bookingsResponse = await _apiService.getMyBookings()
-            .timeout(const Duration(seconds: 10), onTimeout: () {
+            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
           print('⚠️ Timeout ao carregar agendamentos');
           return {'success': false, 'error': 'Timeout'};
         });
