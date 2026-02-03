@@ -163,7 +163,7 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
                     _schedule[day]!['enabled'] = value;
                   });
                 },
-                thumbColor: WidgetStateProperty.all(AppColors.primaryColor),
+                thumbColor: MaterialStateProperty.all(AppColors.primaryColor),
               ),
             ],
           ),

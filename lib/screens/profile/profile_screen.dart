@@ -96,8 +96,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
       if (!mounted) return;
 
-      // Buscar dados PagBank (account-status retorna email, name, status)
-      final pagbankStatusResponse = await _apiService.getPagBankAccountStatus();
+      // Buscar dados PagBank (estado real salvo no nosso banco)
+      final pagbankStatusResponse = await _apiService.getPagBankAccount();
       if (pagbankStatusResponse['success'] && mounted) {
         setState(() {
           _pagbankData = pagbankStatusResponse['data'] as Map<String, dynamic>?;
@@ -718,37 +718,30 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     final cardColor = ThemeService.getCardColor(isDark);
     final borderColor = secondaryText.withOpacity(0.18);
     final data = _pagbankData ?? const {};
-    final accountId = data['pagbank_account_id'] ?? data['account_id'];
-    
-    // IMPORTANTE: Reconhecer OAuth mesmo sem account_id se houver tokens e verificação
-    // O account_id pode ser null temporariamente, mas se há tokens salvos e verified=true, há conexão OAuth
-    // Se há token OU has_authorization, então há conexão OAuth (não precisa de account_id)
-    // A API retorna pagbank_access_token como 'authorized' quando há token, ou null quando não há
-    final hasAccessToken = data['pagbank_access_token'] != null && data['pagbank_access_token'].toString().isNotEmpty;
-    final hasAuthorization = data['has_authorization'] == true;
-    final hasOAuthConnection = hasAccessToken || hasAuthorization;
-    
-    // pagbank_verified pode ser true mesmo sem account_id quando há OAuth
-    final isVerified = data['pagbank_verified'] == true || data['verified'] == true;
-    final status = (data['status'] ?? 'not_created').toString().toLowerCase();
+    final connected = data['connected'] == true || data['has_authorization'] == true;
+    final accountId = data['pagbank_account_id'];
+    final hasAccountId = data['has_account_id'] == true;
+    final isVerified =
+        data['pagbank_verified'] == true ||
+        data['approved_by_workshop'] == true ||
+        data['verified'] == true;
+    final status = (data['status'] ?? data['pagbank_status'] ?? 'pending').toString().toLowerCase();
     final email = data['email']?.toString();
     final name = data['name']?.toString();
-    final statusMessage = data['status_message']?.toString() ?? '';
+    final statusMessage = data['message']?.toString() ?? '';
     final warningBackground = isDark ? const Color(0xFF2C1B0E) : const Color(0xFFFFF4E5);
     final warningBorder = isDark ? const Color(0xFF5A3414) : const Color(0xFFFFD9B0);
     final warningTitleColor = isDark ? const Color(0xFFFFC58F) : const Color(0xFF8A4B16);
     final warningBodyColor = isDark ? Colors.white70 : const Color(0xFF5F3B10);
 
-    // Determinar estado: not_created, connected (OAuth mas não verificado), verified (OAuth + verificado)
+    // Determinar estado: not_connected, connected, verified
     String pagbankState;
-    if (hasOAuthConnection && isVerified) {
+    if (connected && isVerified) {
       pagbankState = 'verified';
-    } else if (hasOAuthConnection && !isVerified) {
+    } else if (connected && !isVerified) {
       pagbankState = 'connected';
-    } else if (accountId != null && accountId.toString().isNotEmpty) {
-      pagbankState = status == 'approved' ? 'approved' : 'pending';
     } else {
-      pagbankState = 'not_created';
+      pagbankState = 'not_connected';
     }
 
     return Container(
@@ -789,12 +782,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      pagbankState == 'not_created'
-                          ? 'Para receber pagamentos via MECA Marketplace, você precisa criar uma conta PagBank Seller.'
+                      pagbankState == 'not_connected'
+                          ? (hasAccountId
+                              ? 'Encontramos sua conta PagBank, falta autorizar a conexão.'
+                              : 'Conecte sua conta PagBank para receber pagamentos.')
                           : pagbankState == 'connected'
-                              ? 'Conta PagBank conectada, aguardando validação'
+                              ? 'Conta PagBank conectada'
                               : pagbankState == 'verified'
-                                  ? 'Conta PagBank conectada e verificada'
+                                  ? 'Conta PagBank conectada e pronta para receber'
                                   : pagbankState == 'pending'
                                       ? 'Conta PagBank criada, pendente de validação'
                                       : 'PagBank aprovado',
@@ -803,7 +798,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   ],
                 ),
               ),
-              if (pagbankState != 'not_created')
+              if (pagbankState != 'not_connected')
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
@@ -831,10 +826,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           ),
           const SizedBox(height: 20),
           
-          // ESTADO 1: Não cadastrado
-          if (pagbankState == 'not_created') ...[
+          // ESTADO 1: Não conectado
+          if (pagbankState == 'not_connected') ...[
             Text(
-              'Para começar a receber pagamentos, você precisa criar uma conta PagBank Seller.',
+              'Para começar a receber pagamentos, conecte sua conta PagBank.',
               style: TextStyle(color: secondaryText, fontSize: 14),
             ),
             const SizedBox(height: 20),
@@ -852,8 +847,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Cadastrar PagBank'),
+                icon: const Icon(Icons.link),
+                label: const Text('Conectar PagBank'),
               ),
             ),
           ]
@@ -910,7 +905,26 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 icon: const Icon(Icons.verified_user),
-                label: const Text('Validar Conta'),
+                label: const Text('Confirmar validação'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.pushNamed(context, '/config/pagbank');
+                  if (mounted) {
+                    await _loadWorkshopData();
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF00C977),
+                  side: const BorderSide(color: Color(0xFF00C977)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Ver PagBank'),
               ),
             ),
           ]
@@ -1102,7 +1116,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       case 'pending':
         return 'Pendente';
       default:
-        return 'Não cadastrado';
+        return 'Não conectado';
     }
   }
 
@@ -1210,7 +1224,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       
       if (!mounted) return;
       
-      final response = await _apiService.getPagBankAccountStatus();
+      final response = await _apiService.getPagBankAccount();
       
       if (!mounted) return;
       
@@ -1219,36 +1233,28 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           _pagbankData = response['data'] as Map<String, dynamic>?;
         });
         
-        final status = (response['data']?['status'] ?? '').toString().toLowerCase();
-        final hasAuth = response['data']?['has_authorization'] == true;
-        final isVerified = response['data']?['pagbank_verified'] == true;
+        final connected = response['data']?['connected'] == true || response['data']?['has_authorization'] == true;
+        final isVerified = response['data']?['pagbank_verified'] == true || response['data']?['approved_by_workshop'] == true;
         
         if (mounted) {
-          if (isVerified && hasAuth) {
+          if (connected && isVerified) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('✅ Conta PagBank conectada e verificada!'),
+                content: Text('Conta PagBank conectada e verificada.'),
                 backgroundColor: Color(0xFF22C55E),
               ),
             );
-          } else if (status == 'approved') {
+          } else if (connected && !isVerified) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('✅ Conta PagBank aprovada!'),
-                backgroundColor: Color(0xFF22C55E),
-              ),
-            );
-          } else if (hasAuth) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('⏳ Conta conectada, aguardando verificação.'),
+                content: Text('Conta PagBank conectada.'),
                 backgroundColor: Colors.orange,
               ),
             );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('⏳ Conta ainda está em análise. Tente novamente mais tarde.'),
+                content: Text('Conta PagBank ainda não conectada.'),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -1449,8 +1455,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             Switch(
               value: isDark,
               onChanged: (_) => themeService.toggleTheme(),
-              thumbColor: WidgetStateProperty.all(const Color(0xFF22C55E)),
-              trackColor: WidgetStateProperty.all(const Color(0xFF86EFAC)),
+              thumbColor: MaterialStateProperty.all(const Color(0xFF22C55E)),
+              trackColor: MaterialStateProperty.all(const Color(0xFF86EFAC)),
             ),
           ],
         ),
@@ -1628,94 +1634,155 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showHelp() {
-    showDialog(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF0B1120) : Colors.white;
+    final card = isDark ? const Color(0xFF101826) : const Color(0xFFF8FAFC);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final secondary = isDark ? Colors.white70 : Colors.black54;
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C977),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.build,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text('MECA - Suporte'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Precisa de ajuda? Entre em contato conosco:',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              _buildContactInfo(
-                Icons.email,
-                'Email',
-                'contato@mecabr.com',
-              ),
-              const SizedBox(height: 12),
-              _buildContactInfo(
-                Icons.access_time,
-                'Horário de Atendimento',
-                'Horário de 24hrs',
-              ),
-              const SizedBox(height: 12),
-              const SizedBox(height: 16),
-              const Text(
-                'FAQ Rápido:',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text('• Como agendar um serviço?'),
-              const Text('• Como cancelar um agendamento?'),
-              const Text('• Como alterar meus dados?'),
-              const Text('• Como funciona o pagamento?'),
-            ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final emailUri = Uri(
-                scheme: 'mailto',
-                path: 'contato@mecabr.com',
-                query: 'subject=Suporte MECA - Solicitação de Ajuda',
-              );
-              if (await canLaunchUrl(emailUri)) {
-                await launchUrl(emailUri);
-              } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Não foi possível abrir o aplicativo de email.'),
-                      backgroundColor: Colors.redAccent,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C977).withOpacity(0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.support_agent, color: Color(0xFF00C977)),
                     ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C977),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('MECA Suporte', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 2),
+                          Text('Respostas rápidas', style: TextStyle(color: secondary)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: textColor.withOpacity(0.8)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: card,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFF00C977).withOpacity(0.18)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFaqItem(
+                        title: 'Taxas PagBank',
+                        body: 'As taxas são definidas pelo próprio PagBank e podem variar por meio (PIX/cartão) e parcelamento. Você consegue ver no app do PagBank.',
+                        isDark: isDark,
+                      ),
+                      _buildFaqItem(
+                        title: 'Taxa MECA',
+                        body: 'A MECA cobra 7% em cada pagamento (split automático).',
+                        isDark: isDark,
+                      ),
+                      _buildFaqItem(
+                        title: 'Como o dinheiro cai para a oficina?',
+                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 7% vai para a MECA e o restante cai na conta PagBank da oficina.',
+                        isDark: isDark,
+                      ),
+                      _buildFaqItem(
+                        title: 'PagBank conectado mas não atualizou',
+                        body: 'Puxe a tela para atualizar ou toque em “Reautorizar PagBank”.',
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      final emailUri = Uri(
+                        scheme: 'mailto',
+                        path: 'contato@mecabr.com',
+                        query: 'subject=Suporte MECA - Ajuda',
+                      );
+                      if (await canLaunchUrl(emailUri)) {
+                        await launchUrl(emailUri);
+                      } else {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Não foi possível abrir o aplicativo de email.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00C977),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    icon: const Icon(Icons.email_outlined),
+                    label: const Text('Falar com suporte'),
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Entrar em Contato'),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFaqItem({required String title, required String body, required bool isDark}) {
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final secondary = isDark ? Colors.white70 : Colors.black54;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(body, style: TextStyle(color: secondary, height: 1.25)),
+          const SizedBox(height: 10),
+          Divider(height: 1, color: (isDark ? Colors.white : Colors.black).withOpacity(0.08)),
+          const SizedBox(height: 10),
         ],
       ),
     );

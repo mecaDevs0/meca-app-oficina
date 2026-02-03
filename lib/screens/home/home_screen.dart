@@ -7,7 +7,7 @@ import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/page_transitions.dart';
 import '../config/agenda_config_screen.dart';
-import '../config/pagbank_account_screen.dart' show PagBankAccountScreen;
+// PagBank config é acessado via rota nomeada: /config/pagbank
 import '../config/services_config_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -31,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isAgendaInvalid = false;
   bool _isServiceInvalid = false;
   bool _hasPagBankData = false; // Tem dados cadastrados mas não verificado
+  bool _isPagBankConnected = false;
+  bool _isPagBankVerified = false;
   int _activeBookingsCount = 0; // Contador de serviços em andamento
 
   @override
@@ -79,12 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
         print('⚠️ Erro ao carregar perfil: $e');
       }
       
-      // Buscar status da conta PagBank
+      // Buscar status PagBank (somente via vínculo Connect / dados salvos)
       bool hasPagBankAccount = false;
       bool hasPagBankData = false; // Tem dados cadastrados mas não verificado
       
       try {
-        final pagbankStatusResponse = await _apiService.getPagBankAccountStatus()
+        // Importante: usar /workshop/:id/pagbank (estado interno) para refletir imediatamente
+        final pagbankStatusResponse = await _apiService.getPagBankAccount()
             .timeout(const Duration(seconds: 10), onTimeout: () {
           print('⚠️ Timeout ao carregar status PagBank');
           return {'success': false, 'error': 'Timeout'};
@@ -92,22 +95,15 @@ class _HomeScreenState extends State<HomeScreen> {
         
         if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
           final statusData = pagbankStatusResponse['data'];
-          // CORRIGIDO: Verificar se tem conta conectada via OAuth E verificada
-          // O account_id pode ser null temporariamente após OAuth
-          // O que importa é ter access_token (OAuth) E estar verificado
-          final hasOAuthConnection = (statusData['pagbank_access_token'] != null && 
-                                      statusData['pagbank_access_token'].toString().isNotEmpty) ||
-                                     statusData['has_authorization'] == true;
-          final isVerified = statusData['pagbank_verified'] == true;
-          
-          // Verificar se tem dados cadastrados (mesmo que não verificado)
-          hasPagBankData = statusData['registration_data'] != null || 
-                          statusData['pagbank_account_id'] != null ||
-                          hasOAuthConnection ||
-                          (statusData['email'] != null && statusData['name'] != null);
-          
-          // Conta está configurada APENAS se está conectada via OAuth E verificada
-          hasPagBankAccount = hasOAuthConnection && isVerified;
+          final connected = statusData['connected'] == true || statusData['has_authorization'] == true;
+          final hasAccountId = statusData['has_account_id'] == true || (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+          // Dados existentes (ex.: já tem algum registro), mas vínculo real exige OAuth Connect
+          hasPagBankData = hasAccountId;
+          hasPagBankAccount = connected;
+          _isPagBankConnected = connected;
+          _isPagBankVerified =
+              (statusData['pagbank_verified'] == true || statusData['approved_by_workshop'] == true) &&
+              connected;
         }
       } catch (e) {
         print('⚠️ Erro ao carregar status PagBank: $e');
@@ -116,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Salvar estado para usar no card
       setState(() {
         _hasPagBankData = hasPagBankData;
+        // já setamos _isPagBankConnected/_isPagBankVerified acima (mantém último valor válido)
       });
       
       // Buscar agenda diretamente da API
@@ -272,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                           child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -285,13 +282,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             _buildStatsCard(isDark),
                             
                             const SizedBox(height: 24),
-                            
-                            // Componente de configuração necessária
-                            if (_isDataBankInvalid || _isAgendaInvalid || _isServiceInvalid)
+
+                            // Status PagBank (sempre visível)
+                            _buildPagBankStatusCard(isDark),
+
+                            // Configuração necessária (somente Agenda/Serviços — PagBank já tem card acima)
+                            if (_isAgendaInvalid || _isServiceInvalid) ...[
+                              const SizedBox(height: 20),
                               _buildConfigNeededSection(isDark),
-                            
-                            if (_isDataBankInvalid || _isAgendaInvalid || _isServiceInvalid)
                               const SizedBox(height: 24),
+                            ],
                             
                             // Componente de agendamentos
                             _buildAppointmentsSection(isDark),
@@ -315,17 +315,17 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // Logo MECA
           SizedBox(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             child: Image.asset(
               'assets/logos/icone_verde.png',
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
-                  width: 56,
-                  height: 56,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
                     color: const Color(0xFF00C977),
                     borderRadius: BorderRadius.circular(12),
@@ -335,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'MECA',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -353,8 +353,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   'Bem-vindo de volta!',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                   maxLines: 1,
@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   _workshopData?['name'] ?? 'Oficina MECA',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                     height: 1.3,
                   ),
@@ -382,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildStatsCard(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -394,39 +394,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Coluna 1: Próximos
-          Expanded(
-            child: _buildStatColumn(
-              icon: Icons.calendar_today_outlined,
-              value: '${_upcomingBookings.length}',
-              label: 'Próximos',
-              color: const Color(0xFF00C977),
-              isDark: isDark,
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            // Coluna 1: Próximos
+            Expanded(
+              child: _buildStatColumn(
+                icon: Icons.calendar_today_outlined,
+                value: '${_upcomingBookings.length}',
+                label: 'Próximos',
+                color: const Color(0xFF00C977),
+                isDark: isDark,
+              ),
             ),
-          ),
-          // Coluna 2: Histórico
-          Expanded(
-            child: _buildStatColumn(
-              icon: Icons.history_outlined,
-              value: '${_historyBookings.length}',
-              label: 'Histórico',
-              color: isDark ? Colors.grey[600]! : Colors.grey[400]!,
-              isDark: isDark,
+            VerticalDivider(
+              width: 24,
+              thickness: 1,
+              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
             ),
-          ),
-          // Coluna 3: Ativos (serviços em andamento)
-          Expanded(
-            child: _buildStatColumn(
-              icon: Icons.play_circle_outline,
-              value: '${_activeBookingsCount}',
-              label: 'Ativos',
-              color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF3B82F6),
-              isDark: isDark,
+            // Coluna 2: Histórico
+            Expanded(
+              child: _buildStatColumn(
+                icon: Icons.history_outlined,
+                value: '${_historyBookings.length}',
+                label: 'Histórico',
+                color: isDark ? Colors.grey[500]! : Colors.grey[500]!,
+                isDark: isDark,
+              ),
             ),
-          ),
-        ],
+            VerticalDivider(
+              width: 24,
+              thickness: 1,
+              color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
+            ),
+            // Coluna 3: Ativos (serviços em andamento)
+            Expanded(
+              child: _buildStatColumn(
+                icon: Icons.play_circle_outline,
+                value: '$_activeBookingsCount',
+                label: 'Ativos',
+                color: const Color(0xFF3B82F6),
+                isDark: isDark,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -438,10 +450,20 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color color,
     required bool isDark,
   }) {
+    final iconBg = color.withOpacity(isDark ? 0.18 : 0.12);
     return Column(
       children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 10),
         Text(
           value,
           style: TextStyle(
@@ -516,30 +538,103 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             isDark: isDark,
           ),
-        if (_isServiceInvalid) const SizedBox(height: 12),
-        // 3. Dados Bancários (terceiro - quando não cadastrado)
-        if (_isDataBankInvalid)
-          _buildConfigCard(
-            title: _hasPagBankData ? 'Editar Dados PagBank' : 'Cadastrar PagBank',
-            description: _hasPagBankData 
-                ? 'Edite os dados da sua conta PagBank ou complete a verificação'
-                : 'Preencha os dados para criar sua conta PagBank',
-            icon: _hasPagBankData ? Icons.edit_outlined : Icons.account_balance_wallet_outlined,
-            iconColor: const Color(0xFF3B82F6),
-            bgColor: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDBEAFE),
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                PageTransitions.slideFromRight(const PagBankAccountScreen()),
-              );
-              // Recarregar dados se salvou com sucesso
-              if (result == true) {
-                _loadData();
-              }
-            },
-            isDark: isDark,
-          ),
       ],
+    );
+  }
+
+  Widget _buildPagBankStatusCard(bool isDark) {
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[700]!;
+    final cardColor = isDark ? const Color(0xFF141414) : Colors.white;
+
+    final statusLabel = _isPagBankConnected
+        ? (_isPagBankVerified ? 'PagBank conectado (verificado)' : 'PagBank conectado')
+        : (_hasPagBankData ? 'Conta encontrada, falta autorizar a conexão' : 'PagBank não conectado');
+    final statusColor = _isPagBankConnected ? const Color(0xFF22C55E) : const Color(0xFFF97316);
+    final isConnected = _isPagBankConnected;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withOpacity(0.20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.35 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              _isPagBankConnected ? Icons.check_circle_outline : Icons.link,
+              color: statusColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recebimentos PagBank',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  statusLabel,
+                  style: TextStyle(color: secondaryText, height: 1.25),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          isConnected
+              ? OutlinedButton(
+                  onPressed: () async {
+                    await Navigator.pushNamed(context, '/config/pagbank');
+                    if (mounted) _loadData();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: const Color(0xFF00C977).withOpacity(0.8)),
+                    foregroundColor: const Color(0xFF00C977),
+                    minimumSize: const Size(92, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Ver'),
+                )
+              : ElevatedButton(
+                  onPressed: () async {
+                    await Navigator.pushNamed(context, '/config/pagbank');
+                    if (mounted) _loadData();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C977),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size(108, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Conectar'),
+                ),
+        ],
+      ),
     );
   }
 
@@ -772,7 +867,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark ? const Color(0xFF00C977) : const Color(0xFF00C977))
@@ -790,14 +885,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   : (isDark ? Colors.grey[400] : Colors.grey[600]),
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? Colors.white
-                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
               ),
             ),
           ],

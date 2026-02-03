@@ -1739,6 +1739,33 @@ class ApiService {
     }
   }
 
+  // POST /workshop/:id/pagbank - Atualizar pagbank_account_id (manual)
+  Future<Map<String, dynamic>> updatePagBankAccountId(String? pagbankAccountId) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+      }
+
+      final payload = <String, dynamic>{'pagbank_account_id': pagbankAccountId};
+      final response = await _dio.post('/workshop/$workshopId/pagbank', data: payload);
+      return {
+        'success': true,
+        'data': response.data['data'] ?? response.data,
+        'message': response.data['message'],
+      };
+    } on DioException catch (e) {
+      final errorData = e.response?.data;
+      final errorMessage = errorData is Map && errorData['error'] != null
+          ? errorData['error'].toString()
+          : e.message ?? 'Erro ao atualizar PagBank Account ID';
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // GET /workshop/:id/pagbank/account-status - Verificar status da conta PagBank
   Future<Map<String, dynamic>> getPagBankAccountStatus() async {
     try {
