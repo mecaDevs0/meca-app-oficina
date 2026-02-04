@@ -97,11 +97,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
           final statusData = pagbankStatusResponse['data'];
           final hasAccountId = statusData['has_account_id'] == true || (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-          // Conectado = OAuth OU Account ID informado (vinculação manual). Oficina pode vincular por Account ID.
-          final connected = statusData['connected'] == true ||
-              statusData['has_authorization'] == true ||
-              hasAccountId;
-          hasPagBankData = hasAccountId;
+          // Conectado = API diz connected (OAuth ativo ou conta verificada). Só account_id = conexão pendente (igual tela PagBank).
+          final connected = statusData['connected'] == true;
+          final connectionPending = statusData['connection_pending'] == true;
+          hasPagBankData = hasAccountId || connectionPending;
           hasPagBankAccount = connected;
           _isPagBankConnected = connected;
           _isPagBankVerified =
@@ -286,8 +285,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             
                             const SizedBox(height: 24),
 
-                            // Status PagBank (sempre visível)
-                            _buildPagBankStatusCard(isDark),
+                            // Status PagBank (só exibir se NÃO estiver verificado)
+                            if (!_isPagBankVerified) ...[
+                              _buildPagBankStatusCard(isDark),
+                              const SizedBox(height: 24),
+                            ],
 
                             // Configuração necessária (somente Agenda/Serviços — PagBank já tem card acima)
                             if (_isAgendaInvalid || _isServiceInvalid) ...[
@@ -552,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final statusLabel = _isPagBankConnected
         ? (_isPagBankVerified ? 'PagBank conectado (verificado)' : 'PagBank conectado')
-        : (_hasPagBankData ? 'Conta encontrada, falta autorizar a conexão' : 'PagBank não conectado');
+        : (_hasPagBankData ? 'Conexão pendente — autorize no PagBank' : 'PagBank não conectado');
     final statusColor = _isPagBankConnected ? const Color(0xFF22C55E) : const Color(0xFFF97316);
     final isConnected = _isPagBankConnected;
 

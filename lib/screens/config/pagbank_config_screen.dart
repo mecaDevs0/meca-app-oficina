@@ -217,11 +217,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
   bool _isPagBankConnected() {
     final d = _pagbankData;
     if (d == null) return false;
-    final hasAccountId = d['has_account_id'] == true ||
-        (d['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-    return d['connected'] == true ||
-        d['has_authorization'] == true ||
-        hasAccountId;
+    return d['connected'] == true;
   }
 
   Future<void> _handleLinkByAccountId(String accountId) async {
@@ -243,8 +239,9 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
       final res = await _apiService.updatePagBankAccountId(id);
       if (!mounted) return;
       if (res['success'] == true) {
+        final message = res['message']?.toString().trim() ?? 'Account ID vinculado. Toque em "Reautorizar PagBank" acima para autorizar e poder receber pagamentos.';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conta PagBank vinculada com sucesso. Você já pode receber pagamentos.'), backgroundColor: Colors.green),
+          SnackBar(content: Text(message), backgroundColor: Colors.green, duration: const Duration(seconds: 5)),
         );
         await _loadPagBankData();
       } else {
@@ -314,14 +311,13 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
   Widget _buildStatusCard(bool isDark, Color textColor, Color secondaryText) {
     final hasAccountId = _pagbankData?['has_account_id'] == true ||
         (_pagbankData?['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-    final connected = _pagbankData?['connected'] == true ||
-        _pagbankData?['has_authorization'] == true ||
-        hasAccountId;
+    final connected = _pagbankData?['connected'] == true;
+    final connectionPending = _pagbankData?['connection_pending'] == true;
     final linkedByAccountId = _pagbankData?['linked_by_account_id'] == true;
     final verified = _pagbankData?['pagbank_verified'] == true || _pagbankData?['approved_by_workshop'] == true;
     final status = (_pagbankData?['status'] ?? 'pending').toString();
     final statusLabel = !connected
-        ? 'Não conectado'
+        ? (connectionPending || hasAccountId ? 'Conexão pendente' : 'Não conectado')
         : (verified ? 'Conectado e verificado' : _statusLabel(status));
     final cardColor = isDark ? const Color(0xFF101826) : Colors.white;
 
@@ -376,7 +372,26 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (connected && (linkedByAccountId || hasAccountId))
+                    if (connectionPending)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF97316).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Para receber pagamentos: toque em "Reautorizar PagBank" abaixo e autorize no navegador. Depois volte ao app.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: secondaryText,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (linkedByAccountId || hasAccountId)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
@@ -434,18 +449,20 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
         children: [
           Row(
             children: [
-              Icon(Icons.pin_outlined, size: 20, color: secondaryText),
+              Icon(Icons.info_outline, size: 20, color: secondaryText),
               const SizedBox(width: 8),
-              Text(
-                'Ou vincule informando o Account ID',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+              Expanded(
+                child: Text(
+                  'Opcional: já tem o Account ID?',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
-            'Se você já tem conta PagBank e o Account ID (começa com ACCO_), informe abaixo e toque em Vincular. Assim sua oficina passa a receber pagamentos.',
-            style: TextStyle(fontSize: 13, color: secondaryText, height: 1.35),
+            'Não é um ou outro: para receber pagamentos você sempre precisa tocar em "Conectar PagBank" (botão verde acima) e autorizar no navegador. Se você já tem o Account ID (começa com ACCO_), pode informá-lo abaixo antes — mas ainda é obrigatório tocar em "Conectar PagBank" para concluir.',
+            style: TextStyle(fontSize: 13, color: secondaryText, height: 1.4),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -540,9 +557,7 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
     final accountData = _pagbankData;
     final hasAccountId = accountData?['has_account_id'] == true ||
         (accountData?['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-    final connected = accountData?['connected'] == true ||
-        accountData?['has_authorization'] == true ||
-        hasAccountId;
+    final connected = accountData?['connected'] == true;
     final linkedByAccountId = accountData?['linked_by_account_id'] == true;
     
     // Lista de campos para exibir, com prioridade
@@ -626,11 +641,16 @@ class _PagBankConfigScreenState extends State<PagBankConfigScreen> with WidgetsB
               color: textColor,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          Text(
+            'Para receber pagamentos há um único fluxo: autorizar no PagBank. O passo 1 é obrigatório.',
+            style: TextStyle(fontSize: 13, color: secondaryText, height: 1.35),
+          ),
+          const SizedBox(height: 14),
           _buildGuideStep(
             number: '1',
-            title: 'Toque em “Conectar PagBank”',
-            description: 'Vamos abrir uma página do PagBank para você autorizar a integração.',
+            title: 'Toque em “Conectar PagBank” (obrigatório)',
+            description: 'Abre a página do PagBank para você autorizar a integração. Sem isso não é possível receber pagamentos.',
             isDark: isDark,
             textColor: textColor,
             secondaryText: secondaryText,
