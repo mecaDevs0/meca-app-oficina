@@ -1,23 +1,43 @@
-# Changelog - Meca Oficina
+# Changelog - MECA App Oficina
 
-## [2.0.0] - 2025-01-19
+## [2.1.0] - 2026-02-05
 
-### Novidades
-- Integração PagBank: fluxo de vinculação de conta revisado e documentado na tela
-- Tela PagBank deixa claro que há um único fluxo (autorizar no navegador); informar Account ID é opcional e não substitui a autorização
-- Mensagens de sucesso ao vincular Account ID alinhadas à API (orientam a tocar em "Conectar PagBank" para concluir)
-- Home e tela PagBank mostram corretamente "Conexão pendente" quando só o Account ID foi vinculado (sem OAuth)
+### Added
+- Sistema de pagamento com split automatico PagBank (93% oficina / 7% MECA)
+- Painel financeiro detalhado com valores liquidos e historico de transacoes
+- Melhor visualizacao de receitas e reconciliacao contabil
 
-### Melhorias
-- UI/UX da configuração PagBank: texto "Opcional: já tem o Account ID?" e explicação "Não é um ou outro"
-- Passo 1 do guia marcado como "(obrigatório)" e descrição reforçando que sem autorização não é possível receber pagamentos
-- Changelog e versão alinhados para publicação nas lojas (App Store e Play Store)
+### Changed
+- Fluxo de finalizacao de servicos otimizado e mais intuitivo
+- Interface de gestao de agendamentos aprimorada
+- Sistema de busca melhorado para encontrar agendamentos rapidamente
+- Notificacoes mais detalhadas sobre status de pagamentos
 
-### Correções
-- Mensagem de sucesso ao vincular Account ID não afirma mais "Você já pode receber pagamentos" sem concluir OAuth
-- Consistência entre status na Home e na tela PagBank (ambos usam o retorno da API)
+### Fixed
+- Resolvido problema de lentidao ao processar notificacoes de status
+- Corrigido erro de formato em notificacoes financeiras (toFixed bug)
+- Otimizacao do sistema OneSignal para entrega confiavel de push notifications
+- Ajustes em validacao de dados de orcamento
 
----
+### Performance
+- Reducao de tempo de resposta em operacoes de listagem
+- Otimizacao de queries de dados financeiros
+- Melhor cache de informacoes de agendamentos
 
-## [1.8.0] - Anteriores
-- Funcionalidades de oficina, agendamentos, PagBank e perfil.
+## [2.0.0] - 2026-01-30
+
+### Added
+- Lancamento inicial da versao 2.0
+- Sistema completo de gestao de agendamentos
+- Painel de controle com metricas e estatisticas
+- Sistema de notificacoes push via OneSignal
+- Integracao com Google Maps
+
+### Features
+- Gerenciamento de perfil da oficina
+- Aceitacao e recusa de agendamentos
+- Controle de status de servicos
+- Sistema de orcamentos e aprovacoes
+- Chat com clientes
+- Historico completo de atendimentos
+- Dashboard financeiro basico
