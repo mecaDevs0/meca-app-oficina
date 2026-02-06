@@ -897,6 +897,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   Widget _buildActionsCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
+    final hasAnyButton = statusFinal == 'confirmado' || normalizedStatus == 'confirmado';
+    if (!hasAnyButton) {
+      return const SizedBox.shrink();
+    }
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(16),

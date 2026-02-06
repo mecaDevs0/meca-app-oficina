@@ -1503,6 +1503,19 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       cardColor = Colors.green.shade50;
       borderColor = Colors.green.shade200;
       iconColor = Colors.green.shade700;
+    } else if (statusFinal == 'aguardando_aprovacao_finalizacao' || statusFinal == 'awaiting_finalization_approval') {
+      title = 'Aguardando Aprovação da Finalização';
+      description = 'O serviço foi finalizado e o orçamento de finalização foi enviado ao cliente.';
+      nextStep = 'Aguarde o cliente aprovar a finalização. Não há ações para você neste momento.';
+      icon = Icons.hourglass_empty;
+      cardColor = Colors.blue.shade50;
+      borderColor = Colors.blue.shade200;
+      iconColor = Colors.blue.shade700;
+    }
+    
+    // Não exibir card se não houver conteúdo para este status (evita card vazio com só ícone)
+    if (title.isEmpty) {
+      return const SizedBox.shrink();
     }
     
     return Container(
@@ -1736,6 +1749,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   Widget _buildActionsCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
+    // Verificar se realmente há botões de ação para exibir
+    final hasFinalPrice = booking['final_price'] != null && (booking['final_price'] as num) > 0;
+    final isPendingWorkshop = statusFinal == 'pendente_oficina' || statusFinal == 'pending' || normalizedStatus == 'pendente_oficina';
+    final isConfirmed = statusFinal == 'confirmado' || normalizedStatus == 'confirmado';
+    final isPendingClient = statusFinal == 'pendente_cliente' || normalizedStatus == 'pendente_cliente';
+    final isEmAndamento = statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress';
+    final isAppointmentDay = _isAppointmentDay(booking);
+    
+    // Determinar se há botões de ação reais (não apenas mensagens informativas)
+    final hasRealActions = isPendingWorkshop || 
+                          (isConfirmed && isAppointmentDay) ||  // Só exibir se for o dia do agendamento
+                          isEmAndamento;
+    
+    // Se não há ações reais ou é pendente de cliente, não exibir card
+    if (!hasRealActions || isPendingClient) {
+      return const SizedBox.shrink();
+    }
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(16),
@@ -1900,113 +1930,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     Builder(
                       builder: (context) {
                         final isAppointmentDay = _isAppointmentDay(booking);
-                        final appointmentDayInfo = _getAppointmentDayInfo(booking);
                         
-                        // Se NÃO for o dia do agendamento, mostrar mensagem didática
+                        // Se não for o dia do agendamento, não exibe nada (o card todo não será renderizado)
                         if (!isAppointmentDay) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: isDarkMode 
-                                  ? Colors.blue[900]!.withOpacity(0.2) 
-                                  : Colors.blue[50]!,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDarkMode 
-                                    ? Colors.blue[700]!.withOpacity(0.5) 
-                                    : Colors.blue[200]!,
-                                width: 2,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                        Icons.info_outline,
-                                        color: Colors.blue,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'Aguardando o dia do agendamento',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDarkMode ? Colors.white : Colors.blue[900]!,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'O agendamento está confirmado, mas você deve aguardar o dia marcado para montar o orçamento ou iniciar o serviço.',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: isDarkMode ? Colors.grey[300] : Colors.blue[800]!,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: isDarkMode 
-                                        ? Colors.white.withOpacity(0.1) 
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.calendar_today,
-                                        size: 20,
-                                        color: Colors.blue[600]!,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Dia do agendamento: $appointmentDayInfo',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.blue[700]!,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '📋 No dia do agendamento, você terá duas opções independentes:\n\n1️⃣ Orçamento Prévio - Envie o orçamento ANTES de iniciar o serviço\n2️⃣ Iniciar e Orçar Depois - Inicie o serviço AGORA e envie o orçamento ao FINALIZAR\n\nAmbas as opções são válidas! Escolha a que fizer mais sentido para você.',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: isDarkMode ? Colors.grey[300] : Colors.blue[800]!,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ],
-                        );
-                        } else {
-                          // É o dia do agendamento - mostrar as 2 opções
-                          return Column(
+                          return const SizedBox.shrink();
+                        }
+                        
+                        // É o dia do agendamento - mostrar as 2 opções
+                        return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Título explicativo
@@ -2712,7 +2643,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           ),
                             ],
                           );
-                        }
                       },
                     ),
                   ],
@@ -2939,12 +2869,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   String _getStatusText(String status) {
-    final normalizedStatus = status.toLowerCase();
+    final normalizedStatus = status.toLowerCase().trim();
     switch (normalizedStatus) {
       case 'pending':
       case 'pendente':
       case 'pendente_oficina':
-        return 'Pendente';
+        return 'Aguardando Confirmação';
       case 'confirmed':
       case 'confirmado':
         return 'Confirmado';
@@ -2953,8 +2883,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       case 'em andamento':
         return 'Em Andamento';
       case 'pendente_cliente':
-        return 'Aguardando Aprovação do Cliente';
+      case 'pending_customer':
+        return 'Aguardando Cliente';
+      case 'awaiting_quote_approval':
+      case 'aguardando_aprovacao_orcamento':
+        return 'Orçamento - Aguardando Aprovação';
+      case 'awaiting_service_start':
+      case 'aguardando_autorizacao_inicio':
+        return 'Aguardando Autorização de Início';
+      case 'vehicle_at_workshop':
+      case 'veiculo_na_oficina':
+        return 'Veículo na Oficina';
+      case 'awaiting_finalization_approval':
+      case 'aguardando_aprovacao_finalizacao':
+        return 'Aguardando Aprovação de Finalização';
       case 'finalizado_aguardando_pagamento':
+      case 'awaiting_payment':
+      case 'aguardando_pagamento':
         return 'Aguardando Pagamento';
       case 'pago':
       case 'paid':
@@ -2966,8 +2911,20 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       case 'cancelled':
       case 'cancelado':
         return 'Cancelado';
+      case 'rejected':
+      case 'rejeitado':
+        return 'Rejeitado';
+      case 'in_dispute':
+      case 'em_disputa':
+        return 'Em Disputa';
       default:
-        return status.isNotEmpty ? status : 'Desconhecido';
+        // Formatar o status original de forma legível se não for reconhecido
+        final formatted = status
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+            .join(' ');
+        return formatted.isEmpty ? 'Status Desconhecido' : formatted;
     }
   }
 

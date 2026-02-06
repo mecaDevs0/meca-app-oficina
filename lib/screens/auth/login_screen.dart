@@ -31,14 +31,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await _apiService.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    try {
+      final result = await _apiService.login(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
 
-    setState(() => _isLoading = false);
-
-    if (result['success']) {
+      if (!mounted) return;
+      if (result['success']) {
       // Salvar device token após login bem-sucedido
       // Aguardar um pouco para garantir que o OneSignal está pronto
       await Future.delayed(const Duration(milliseconds: 500));
@@ -69,9 +69,27 @@ class _LoginScreenState extends State<LoginScreen> {
           print('[Login] Erro ao salvar device token após login: $e');
         }
       }
-      await _onLoginSuccess();
-    } else {
-      _showError(result['error'] ?? 'Erro ao fazer login');
+        await _onLoginSuccess();
+      } else {
+        _showError(result['error'] ?? 'Erro ao fazer login');
+      }
+    } on Exception catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('timeout') || msg.contains('timed out')) {
+        _showError('Tempo esgotado. Verifique sua conexão e tente novamente.');
+      } else if (msg.contains('connection') || msg.contains('socket') || msg.contains('network')) {
+        _showError('Sem conexão. Verifique a internet e tente novamente.');
+      } else {
+        _showError('Não foi possível conectar. Tente novamente.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Erro ao fazer login. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

@@ -1,5 +1,17 @@
 # Changelog - MECA App Oficina
 
+## [2.1.1] - 2026-02-05
+
+### Fixed
+- Removidas permissoes READ_MEDIA_IMAGES e READ_MEDIA_VIDEO para conformidade Google Play
+- Adicionado tools:node="remove" para forcar remocao das permissoes
+- App agora usa Photo Picker nativo do Android 13+
+
+### Changed
+- Sistema de fotos migrado para Photo Picker do sistema
+- Melhor privacidade: usuario seleciona fotos especificas
+- Mantem CAMERA permission para tirar fotos diretamente
+
 ## [2.1.0] - 2026-02-05
 
 ### Added

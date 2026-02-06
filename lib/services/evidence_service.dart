@@ -84,14 +84,25 @@ class EvidenceService {
       String errorMessage = 'Erro de conexão';
       if (e is DioException) {
         if (e.response != null) {
+          final statusCode = e.response?.statusCode;
           final errorData = e.response?.data;
-          if (errorData is Map && errorData['error'] != null) {
+          if (statusCode == 413 ||
+              (errorData is Map && (errorData['error']?.toString().toLowerCase().contains('413') == true ||
+                  errorData['error']?.toString().toLowerCase().contains('entity too large') == true ||
+                  errorData['error']?.toString().toLowerCase().contains('muito grande') == true))) {
+            errorMessage = 'Imagem muito grande. Escolha uma foto menor ou tente outra imagem (recomendado até 10 MB).';
+          } else if (errorData is Map && errorData['error'] != null) {
             errorMessage = errorData['error'].toString();
           } else {
             errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';
           }
         } else {
-          errorMessage = 'Erro de conexão: ${e.message ?? e.toString()}';
+          final msg = e.message ?? e.toString();
+          if (msg.contains('413') || msg.toLowerCase().contains('entity too large')) {
+            errorMessage = 'Imagem muito grande. Escolha uma foto menor ou tente outra imagem (recomendado até 10 MB).';
+          } else {
+            errorMessage = 'Erro de conexão: $msg';
+          }
         }
       } else {
         errorMessage = 'Erro: ${e.toString()}';

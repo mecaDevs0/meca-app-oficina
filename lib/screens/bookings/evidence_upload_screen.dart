@@ -75,9 +75,9 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
       // maxWidth/maxHeight + imageQuality garantem upload leve mesmo em iPhone (fotos grandes).
       final picked = await _picker.pickImage(
         source: source,
-        imageQuality: 70,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        imageQuality: 60,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
       if (picked != null) {
         setState(() {

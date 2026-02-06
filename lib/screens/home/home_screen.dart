@@ -44,15 +44,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    
+
+    const timeout = Duration(seconds: AppConfig.homeLoadTimeoutSeconds);
+    Future<Map<String, dynamic>> _timeout(String name, Future<Map<String, dynamic>> f) {
+      return f.timeout(timeout, onTimeout: () {
+        print('⚠️ Timeout ao carregar $name');
+        return {'success': false, 'error': 'Timeout'};
+      });
+    }
+
     try {
-      // Carregar notificações para atualizar badge do perfil
+      final futureNotif = _timeout('notificações', _apiService.getNotifications());
+      final futureProfile = _timeout('perfil', _apiService.getProfile());
+      final futurePagbank = _timeout('PagBank', _apiService.getPagBankAccount());
+      final futureSchedule = _timeout('agenda', _apiService.getSchedule());
+      final futureServices = _timeout('serviços', _apiService.getMyServices());
+      final futureBookings = _timeout('agendamentos', _apiService.getMyBookings());
+
+      final results = await Future.wait([
+        futureNotif,
+        futureProfile,
+        futurePagbank,
+        futureSchedule,
+        futureServices,
+        futureBookings,
+      ]);
+
+      if (!mounted) return;
+      final notificationsResponse = results[0] as Map<String, dynamic>;
+      final profileResponse = results[1] as Map<String, dynamic>;
+      final pagbankStatusResponse = results[2] as Map<String, dynamic>;
+      final scheduleResponse = results[3] as Map<String, dynamic>;
+      final servicesResponse = results[4] as Map<String, dynamic>;
+      final bookingsResponse = results[5] as Map<String, dynamic>;
+
       try {
-        final notificationsResponse = await _apiService.getNotifications()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar notificações');
-          return {'success': false, 'error': 'Timeout'};
-        });
         if (notificationsResponse['success'] && mounted) {
           final data = notificationsResponse['data'] ?? {};
           final unreadCount = data['unread_count'] is int
@@ -62,122 +88,70 @@ class _HomeScreenState extends State<HomeScreen> {
           notificationProvider.setUnreadNotifications(unreadCount, resetBadge: unreadCount == 0);
         }
       } catch (e) {
-        // Erro ao carregar notificações não deve bloquear o carregamento da tela
-        print('⚠️ Erro ao carregar notificações: $e');
+        print('⚠️ Erro ao processar notificações: $e');
       }
-      
-      // Carregar perfil da oficina
-      try {
-        final profileResponse = await _apiService.getProfile()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar perfil');
-          return {'success': false, 'error': 'Timeout'};
-        });
-        if (profileResponse['success']) {
-          setState(() {
-            _workshopData = profileResponse['data'];
-          });
-        }
-      } catch (e) {
-        print('⚠️ Erro ao carregar perfil: $e');
+
+      if (profileResponse['success']) {
+        setState(() => _workshopData = profileResponse['data']);
       }
-      
-      // Buscar status PagBank (somente via vínculo Connect / dados salvos)
+
       bool hasPagBankAccount = false;
-      bool hasPagBankData = false; // Tem dados cadastrados mas não verificado
-      
+      bool hasPagBankData = false;
       try {
-        // Importante: usar /workshop/:id/pagbank (estado interno) para refletir imediatamente
-        final pagbankStatusResponse = await _apiService.getPagBankAccount()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar status PagBank');
-          return {'success': false, 'error': 'Timeout'};
-        });
-        
         if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
           final statusData = pagbankStatusResponse['data'];
-          final hasAccountId = statusData['has_account_id'] == true || (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-          // Conectado = API diz connected (OAuth ativo ou conta verificada). Só account_id = conexão pendente (igual tela PagBank).
+          final hasAccountId = statusData['has_account_id'] == true ||
+              (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
           final connected = statusData['connected'] == true;
           final connectionPending = statusData['connection_pending'] == true;
           hasPagBankData = hasAccountId || connectionPending;
           hasPagBankAccount = connected;
           _isPagBankConnected = connected;
-          _isPagBankVerified =
-              (statusData['pagbank_verified'] == true || statusData['approved_by_workshop'] == true) &&
+          _isPagBankVerified = (statusData['pagbank_verified'] == true ||
+                  statusData['approved_by_workshop'] == true) &&
               connected;
         }
       } catch (e) {
-        print('⚠️ Erro ao carregar status PagBank: $e');
+        print('⚠️ Erro ao processar PagBank: $e');
       }
-      
-      // Salvar estado para usar no card
-      setState(() {
-        _hasPagBankData = hasPagBankData;
-        // já setamos _isPagBankConnected/_isPagBankVerified acima (mantém último valor válido)
-      });
-      
-      // Buscar agenda diretamente da API
+      setState(() => _hasPagBankData = hasPagBankData);
+
       bool hasSchedule = false;
       try {
-        final scheduleResponse = await _apiService.getSchedule()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar agenda');
-          return {'success': false, 'error': 'Timeout'};
-        });
         if (scheduleResponse['success'] && scheduleResponse['data'] != null) {
           final scheduleData = scheduleResponse['data'];
-          // Verificar se tem pelo menos um dia configurado
           if (scheduleData is Map) {
             hasSchedule = scheduleData.entries.any((entry) {
               final dayData = entry.value;
-              if (dayData is Map) {
-                return dayData['is_open'] == true;
-              }
-              return false;
+              return dayData is Map && dayData['is_open'] == true;
             });
           }
         }
       } catch (e) {
-        print('⚠️ Erro ao carregar agenda: $e');
+        print('⚠️ Erro ao processar agenda: $e');
       }
-      
-      // Buscar serviços da oficina diretamente da API
+
       bool hasServices = false;
       try {
-        final servicesResponse = await _apiService.getMyServices()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar serviços');
-          return {'success': false, 'error': 'Timeout'};
-        });
         if (servicesResponse['success'] && servicesResponse['data'] != null) {
           final servicesData = servicesResponse['data'];
-          final servicesList = servicesData is Map 
+          final servicesList = servicesData is Map
               ? (servicesData['services'] ?? [])
               : (servicesData is List ? servicesData : []);
           hasServices = servicesList.isNotEmpty;
-          setState(() {
-            _services = List<Map<String, dynamic>>.from(servicesList);
-          });
+          setState(() => _services = List<Map<String, dynamic>>.from(servicesList));
         }
       } catch (e) {
-        print('⚠️ Erro ao carregar serviços: $e');
+        print('⚠️ Erro ao processar serviços: $e');
       }
-      
-      // Atualizar flags de validação
+
       setState(() {
         _isDataBankInvalid = !hasPagBankAccount;
         _isAgendaInvalid = !hasSchedule;
         _isServiceInvalid = !hasServices;
       });
-      
-      // Carregar agendamentos
+
       try {
-        final bookingsResponse = await _apiService.getMyBookings()
-            .timeout(Duration(seconds: AppConfig.homeLoadTimeoutSeconds), onTimeout: () {
-          print('⚠️ Timeout ao carregar agendamentos');
-          return {'success': false, 'error': 'Timeout'};
-        });
         if (bookingsResponse['success']) {
           final data = bookingsResponse['data'];
           final bookingsList = data is Map ? (data['bookings'] ?? []) : data ?? [];

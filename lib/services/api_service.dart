@@ -19,7 +19,8 @@ class ApiService {
     _dio.options.baseUrl = baseUrl;
     _dio.options.connectTimeout = Duration(seconds: AppConfig.connectionTimeout);
     _dio.options.receiveTimeout = Duration(seconds: AppConfig.receiveTimeout);
-    
+    _dio.options.headers['Accept-Encoding'] = 'gzip';
+
     // Carregar token na inicialização
     loadToken();
     
@@ -342,25 +343,42 @@ class ApiService {
     }
   }
 
+  /// Timeout do login (evita ficar carregando para sempre se API/rede travar)
+  static const int loginTimeoutSeconds = 25;
+
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
     try {
-      final response = await _dio.post('/auth/workshop/login', data: {
-        'email': email,
-        'password': password,
-      });
-      
+      final response = await _dio
+          .post('/auth/workshop/login', data: {
+            'email': email.trim(),
+            'password': password,
+          })
+          .timeout(Duration(seconds: loginTimeoutSeconds));
+
       return await _handleAuthResponse(
         response,
         fallbackError: 'Erro ao fazer login',
       );
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return {
+          'success': false,
+          'error': 'Tempo esgotado ou sem conexão. Verifique a internet e tente novamente.',
+        };
+      }
       final message = _extractErrorMessage(e.response?.data, 'Erro ao fazer login');
       return {'success': false, 'error': message};
     } catch (e) {
-      return {'success': false, 'error': 'Erro desconhecido ao fazer login'};
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('timeout') || msg.contains('timed out')) {
+        return {'success': false, 'error': 'Tempo esgotado. Verifique sua conexão e tente novamente.'};
+      }
+      return {'success': false, 'error': 'Erro ao conectar. Tente novamente.'};
     }
   }
 
@@ -1430,6 +1448,7 @@ class ApiService {
   // SCHEDULE - DADOS REAIS DA API EC2 AWS
   // ============================================
 
+  /// GET /workshop/:id/schedule - dados reais do RDS (produção)
   Future<Map<String, dynamic>> getSchedule() async {
     try {
       await loadToken();
@@ -1437,10 +1456,15 @@ class ApiService {
       if (workshopId == null) {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
-      
-      // Usar endpoint real: /workshop/:id/schedule
       final response = await _dio.get('/workshop/$workshopId/schedule');
-      return {'success': true, 'data': response.data['data'] ?? response.data};
+      final data = response.data;
+      if (data == null) return {'success': false, 'error': 'Resposta inválida da API'};
+      return {'success': true, 'data': data['data'] ?? data};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'error': e.response?.data?['error'] ?? e.message ?? 'Erro ao carregar agenda',
+      };
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1453,14 +1477,16 @@ class ApiService {
       if (workshopId == null) {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
-      
-      final payload = {
-        'schedule': scheduleData,
-      };
+      final payload = {'schedule': scheduleData};
       final response = await _dio.put('/workshop/$workshopId/schedule', data: payload);
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return {'success': false, 'error': 'Endpoint de agenda indisponível. Tente novamente em instantes.'};
+      }
+      return {'success': false, 'error': e.response?.data?['error'] ?? 'Erro ao salvar agenda. Tente novamente.'};
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': 'Erro ao salvar agenda. Tente novamente.'};
     }
   }
 

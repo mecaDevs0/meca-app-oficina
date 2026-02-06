@@ -688,7 +688,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                           Expanded(
                             child: Text(
                               widget.isEditMode
-                                  ? 'Motivo da Mudança do Orçamento (Obrigatório) ⚠️'
+                                  ? 'Motivo do Orçamento (Obrigatório) ⚠️'
                                   : 'Motivo do Orçamento (Opcional)',
                               style: TextStyle(
                                 fontSize: 16,
@@ -716,7 +716,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                         controller: _quoteReasonController,
                         maxLines: 5,
                         decoration: InputDecoration(
-                          labelText: widget.isEditMode ? 'Motivo da mudança *' : 'Motivo do orçamento',
+                          labelText: 'Motivo do orçamento${widget.isEditMode ? ' *' : ''}',
                           hintText: widget.isEditMode
                               ? 'Ex: Durante o serviço, descobrimos que além das pastilhas de freio, os discos também precisam ser trocados. Isso aumenta o valor em R\$ 200,00, mas garante maior segurança e durabilidade.'
                               : 'Ex: Necessária troca de pastilhas de freio devido ao desgaste excessivo. Utilizaremos peças originais com garantia de 6 meses. Mão de obra inclui alinhamento e balanceamento das rodas.',

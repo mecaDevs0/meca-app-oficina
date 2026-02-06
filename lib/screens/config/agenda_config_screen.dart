@@ -48,37 +48,22 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
 
   Future<void> _loadSchedule() async {
     setState(() => _isLoading = true);
-    
     try {
       final token = await StorageService.getToken();
       if (token == null) {
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
-
       await _apiService.loadToken();
       final result = await _apiService.getSchedule();
-      
-      if (result['success']) {
+      if (result['success'] == true && result['data'] != null) {
         final normalized = _normalizeSchedule(result['data']);
-        // Debug para auditoria em testes
-        // ignore: avoid_print
-        setState(() {
-          _schedule = normalized;
-        });
+        setState(() => _schedule = normalized);
       } else {
-        BeautifulErrorSnackbar.show(
-          context,
-          'Erro ao carregar agenda: ${result['error']}',
-          title: 'Erro',
-        );
+        setState(() => _schedule = _defaultSchedule());
       }
-    } catch (e) {
-      BeautifulErrorSnackbar.show(
-        context,
-        'Erro: $e',
-        title: 'Erro',
-      );
+    } catch (_) {
+      setState(() => _schedule = _defaultSchedule());
     } finally {
       setState(() => _isLoading = false);
     }
@@ -102,18 +87,16 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         );
         Navigator.pop(context, true); // Passa true para indicar sucesso
       } else {
-        // ignore: avoid_print
         BeautifulErrorSnackbar.show(
           context,
-          'Erro: ${result['error']}',
+          result['error']?.toString() ?? 'Erro ao salvar. Tente novamente.',
           title: 'Erro',
         );
       }
-    } catch (e) {
-      // ignore: avoid_print
+    } catch (_) {
       BeautifulErrorSnackbar.show(
         context,
-        'Erro: $e',
+        'Erro ao salvar agenda. Tente novamente.',
         title: 'Erro',
       );
     } finally {

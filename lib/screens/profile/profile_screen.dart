@@ -13,6 +13,7 @@ import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/verify_account_modal.dart';
+import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
@@ -357,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                         title: 'Central de Ajuda',
                         subtitle: 'Dúvidas e suporte',
                         isDark: isDark,
-                        onTap: _showHelp,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpCenterScreen())),
                       ),
                       _buildMenuOption(
                         icon: Icons.logout,
