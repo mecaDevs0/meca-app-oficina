@@ -6,12 +6,14 @@ class NotificationProvider extends ChangeNotifier {
   int _pendingBookings = 0;
   bool _showAgendaBadge = false;
   bool _showFinancialBadge = false;
+  List<Map<String, dynamic>> _notifications = [];
 
   int get unreadNotifications => _unreadNotifications;
   bool get showProfileBadge => _showProfileBadge;
   int get pendingBookings => _pendingBookings;
   bool get showAgendaBadge => _showAgendaBadge;
   bool get showFinancialBadge => _showFinancialBadge;
+  List<Map<String, dynamic>> get notifications => _notifications;
 
   void setUnreadNotifications(int count, {bool resetBadge = false}) {
     final normalized = count.clamp(0, 9999).toInt();
@@ -21,6 +23,14 @@ class NotificationProvider extends ChangeNotifier {
     } else if (normalized == 0) {
       _showProfileBadge = false;
     }
+    notifyListeners();
+  }
+  
+  void setNotifications(List<Map<String, dynamic>> notifications) {
+    _notifications = notifications.map((n) => Map<String, dynamic>.from(n)).toList();
+    final unread = _countUnread(notifications).clamp(0, 9999);
+    _unreadNotifications = unread;
+    _showProfileBadge = unread > 0;
     notifyListeners();
   }
 
@@ -89,6 +99,15 @@ class NotificationProvider extends ChangeNotifier {
       }
     }
     return false;
+  }
+  
+  static int _countUnread(List<Map<String, dynamic>> notifications) {
+    int count = 0;
+    for (final notification in notifications) {
+      final isRead = notification['read'] == true || notification['is_read'] == true;
+      if (!isRead) count++;
+    }
+    return count;
   }
 }
 

@@ -45,12 +45,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       final response = await _apiService.markAllNotificationsAsRead();
       if (response['success'] == true && mounted) {
+        // Marcar notificações locais como lidas
+        final updatedNotifications = _notifications.map((n) {
+          return Map<String, dynamic>.from(n)
+            ..['is_read'] = true
+            ..['read'] = true;
+        }).toList();
+        
+        // Atualizar estado local
+        setState(() {
+          _notifications = updatedNotifications;
+          _unreadCount = 0;
+        });
+        
         // Atualizar provider imediatamente
         final provider = Provider.of<NotificationProvider>(context, listen: false);
-        // Apenas atualizar contador de não lidas (o provider não tem setNotifications)
+        provider.setNotifications(updatedNotifications);
         provider.setUnreadNotifications(0, resetBadge: true);
-        // Recarregar notificações para garantir sincronização
-        await _loadNotifications();
+        
+        // NÃO recarregar do servidor
       }
     } catch (e) {
       // Silenciar erros - não mostrar mensagem ao usuário
@@ -92,19 +105,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final response = await _apiService.getNotifications();
       if (response['success']) {
         if (mounted) {
+          final data = response['data'] ?? {};
+          final rawList = List<Map<String, dynamic>>.from(
+            data['notifications'] ?? data ?? [],
+          );
+          final normalizedNotifications = rawList.map(_normalizeNotification).toList();
+          final unreadCount = data['unread_count'] is int
+              ? data['unread_count']
+              : int.tryParse('${data['unread_count']}') ?? 0;
+          
           setState(() {
-            final data = response['data'] ?? {};
-            final rawList = List<Map<String, dynamic>>.from(
-              data['notifications'] ?? data ?? [],
-            );
-            _notifications = rawList.map(_normalizeNotification).toList();
-            _unreadCount = data['unread_count'] is int
-                ? data['unread_count']
-                : int.tryParse('${data['unread_count']}') ?? 0;
+            _notifications = normalizedNotifications;
+            _unreadCount = unreadCount;
           });
+          
           if (mounted) {
             final provider = Provider.of<NotificationProvider>(context, listen: false);
-            provider.setUnreadNotifications(_unreadCount, resetBadge: _unreadCount == 0);
+            
+            // Usar setNotifications para manter lista no provider
+            provider.setNotifications(normalizedNotifications);
             
             _previousUnreadCount = _unreadCount;
             
@@ -151,7 +170,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        await _loadNotifications();
+        final provider = Provider.of<NotificationProvider>(context, listen: false);
+        
+        // PRIMEIRO: Marcar todas as notificações locais como lidas IMEDIATAMENTE
+        final updatedNotifications = _notifications.map((n) {
+          return Map<String, dynamic>.from(n)
+            ..['is_read'] = true
+            ..['read'] = true;
+        }).toList();
+        
+        // Atualizar estado local
+        setState(() {
+          _notifications = updatedNotifications;
+          _unreadCount = 0;
+        });
+        
+        // Atualizar provider
+        provider.setNotifications(updatedNotifications);
+        provider.setUnreadNotifications(0, resetBadge: true);
+        
+        // NÃO recarregar do servidor! Mantém estado local.
+        // Sincronização acontecerá quando usuário reabrir a tela
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Todas as notificações foram marcadas como lidas.'),

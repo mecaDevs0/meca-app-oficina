@@ -74,11 +74,26 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         final notificationsResponse = await _apiService.getNotifications();
         if (notificationsResponse['success'] && mounted) {
           final data = notificationsResponse['data'] ?? {};
+          final rawList = List<Map<String, dynamic>>.from(
+            data['notifications'] ?? data ?? [],
+          );
+          final normalizedNotifications = rawList.map((notif) {
+            return Map<String, dynamic>.from(notif);
+          }).toList();
+          
           final unreadCount = data['unread_count'] is int
               ? data['unread_count']
               : int.tryParse('${data['unread_count']}') ?? 0;
+          
           final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-          notificationProvider.setUnreadNotifications(unreadCount, resetBadge: unreadCount == 0);
+          
+          // PROTEÇÃO: Se usuário já marcou como lidas (contador = 0), NÃO sobrescrever
+          if (notificationProvider.unreadNotifications == 0 && notificationProvider.notifications.isNotEmpty) {
+            print('🔒 [Profile] Mantendo notificações locais (já marcadas como lidas)');
+          } else {
+            // Atualizar com dados do servidor
+            notificationProvider.setNotifications(normalizedNotifications);
+          }
         }
       } catch (e) {
         // Erro ao carregar notificações não deve bloquear o carregamento da tela
