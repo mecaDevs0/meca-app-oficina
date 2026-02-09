@@ -258,7 +258,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Aguardando confirmação do cliente. O cliente precisa confirmar o início do serviço antes de prosseguir.',
+                                    'O cliente foi notificado de que o serviço começou.',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.blue.shade900,
@@ -975,9 +975,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       return;
                     }
                     
-                    // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
-                    // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
-                    final result = await _apiService.startServicePending(bookingId);
+                    // Oficina inicia direto; cliente recebe notificação
+                    final result = await _apiService.startService(bookingId);
                     
                     if (!mounted) return;
                     
@@ -985,7 +984,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       await _loadBookingDetails();
                       _showSnackBar(
                         const SnackBar(
-                          content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+                          content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
                           backgroundColor: Colors.green,
                         ),
                       );

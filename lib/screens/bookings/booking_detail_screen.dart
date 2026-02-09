@@ -1977,15 +1977,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Você pode escolher qualquer uma das opções abaixo. Ambas são válidas e independentes:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isDarkMode ? Colors.grey[300] : Colors.green[800]!,
-                                        height: 1.5,
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -2435,7 +2426,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                                     const SizedBox(height: 8),
                                                     Text(
                                                       hasCheckIn
-                                                          ? 'Ao iniciar, o cliente receberá uma notificação para confirmar.'
+                                                          ? 'Ao iniciar, o cliente receberá uma notificação de que o serviço começou.'
                                                           : 'Disponível após o check-in do veículo.',
                                                       style: TextStyle(
                                                         fontSize: 13,
@@ -2503,20 +2494,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                                                           ),
                                                                           const SizedBox(height: 12),
                                                                           _buildInfoItem(
-                                                                            'O serviço ficará pendente aguardando confirmação do cliente',
-                                                                            Icons.pending_actions,
-                                                                            isDarkMode,
-                                                                          ),
-                                                                          const SizedBox(height: 8),
-                                                                          _buildInfoItem(
-                                                                            'O cliente receberá uma notificação para confirmar',
+                                                                            'O cliente receberá uma notificação de que o serviço começou',
                                                                             Icons.notifications,
-                                                                            isDarkMode,
-                                                                          ),
-                                                                          const SizedBox(height: 8),
-                                                                          _buildInfoItem(
-                                                                            'Após a confirmação, o serviço será iniciado oficialmente',
-                                                                            Icons.check_circle_outline,
                                                                             isDarkMode,
                                                                           ),
                                                                           const SizedBox(height: 8),
@@ -2561,7 +2540,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
 
                                                                   if (confirm != true) return;
 
-                                                                  final result = await _apiService.startServicePending(bookingId);
+                                                                  final result = await _apiService.startService(bookingId);
 
                                                                   if (!mounted) return;
 
@@ -2569,7 +2548,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                                                     await _loadBookingDetails(forceRefresh: true);
                                                                     _showSnackBar(
                                                                       const SnackBar(
-                                                                        content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+                                                                        content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
                                                                         backgroundColor: Colors.green,
                                                                         duration: Duration(seconds: 3),
                                                                       ),
@@ -2673,8 +2652,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                 return;
                               }
                               
-                              // IMPORTANTE: Sempre usar startServicePending para aguardar confirmação do cliente
-                              final result = await _apiService.startServicePending(bookingId);
+                              // Oficina inicia direto; cliente recebe notificação
+                              final result = await _apiService.startService(bookingId);
                               
                               if (!mounted) return;
                               
@@ -2682,7 +2661,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                 await _loadBookingDetails(forceRefresh: true);
                                 _showSnackBar(
                                   const SnackBar(
-                                    content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+                                    content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
                                     backgroundColor: Colors.green,
                                   ),
                                 );

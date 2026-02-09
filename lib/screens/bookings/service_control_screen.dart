@@ -584,14 +584,14 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
     });
 
     try {
-      // IMPORTANTE: Usar startServicePending para aguardar confirmação do cliente
-      final result = await _apiService.startServicePending(widget.bookingId);
+      // Oficina inicia direto; cliente só recebe notificação
+      final result = await _apiService.startService(widget.bookingId);
       
       if (result['success']) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Serviço iniciado! Aguardando confirmação do cliente.'),
+            content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
             backgroundColor: Color(0xFF00C977),
           ),
         );

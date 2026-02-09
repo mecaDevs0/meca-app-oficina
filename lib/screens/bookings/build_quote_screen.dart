@@ -286,26 +286,43 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.isEditMode ? '⚠️ EDITAR Orçamento Durante Serviço' : 'Montar Orçamento',
+                              widget.isEditMode ? '' : 'Montar Orçamento',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: widget.isEditMode ? Colors.orange.shade900 : Colors.orange,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.isFinishMode
-                                  ? 'Orçamento final após conclusão do serviço'
-                                  : widget.isEditMode
-                                      ? '⚠️ ATENÇÃO: Ao alterar o orçamento, o serviço será PAUSADO e o cliente precisará aprovar o novo valor. Se rejeitado, o orçamento anterior será restaurado automaticamente.'
-                                      : 'Adicione os itens do serviço e o valor do diagnóstico (opcional)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: widget.isEditMode ? Colors.orange.shade800 : Colors.grey[600],
-                                fontWeight: widget.isEditMode ? FontWeight.w600 : FontWeight.normal,
-                              ),
-                            ),
+                            if (!widget.isEditMode) const SizedBox(height: 4),
+                            widget.isEditMode
+                                ? RichText(
+                                    text: TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange.shade800,
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                      children: const [
+                                        TextSpan(
+                                          text: 'ATENÇÃO: ',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        TextSpan(
+                                          text: 'Ao alterar o orçamento, o serviço será PAUSADO e o cliente precisará aprovar o novo valor. Se rejeitado, o orçamento anterior será restaurado automaticamente.',
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Text(
+                                    widget.isFinishMode
+                                        ? 'Orçamento final após conclusão do serviço'
+                                        : 'Adicione os itens do serviço e o valor do diagnóstico (opcional)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.normal,
+                                    ),
+                                  ),
                           ],
                         ),
                       ),
