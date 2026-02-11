@@ -685,213 +685,65 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
+  /// Card de status: apenas uma frase curta e didática (sem título/subtítulo). Menos texto = app mais simples.
   Widget _buildStatusInfoCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinalRaw) {
-    // CRITICAL: Verificar se é início de serviço (service_start_pending = true e não há orçamento)
-    // Se for, corrigir status para aguardando_autorizacao_inicio
     final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
     final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
-                    (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
-    
-    // Se é início de serviço sem orçamento, forçar status correto
+        (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
     final statusFinal = (serviceStartPending && !hasQuote && (statusFinalRaw == 'pendente_cliente' || statusFinalRaw == 'pending_customer'))
         ? 'aguardando_autorizacao_inicio'
         : statusFinalRaw;
-    
-    String title = '';
-    String description = '';
-    String nextStep = '';
-    IconData icon = Icons.info;
-    Color cardColor = Colors.blue.shade50;
-    Color borderColor = Colors.blue.shade200;
-    Color iconColor = Colors.blue.shade700;
-    
+
+    String phrase = '';
     if (statusFinal == 'pending' || statusFinal == 'pendente_oficina' || statusFinal == 'pendente') {
-      title = 'Aguardando Sua Aprovação';
-      description = 'O cliente solicitou este agendamento. Você precisa aprovar, recusar ou sugerir um novo horário.';
-      nextStep = 'Use os botões abaixo para responder ao cliente.';
-      icon = Icons.pending_actions;
-      cardColor = Colors.orange.shade50;
-      borderColor = Colors.orange.shade200;
-      iconColor = Colors.orange.shade700;
+      phrase = 'O cliente solicitou. Aprove, recuse ou sugira outro horário.';
     } else if (statusFinal == 'confirmado' || statusFinal == 'confirmed') {
-      title = 'Agendamento Confirmado';
-      description = 'Você confirmou este agendamento. Agora você pode enviar um orçamento inicial ou iniciar o serviço diretamente.';
-      nextStep = 'Escolha uma opção abaixo: enviar orçamento ou iniciar serviço.';
-      icon = Icons.check_circle;
-      cardColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      iconColor = Colors.blue.shade700;
+      phrase = 'Escolha como deseja prosseguir.';
     } else if (statusFinal == 'aguardando_aprovacao_orcamento' || statusFinal == 'awaiting_quote_approval' || statusFinal == 'pendente_cliente') {
-      // Estado explícito: aguardando aprovação de orçamento (compatibilidade com estado antigo)
-      // CRITICAL: Verificar PRIMEIRO se é início de serviço (service_start_pending = true e não há orçamento)
-      final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
-      final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
-                      (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
-      
-      // CRITICAL: Se service_start_pending = true e não há orçamento, é início de serviço (NÃO é orçamento)
-      // NÃO mostrar mensagem de orçamento neste caso
       if (serviceStartPending && !hasQuote) {
-        // É início de serviço, não orçamento
-        title = 'Aguardando Confirmação do Cliente';
-        description = 'Você iniciou o serviço. O cliente precisa confirmar o início antes de prosseguir.';
-        nextStep = 'Aguarde o cliente confirmar o início do serviço. Você receberá uma notificação.';
-        icon = Icons.play_circle_outline;
-        cardColor = Colors.blue.shade50;
-        borderColor = Colors.blue.shade200;
-        iconColor = Colors.blue.shade700;
+        phrase = 'Você iniciou o serviço. Aguarde o cliente confirmar.';
       } else if (hasQuote) {
-        // É orçamento pendente (há orçamento válido)
-        title = 'Aguardando Aprovação do Cliente';
-        description = 'Você enviou um orçamento. O cliente precisa aprovar antes de prosseguir.';
-        nextStep = 'Aguarde o cliente aprovar o orçamento. Você receberá uma notificação.';
-        icon = Icons.hourglass_empty;
-        cardColor = Colors.amber.shade50;
-        borderColor = Colors.amber.shade200;
-        iconColor = Colors.amber.shade800;
+        phrase = 'Orçamento enviado. Aguarde a aprovação do cliente.';
       } else {
-        // Status é pendente_cliente mas não há orçamento nem service_start_pending
-        // Pode ser sugestão de horário ou outro caso
-        title = 'Aguardando Ação do Cliente';
-        description = 'Aguardando resposta do cliente.';
-        nextStep = 'Aguarde a resposta do cliente.';
-        icon = Icons.hourglass_empty;
-        cardColor = Colors.amber.shade50;
-        borderColor = Colors.amber.shade200;
-        iconColor = Colors.amber.shade800;
+        phrase = 'Aguarde a resposta do cliente.';
       }
     } else if (statusFinal == 'aguardando_autorizacao_inicio' || statusFinal == 'awaiting_service_start') {
-      // Estado explícito: aguardando autorização de início de serviço
-      title = 'Aguardando Confirmação do Cliente';
-      description = 'Você iniciou o serviço. O cliente precisa confirmar o início antes de prosseguir.';
-      nextStep = 'Aguarde o cliente confirmar o início do serviço. Você receberá uma notificação.';
-      icon = Icons.play_circle_outline;
-      cardColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      iconColor = Colors.blue.shade700;
+      phrase = 'Você iniciou o serviço. Aguarde o cliente confirmar.';
     } else if (statusFinal == 'veiculo_na_oficina' || statusFinal == 'vehicle_at_workshop') {
-      // Estado explícito: veículo está na oficina (check-in realizado)
-      title = 'Veículo na Oficina';
-      description = 'O veículo está na oficina e pronto para atendimento.';
-      nextStep = 'Você pode iniciar o serviço ou enviar um orçamento prévio.';
-      icon = Icons.local_parking;
-      cardColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      iconColor = Colors.blue.shade700;
+      phrase = 'Veículo na oficina. Inicie o serviço ou envie orçamento.';
     } else if (statusFinal == 'aguardando_aprovacao_finalizacao' || statusFinal == 'awaiting_finalization_approval') {
-      // Estado explícito: aguardando aprovação da finalização
-      title = 'Aguardando Aprovação da Finalização';
-      description = 'Você finalizou o serviço e enviou o orçamento final. Aguardando aprovação do cliente.';
-      nextStep = 'O cliente precisa aprovar a finalização para liberar o pagamento.';
-      icon = Icons.check_circle_outline;
-      cardColor = Colors.cyan.shade50;
-      borderColor = Colors.cyan.shade200;
-      iconColor = Colors.cyan.shade700;
+      phrase = 'Aguarde o cliente aprovar a finalização.';
     } else if (statusFinal == 'em_disputa' || statusFinal == 'in_dispute') {
-      // Estado explícito: em disputa
-      title = 'Serviço em Disputa';
-      description = 'Há uma pendência que precisa ser resolvida com o cliente.';
-      nextStep = 'Entre em contato com o cliente para resolver a questão.';
-      icon = Icons.warning_amber_rounded;
-      cardColor = Colors.red.shade50;
-      borderColor = Colors.red.shade200;
-      iconColor = Colors.red.shade700;
+      phrase = 'Há uma pendência. Entre em contato com o cliente.';
     } else if (statusFinal == 'in_progress' || statusFinal == 'started' || statusFinal == 'em_andamento') {
-      title = 'Serviço em Andamento';
-      description = 'Você iniciou o atendimento. O serviço está sendo realizado agora.';
-      nextStep = 'Quando finalizar, clique em "Concluir Serviço" para enviar o orçamento final.';
-      icon = Icons.build_circle;
-      cardColor = Colors.green.shade50;
-      borderColor = Colors.green.shade200;
-      iconColor = Colors.green.shade700;
+      phrase = 'Serviço em andamento. Ao finalizar, envie o orçamento final.';
     } else if (statusFinal == 'finalizado_aguardando_pagamento' || statusFinal == 'finalizado') {
-      title = 'Aguardando Pagamento';
-      description = 'O serviço foi finalizado e o cliente aprovou o orçamento. Aguardando pagamento.';
-      nextStep = 'O cliente realizará o pagamento. Você será notificado quando o pagamento for confirmado.';
-      icon = Icons.payments;
-      cardColor = Colors.cyan.shade50;
-      borderColor = Colors.cyan.shade200;
-      iconColor = Colors.cyan.shade700;
+      phrase = 'Serviço finalizado. Aguardando pagamento do cliente.';
     } else if (statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') {
-      title = 'Pagamento Confirmado';
-      description = 'O pagamento foi realizado com sucesso! O serviço está concluído.';
-      nextStep = 'O cliente pode avaliar o serviço. Verifique o pagamento na sua conta PagBank.';
-      icon = Icons.done_all;
-      cardColor = Colors.green.shade50;
-      borderColor = Colors.green.shade200;
-      iconColor = Colors.green.shade700;
+      phrase = 'Pagamento confirmado. Serviço concluído.';
     }
-    
+    if (phrase.isEmpty) return const SizedBox.shrink();
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isDarkMode ? cardColor.withOpacity(0.1) : cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.5),
+        color: isDarkMode ? Colors.white.withOpacity(0.06) : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDarkMode ? Colors.blue.shade700 : Colors.blue.shade200,
+          width: 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : iconColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
-              height: 1.4,
-            ),
-          ),
-          if (nextStep.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.arrow_forward, size: 16, color: iconColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      nextStep,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: iconColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+      child: Text(
+        phrase,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+          height: 1.35,
+        ),
       ),
     );
   }

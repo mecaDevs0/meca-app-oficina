@@ -1729,12 +1729,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       ),
                       _buildFaqItem(
                         title: 'Taxa MECA',
-                        body: 'A MECA cobra 7% em cada pagamento (split automático).',
+                        body: 'A MECA cobra 12% em cada pagamento (split automático). A MECA arca com 100% das taxas PagBank; você não é descontado pelas taxas do gateway.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
                         title: 'Como o dinheiro cai para a oficina?',
-                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 7% vai para a MECA e o restante cai na conta PagBank da oficina.',
+                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 12% vai para a MECA e 88% cai na sua conta PagBank. A MECA assume todas as taxas do PagBank.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(

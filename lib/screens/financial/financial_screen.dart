@@ -107,6 +107,45 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                 color: secondaryTextColor,
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: cardBorderColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: cardBorderColor.withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.verified_user, color: cardBorderColor, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'A MECA arca com 100% das taxas PagBank',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: textColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Você opera normalmente e recebe 88% do valor. Taxa MECA: 12%.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: secondaryTextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -196,20 +235,6 @@ class _FinancialScreenState extends State<FinancialScreen> {
         'color': const Color(0xFF2563EB),
         'subtitle': 'Somatório dos pagamentos aprovados',
       },
-      {
-        'title': 'Taxas MECA',
-        'value': totals['meca_fee'],
-        'icon': Icons.fact_check,
-        'color': const Color(0xFF8B5CF6),
-        'subtitle': 'Comissão da plataforma',
-      },
-      {
-        'title': 'Taxas PagBank',
-        'value': totals['pagbank_fee'],
-        'icon': Icons.account_balance,
-        'color': const Color(0xFFF59E0B),
-        'subtitle': 'Custos de processamento',
-      },
     ];
 
     return Column(
@@ -243,41 +268,6 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   textColor: textColor,
                   secondaryTextColor: secondaryTextColor,
                   subtitle: summaryItems[1]['subtitle'] as String,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _buildFinancialCard(
-                  title: summaryItems[2]['title'] as String,
-                  amount: summaryItems[2]['value'],
-                  icon: summaryItems[2]['icon'] as IconData,
-                  color: summaryItems[2]['color'] as Color,
-                  cardColor: cardColor,
-                  borderColor: borderColor,
-                  textColor: textColor,
-                  secondaryTextColor: secondaryTextColor,
-                  subtitle: summaryItems[2]['subtitle'] as String,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildFinancialCard(
-                  title: summaryItems[3]['title'] as String,
-                  amount: summaryItems[3]['value'],
-                  icon: summaryItems[3]['icon'] as IconData,
-                  color: summaryItems[3]['color'] as Color,
-                  cardColor: cardColor,
-                  borderColor: borderColor,
-                  textColor: textColor,
-                  secondaryTextColor: secondaryTextColor,
-                  subtitle: summaryItems[3]['subtitle'] as String,
                 ),
               ),
             ],

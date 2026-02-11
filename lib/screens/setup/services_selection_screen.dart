@@ -16,6 +16,8 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
   late AnimationController _animationController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  /// ID do serviço em animação de remoção (feedback visual)
+  String? _removingServiceId;
 
   @override
   void initState() {
@@ -24,8 +26,12 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ServicesProvider>(context, listen: false).loadMasterServices();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = Provider.of<ServicesProvider>(context, listen: false);
+      await provider.loadMyServices();
+      if (!mounted) return;
+      await provider.loadMasterServices();
+      if (!mounted) return;
       _showInfoDialog();
     });
   }
@@ -489,12 +495,14 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                           itemBuilder: (context, index) {
                             final service = filteredServices[index];
                             final isSelected = servicesProvider.isServiceSelected(service['id']);
+                            final serviceIdStr = service['id']?.toString() ?? '';
 
                             return _buildServiceCard(
                               service: service,
                               isSelected: isSelected,
                               servicesProvider: servicesProvider,
                               isDark: isDark,
+                              isRemoving: _removingServiceId == serviceIdStr,
                             );
                           },
                         ),
@@ -569,142 +577,191 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
     required bool isSelected,
     required ServicesProvider servicesProvider,
     required bool isDark,
+    bool isRemoving = false,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+    final serviceIdStr = service['id']?.toString() ?? '';
+
+    return AnimatedScale(
+      scale: isRemoving ? 0.97 : 1.0,
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeInOut,
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade800 : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected
-              ? AppColors.primary
-              : (isDark ? Colors.grey.shade700 : Colors.grey.shade200),
-          width: isSelected ? 2 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected
-                ? AppColors.primary.withOpacity(0.2)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: isSelected ? 20 : 10,
-            offset: const Offset(0, 4),
+      child: AnimatedOpacity(
+        opacity: isRemoving ? 0.85 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey.shade800 : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primary
+                  : (isDark ? Colors.grey.shade700 : Colors.grey.shade200),
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? AppColors.primary.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.05),
+                blurRadius: isSelected ? 20 : 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () async {
-            if (isSelected) {
-              await servicesProvider.removeService(service['id']);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Serviço removido'),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              }
-            } else {
-              final serviceTitle = (service['name'] ?? service['title'] ?? 'Serviço').toString();
-              final config = await _showServiceConfigDialog(context, serviceTitle);
-              if (mounted && config != null) {
-                await servicesProvider.addService(
-                  service['id'],
-                  price: config.price,
-                  duration: config.duration,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
+                if (isSelected) {
+                  setState(() => _removingServiceId = serviceIdStr);
+                  await servicesProvider.removeService(service['id']);
+                  if (!mounted) return;
+                  setState(() => _removingServiceId = null);
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (!mounted) return;
+                    setState(() {});
+                  });
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                        config.price != null || config.duration != null
-                            ? 'Serviço adicionado com sucesso!'
-                            : 'Serviço adicionado (sem preço/duração definidos).',
-                      ),
-                      backgroundColor: Colors.green,
+                      content: const Text('Serviço removido'),
+                      backgroundColor: Colors.red.shade700,
                       behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 4),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      action: SnackBarAction(
+                        label: 'Desfazer',
+                        textColor: Colors.white,
+                        onPressed: () async {
+                          await servicesProvider.addService(serviceIdStr);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Serviço restaurado'),
+                                backgroundColor: Colors.green.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     ),
                   );
-                }
-              }
-            }
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                // Checkbox
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary : Colors.transparent,
-                    border: Border.all(
-                      color: isSelected 
-                          ? AppColors.primary 
-                          : (isDark ? Colors.grey.shade500 : Colors.grey.shade400),
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: isSelected
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        service['name'] ?? service['title'] ?? 'Serviço',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      if (service['description'] != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          service['description'],
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                            height: 1.4,
+                } else {
+                  final serviceTitle = (service['name'] ?? service['title'] ?? 'Serviço').toString();
+                  final config = await _showServiceConfigDialog(context, serviceTitle);
+                  if (mounted && config != null) {
+                    await servicesProvider.addService(
+                      service['id'],
+                      price: config.price,
+                      duration: config.duration,
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            config.price != null || config.duration != null
+                                ? 'Serviço adicionado com sucesso!'
+                                : 'Serviço adicionado (sem preço/duração definidos).',
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          backgroundColor: Colors.green.shade700,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ],
-                    ],
-                  ),
+                      );
+                    }
+                  }
+                }
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    // Checkbox com transição suave (reflete estado na hora)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : Colors.transparent,
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                key: ValueKey<String>('check'),
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : const SizedBox(key: ValueKey<String>('empty'), width: 28, height: 28),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            service['name'] ?? service['title'] ?? 'Serviço',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.3,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          if (service['description'] != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              service['description'],
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                height: 1.4,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Arrow
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+                      size: 24,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                // Arrow
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
-                  size: 24,
-                ),
-              ],
+              ),
             ),
           ),
         ),

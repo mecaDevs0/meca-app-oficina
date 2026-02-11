@@ -1446,149 +1446,46 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
+  /// Card de status: apenas uma frase curta e didática (sem título/subtítulo). Menos texto = app mais simples.
   Widget _buildStatusInfoCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal) {
-    String title = '';
-    String description = '';
-    String nextStep = '';
-    IconData icon = Icons.info;
-    Color cardColor = Colors.blue.shade50;
-    Color borderColor = Colors.blue.shade200;
-    Color iconColor = Colors.blue.shade700;
-    
+    String phrase = '';
     if (statusFinal == 'pending' || statusFinal == 'pendente_oficina' || statusFinal == 'pendente') {
-      title = 'Aguardando Sua Aprovação';
-      description = 'O cliente solicitou este agendamento. Você precisa aprovar, recusar ou sugerir um novo horário.';
-      nextStep = 'Use os botões abaixo para responder ao cliente.';
-      icon = Icons.pending_actions;
-      cardColor = Colors.orange.shade50;
-      borderColor = Colors.orange.shade200;
-      iconColor = Colors.orange.shade700;
+      phrase = 'O cliente solicitou. Aprove, recuse ou sugira outro horário.';
     } else if (statusFinal == 'confirmado' || statusFinal == 'confirmed') {
-      title = 'Agendamento Confirmado ✓';
-      description = 'Ótimo! Você aprovou este agendamento. Agora você pode escolher como deseja prosseguir.';
-      nextStep = 'Escolha uma das opções abaixo: enviar orçamento prévio ou iniciar o serviço e orçar depois. Ambas são válidas!';
-      icon = Icons.check_circle;
-      cardColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      iconColor = Colors.blue.shade700;
+      phrase = 'Escolha como deseja prosseguir.';
     } else if (statusFinal == 'pendente_cliente') {
-      title = 'Aguardando Aprovação do Cliente ⏳';
-      description = 'Você enviou o orçamento! Agora é a vez do cliente analisar e aprovar o valor.';
-      nextStep = '⏰ Aguarde a aprovação do cliente. Quando ele aprovar, você receberá uma notificação e poderá iniciar o serviço.';
-      icon = Icons.hourglass_empty;
-      cardColor = Colors.amber.shade50;
-      borderColor = Colors.amber.shade200;
-      iconColor = Colors.amber.shade800;
+      phrase = 'Orçamento enviado. Aguarde a aprovação do cliente.';
     } else if (statusFinal == 'in_progress' || statusFinal == 'started' || statusFinal == 'em_andamento') {
-      title = 'Serviço em Andamento 🔧';
-      description = 'O serviço está sendo realizado. Continue trabalhando normalmente.';
-      nextStep = '💡 IMPORTANTE: Se durante o serviço você descobrir que precisa alterar o orçamento (aumentar ou diminuir o valor), use o botão "Editar Orçamento" abaixo. Você DEVE explicar claramente o motivo da mudança para o cliente, que precisará aprovar o novo valor antes de continuar.';
-      icon = Icons.build_circle;
-      cardColor = Colors.green.shade50;
-      borderColor = Colors.green.shade200;
-      iconColor = Colors.green.shade700;
+      phrase = 'Serviço em andamento. Use "Editar orçamento" se precisar alterar o valor.';
     } else if (statusFinal == 'finalizado_aguardando_pagamento' || statusFinal == 'finalizado') {
-      title = 'Aguardando Pagamento';
-      description = 'O serviço foi finalizado e o cliente aprovou o orçamento. Aguardando pagamento.';
-      nextStep = 'O cliente realizará o pagamento. Você será notificado quando o pagamento for confirmado.';
-      icon = Icons.payments;
-      cardColor = Colors.cyan.shade50;
-      borderColor = Colors.cyan.shade200;
-      iconColor = Colors.cyan.shade700;
+      phrase = 'Serviço finalizado. Aguardando pagamento do cliente.';
     } else if (statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') {
-      title = 'Pagamento Confirmado';
-      description = 'O pagamento foi realizado com sucesso! O serviço está concluído.';
-      nextStep = 'O cliente pode avaliar o serviço. Verifique o pagamento na sua conta PagBank.';
-      icon = Icons.done_all;
-      cardColor = Colors.green.shade50;
-      borderColor = Colors.green.shade200;
-      iconColor = Colors.green.shade700;
+      phrase = 'Pagamento confirmado. Serviço concluído.';
     } else if (statusFinal == 'aguardando_aprovacao_finalizacao' || statusFinal == 'awaiting_finalization_approval') {
-      title = 'Aguardando Aprovação da Finalização';
-      description = 'O serviço foi finalizado e o orçamento de finalização foi enviado ao cliente.';
-      nextStep = 'Aguarde o cliente aprovar a finalização. Não há ações para você neste momento.';
-      icon = Icons.hourglass_empty;
-      cardColor = Colors.blue.shade50;
-      borderColor = Colors.blue.shade200;
-      iconColor = Colors.blue.shade700;
+      phrase = 'Aguarde o cliente aprovar a finalização.';
     }
-    
-    // Não exibir card se não houver conteúdo para este status (evita card vazio com só ícone)
-    if (title.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
+    if (phrase.isEmpty) return const SizedBox.shrink();
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: isDarkMode ? cardColor.withOpacity(0.1) : cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: 1.5),
+        color: isDarkMode ? Colors.white.withOpacity(0.06) : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDarkMode ? Colors.blue.shade700 : Colors.blue.shade200,
+          width: 1,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : iconColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
-              height: 1.4,
-            ),
-          ),
-          if (nextStep.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.arrow_forward, size: 16, color: iconColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      nextStep,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: iconColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+      child: Text(
+        phrase,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+          height: 1.35,
+        ),
       ),
     );
   }
@@ -2217,7 +2114,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
                                   decoration: BoxDecoration(
                                     color: isDarkMode ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
                                     borderRadius: const BorderRadius.only(
@@ -2226,7 +2123,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                     ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       Text(
                                         'Inicie o serviço agora e envie o orçamento ao finalizar',

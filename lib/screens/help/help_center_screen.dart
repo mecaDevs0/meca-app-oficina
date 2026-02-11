@@ -26,7 +26,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
         _FaqItem(
           'O que é a taxa MECA?',
-          'A MECA cobra 7% em cada pagamento recebido pelo app. O valor é descontado automaticamente no split: o cliente paga, 7% vai para a MECA e o restante cai na sua conta PagBank.',
+          'A MECA cobra 12% em cada pagamento (split automático). A MECA arca com 100% das taxas PagBank; você opera normalmente e recebe 88% do valor. Não há desconto de taxas do gateway para a oficina.',
         ),
         _FaqItem(
           'PagBank conectado mas não atualizou',

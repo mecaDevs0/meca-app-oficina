@@ -26,22 +26,33 @@ class ApiService {
     
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // Sempre garantir que o token está carregado
         if (_token == null || _token!.isEmpty) {
           await loadToken();
         }
-        
-        // Adicionar token ao header se disponível
         if (_token != null && _token!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_token';
         }
-        
         return handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
-          // Limpar token inválido
           saveToken('');
+        }
+        // Retry único para GET em erro de rede/timeout (reduz travamento em rede instável)
+        final isRetryable = error.requestOptions.extra['_retry'] != true &&
+            (error.type == DioExceptionType.connectionTimeout ||
+                error.type == DioExceptionType.receiveTimeout ||
+                error.type == DioExceptionType.connectionError) &&
+            error.requestOptions.method == 'GET';
+        if (isRetryable) {
+          error.requestOptions.extra['_retry'] = true;
+          await Future.delayed(const Duration(milliseconds: 800));
+          try {
+            final response = await _dio.fetch(error.requestOptions);
+            return handler.resolve(response);
+          } catch (e) {
+            return handler.next(error);
+          }
         }
         return handler.next(error);
       },

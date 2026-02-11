@@ -136,26 +136,46 @@ class ServicesProvider extends ChangeNotifier {
   }
   
   Future<void> removeService(String serviceId) async {
+    final serviceIdStr = serviceId.toString();
+    if (serviceIdStr.isEmpty) return;
+
+    // Backup para rollback em caso de falha
+    final previousList = List<Map<String, dynamic>>.from(_myServices);
+
+    // Atualização otimista: remove da lista e notifica para o checkbox refletir na hora
+    _myServices.removeWhere((ws) {
+      final sid = ws['service_id']?.toString();
+      final id = ws['id']?.toString();
+      return sid == serviceIdStr || id == serviceIdStr;
+    });
+    notifyListeners();
+
     try {
       final workshopId = await _apiService.getWorkshopId();
-      if (workshopId == null) return;
-      
+      if (workshopId == null) {
+        _myServices = previousList;
+        notifyListeners();
+        return;
+      }
+
       if (kDebugMode) {
         print('➖ Removendo serviço: serviceId=$serviceId');
       }
-      
-      // Remover serviço do workshop
-      final result = await _apiService.removeServiceFromWorkshop(workshopId, serviceId);
-      
+
+      final result = await _apiService.removeServiceFromWorkshop(workshopId, serviceIdStr);
+
       if (result['success']) {
-        if (kDebugMode) print('✅ Serviço removido com sucesso, recarregando lista...');
-        await loadMyServices();
+        if (kDebugMode) print('✅ Serviço removido com sucesso');
+        // Manter estado otimista; não chamar loadMyServices() aqui para evitar
+        // resposta atrasada/cache sobrescrevendo e checkbox voltar a aparecer
       } else {
         if (kDebugMode) print('❌ Erro ao remover serviço: ${result['error']}');
+        _myServices = previousList;
         notifyListeners();
       }
     } catch (e) {
       if (kDebugMode) print('❌ Exceção ao remover serviço: $e');
+      _myServices = previousList;
       notifyListeners();
     }
   }

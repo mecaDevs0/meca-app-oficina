@@ -285,14 +285,15 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.isEditMode ? '' : 'Montar Orçamento',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: widget.isEditMode ? Colors.orange.shade900 : Colors.orange,
+                            if (!widget.isEditMode)
+                              Text(
+                                'Montar Orçamento',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
                               ),
-                            ),
                             if (!widget.isEditMode) const SizedBox(height: 4),
                             widget.isEditMode
                                 ? RichText(
@@ -308,7 +309,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                           style: TextStyle(fontWeight: FontWeight.bold),
                                         ),
                                         TextSpan(
-                                          text: 'Ao alterar o orçamento, o serviço será PAUSADO e o cliente precisará aprovar o novo valor. Se rejeitado, o orçamento anterior será restaurado automaticamente.',
+                                          text: 'Ao alterar o orçamento, o serviço será pausado e o cliente precisará aprovar o novo valor. Se rejeitado, o orçamento anterior será restaurado.',
                                         ),
                                       ],
                                     ),
