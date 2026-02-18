@@ -1,28 +1,23 @@
-# Meca Oficina – Release notes (App Store / Google Play)
-
-**Version:** 2.1.7 (217)
-
----
+# Meca Oficina — Release notes for stores
 
 ## Notes for reviewers (English)
 
-- This update includes improvements to the workshop dashboard, installment configuration, and booking details (vehicle info from API). No new permissions or sensitive data collection. All changes are backward compatible with our existing API.
-- **Testing:** You can log in with a workshop account to see appointments, financials, and configuration. No special reviewer credentials are required beyond a normal workshop account.
+- **App name:** Meca Oficina  
+- **Version:** 2.1.7 (217)  
+- **Purpose:** Management app for automotive workshops: appointments, services, payments, and customer communication.  
+- **Login:** Uses email/password and optional Apple Sign-In. No sensitive data is stored on device beyond session tokens.  
+- **Permissions:** Camera and photo library for service photos; location for workshop map; Face ID for faster Apple login.  
+- **Payments:** In-app payments go through PagBank (acquirer). No card data is stored in the app.  
+- **Data:** User and workshop data are stored on our servers; the app is the client interface only.
 
 ---
 
-## O que há de novo (Português – Brasil)
+## O que há de novo / What's new
 
-- **Parcelamento:** Configuração de parcelas e valores mínimos por parcela na área da oficina.
-- **Indicação de oficinas:** Programa de indicação acessível pelo perfil.
-- **Detalhe do agendamento:** Dados do veículo (marca, modelo, placa) exibidos no card do agendamento, vindos da API.
-- Ajustes de interface e estabilidade.
+**Português (Brasil):**  
+- Ajustes e melhorias de estabilidade.  
+- Melhorias na tela de parcelamento e na exibição dos dados do veículo no agendamento.
 
----
-
-## What's new (English)
-
-- **Installments:** Configure installments and minimum amount per installment in the workshop area.
-- **Workshop referral:** Referral program available in the profile section.
-- **Booking detail:** Vehicle info (brand, model, plate) shown in the booking card, from the API.
-- UI and stability improvements.
+**English:**  
+- Stability improvements and bug fixes.  
+- Improvements to the installments screen and vehicle data display on the booking detail.
