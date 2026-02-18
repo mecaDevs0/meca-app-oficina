@@ -20,6 +20,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/insights/insights_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/profile/referral_screen.dart';
 import 'screens/schedule/schedule_screen.dart';
 import 'screens/service/service_details_screen.dart';
 import 'screens/splash_screen.dart';
@@ -159,6 +160,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.fade(const FinancialScreen());
           case '/profile':
             return PageTransitions.fade(const ProfileScreen());
+          case '/referrals':
+            return PageTransitions.slideFromRight(const ReferralScreen());
           case '/config/agenda':
             return PageTransitions.slideFromRight(const AgendaConfigScreen());
           case '/config/bank':

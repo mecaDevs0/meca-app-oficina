@@ -1,6 +1,6 @@
 name: meca_app_oficina
 description: MECA - App da Oficina para gestão de agendamentos
-version: 2.1.6+216
+version: 2.1.7+217
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

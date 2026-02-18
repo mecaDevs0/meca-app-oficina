@@ -21,7 +21,27 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   final ApiService _apiService = ApiService();
   bool _loading = false;
   String _accountType = 'corrente';
-  bool _acceptsInstallment = false;
+  bool _acceptsInstallment = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInstallmentPreference();
+  }
+
+  Future<void> _loadInstallmentPreference() async {
+    try {
+      final res = await _apiService.getWorkshopProfile();
+      if (res['success'] == true && res['data'] != null) {
+        final workshop = res['data']['workshop'] ?? res['data'];
+        if (mounted) {
+          setState(() {
+            _acceptsInstallment = workshop['accepts_installment'] ?? true;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _saveBankDetails() async {
     if (!_formKey.currentState!.validate()) return;
@@ -267,7 +287,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'MECA gerencia automaticamente as configurações de parcelamento. Você receberá o valor total do serviço.',
+                              'MECA gerencia automaticamente as configurações de parcelamento. Você receberá o valor total do serviço. Para definir o máximo de parcelas, use Perfil → Parcelamento.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue[800],

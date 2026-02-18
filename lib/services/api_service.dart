@@ -218,6 +218,10 @@ class ApiService {
         'latitude': null, // Será calculado via CEP ou geolocalização
         'longitude': null, // Será calculado via CEP ou geolocalização
       };
+      final referralCode = data['referral_code']?.toString().trim();
+      if (referralCode != null && referralCode.isNotEmpty) {
+        requestData['referral_code'] = referralCode;
+      }
       
       // Validar campos obrigatórios
       if (requestData['email']!.isEmpty || 
@@ -241,6 +245,9 @@ class ApiService {
       print('  - state: ${requestData['state']}');
       print('  - cep: ${requestData['cep']}');
       print('  - password length: ${requestData['password']?.length ?? 0}');
+      if (requestData['referral_code'] != null) {
+        print('  - referral_code: ${requestData['referral_code']}');
+      }
       
       final response = await _dio.post('/auth/workshop/register', data: requestData);
       
@@ -1401,6 +1408,21 @@ class ApiService {
         'success': true,
         'data': response.data['data'] ?? response.data,
       };
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /workshop/referrals - Programa Indique e Ganhe (código, contagem, taxa atual)
+  Future<Map<String, dynamic>> getReferrals() async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/workshop/referrals');
+      final raw = response.data;
+      if (raw == null || raw['success'] != true) {
+        return {'success': false, 'error': raw?['error'] ?? 'Erro ao carregar indicações'};
+      }
+      return {'success': true, 'data': raw['data'] ?? raw};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

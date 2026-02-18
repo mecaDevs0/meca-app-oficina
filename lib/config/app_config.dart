@@ -39,7 +39,7 @@ class AppConfig {
   /// Chave pública PagBank
   static const String pagBankPublicKey = 'YOUR_PUBLIC_KEY_HERE'; // TODO: Adicionar chave real
   
-  /// Taxa da plataforma MECA (12%). A MECA arca com 100% das taxas PagBank; a oficina não é descontada.
+  /// Taxa da plataforma MECA (12%). O MECA arca com 100% das taxas PagBank; a oficina não é descontada.
   static const double mecaPlatformFee = 0.12; // 12%
   
   // ========================================

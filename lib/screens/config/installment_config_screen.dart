@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../config/app_config.dart';
@@ -29,361 +29,249 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
 
   Future<void> _loadInstallmentConfig() async {
     setState(() => _isLoading = true);
-    
     try {
       final token = await StorageService.getToken();
       if (token == null) {
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
-
       await _apiService.loadToken();
-      
-      // Carregar configuração atual da oficina
       final response = await _apiService.getWorkshopProfile();
-      if (response['success']) {
-        final workshop = response['data']['workshop'];
-        setState(() {
-          _acceptsInstallment = workshop['accepts_installment'] ?? true;
-          _maxInstallments = workshop['max_installments'] ?? 12;
-        });
+      if (response['success'] && response['data'] != null) {
+        final workshop = response['data']['workshop'] ?? response['data'] as Map<String, dynamic>?;
+        if (workshop != null) {
+          setState(() {
+            _acceptsInstallment = workshop['accepts_installment'] ?? true;
+            _maxInstallments = (workshop['max_installments'] is int)
+                ? (workshop['max_installments'] as int).clamp(1, 24)
+                : (int.tryParse(workshop['max_installments']?.toString() ?? '12') ?? 12).clamp(1, 24);
+          });
+        }
       }
-    } catch (e) {
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveInstallmentConfig() async {
     setState(() => _isSaving = true);
-    
     try {
       final response = await _apiService.updateWorkshopProfile({
         'accepts_installment': _acceptsInstallment,
         'max_installments': _maxInstallments,
       });
-      
+      if (!mounted) return;
       if (response['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuração de parcelamento atualizada!'),
-            backgroundColor: Color(0xFF00C977),
+          SnackBar(
+            content: const Text('Salvo'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro: ${response['error']}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao salvar: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final mecaFeePercent = AppConfig.mecaPlatformFee * 100;
-    final mecaFeeLabel = mecaFeePercent % 1 == 0
-        ? mecaFeePercent.toStringAsFixed(0)
-        : mecaFeePercent.toStringAsFixed(2);
-    final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    const exampleBaseAmount = 100.0;
-    final exampleMecaFee = exampleBaseAmount * AppConfig.mecaPlatformFee;
-    final exampleNetAmount = exampleBaseAmount - exampleMecaFee;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final mecaFeePercent = (AppConfig.mecaPlatformFee * 100).toStringAsFixed(0);
+    final surface = isDark ? const Color(0xFF161616) : Colors.white;
+    final onSurface = isDark ? Colors.white : const Color(0xFF1A1A);
+    final muted = isDark ? const Color(0xFF737373) : const Color(0xFF737373);
 
     return Consumer<ThemeService>(
-      builder: (context, themeService, child) {
+      builder: (context, themeService, _) {
         return Scaffold(
-          backgroundColor: themeService.isDarkMode 
-              ? const Color(0xFF0A0A0A) 
-              : const Color(0xFFFAFAFA),
+          backgroundColor: isDark ? const Color(0xFF0C0C0C) : const Color(0xFFF5F5F5),
           appBar: AppBar(
             title: const Text('Parcelamento'),
-            backgroundColor: themeService.isDarkMode 
-                ? const Color(0xFF0A0A0A) 
-                : const Color(0xFF00C977),
-            foregroundColor: Colors.white,
+            backgroundColor: isDark ? const Color(0xFF0C0C0C) : Colors.white,
+            foregroundColor: onSurface,
             elevation: 0,
+            scrolledUnderElevation: 0,
+            systemOverlayStyle: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
           ),
           body: _isLoading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
+                    color: theme.colorScheme.primary,
+                    strokeWidth: 2,
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: themeService.isDarkMode 
-                              ? const Color(0xFF1A1A1A) 
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.credit_card,
-                                  color: Color(0xFF00C977),
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Configuração de Parcelamento',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Configure como sua oficina aceita pagamentos parcelados',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: themeService.isDarkMode 
-                                    ? const Color(0xFF8B8B8B) 
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Configuração principal
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: themeService.isDarkMode 
-                              ? const Color(0xFF1A1A1A) 
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Aceitar Parcelamento',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
+                      // Card único: configuração
+                      Material(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(20),
+                        elevation: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: isDark ? Border.all(color: const Color(0xFF262626), width: 1) : null,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Toggle
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Aceitar parcelamento',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                            color: onSurface,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Permitir que clientes paguem em parcelas',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: themeService.isDarkMode 
-                                              ? const Color(0xFF8B8B8B) 
-                                              : Colors.grey[600],
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Clientes podem pagar em até N parcelas no cartão',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: muted,
+                                            height: 1.3,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Switch(
-                                  value: _acceptsInstallment,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _acceptsInstallment = value;
-                                    });
-                                    _saveInstallmentConfig();
-                                  },
-                                  thumbColor: MaterialStateProperty.all(const Color(0xFF00C977)),
-                                ),
-                              ],
-                            ),
-                            
-                            if (_acceptsInstallment) ...[
-                              const SizedBox(height: 24),
-                              const Divider(),
-                              const SizedBox(height: 16),
-                              
-                              const Text(
-                                'Máximo de Parcelas',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '$_maxInstallments parcelas',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00C977),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Slider(
-                                value: _maxInstallments.toDouble(),
-                                min: 1,
-                                max: 24,
-                                divisions: 23,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _maxInstallments = value.round();
-                                  });
-                                  _saveInstallmentConfig();
-                                },
-                                activeColor: const Color(0xFF00C977),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00C977).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: const Color(0xFF00C977).withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.info_outline,
-                                      color: Color(0xFF00C977),
-                                      size: 20,
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'MECA gerencia automaticamente a configuração de parcelamento. Você receberá o valor total menos a taxa de ${mecaFeeLabel}% da MECA.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: themeService.isDarkMode 
-                                              ? const Color(0xFF8B8B8B) 
-                                              : Colors.grey[600],
-                                        ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Switch.adaptive(
+                                    value: _acceptsInstallment,
+                                    onChanged: _isSaving
+                                        ? null
+                                        : (value) {
+                                            setState(() => _acceptsInstallment = value);
+                                            _saveInstallmentConfig();
+                                          },
+                                    activeColor: theme.colorScheme.primary,
+                                  ),
+                                ],
+                              ),
+                              if (_acceptsInstallment) ...[
+                                const SizedBox(height: 28),
+                                Text(
+                                  'Máximo de parcelas',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      '$_maxInstallments',
+                                      style: TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w700,
+                                        color: theme.colorScheme.primary,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'parcelas',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: muted,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
+                                const SizedBox(height: 20),
+                                SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    activeTrackColor: theme.colorScheme.primary,
+                                    inactiveTrackColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade200,
+                                    thumbColor: theme.colorScheme.primary,
+                                    overlayColor: theme.colorScheme.primary.withOpacity(0.12),
+                                    trackHeight: 6,
+                                  ),
+                                  child: Slider(
+                                    value: _maxInstallments.toDouble(),
+                                    min: 1,
+                                    max: 24,
+                                    divisions: 23,
+                                    onChanged: _isSaving
+                                        ? null
+                                        : (value) {
+                                            setState(() => _maxInstallments = value.round());
+                                            _saveInstallmentConfig();
+                                          },
+                                  ),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('1', style: TextStyle(fontSize: 12, color: muted)),
+                                    Text('24', style: TextStyle(fontSize: 12, color: muted)),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'O MECA cuida do parcelamento. Você recebe o valor do serviço (descontada a taxa da plataforma).',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: muted,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                      
                       const SizedBox(height: 24),
-                      
-                      // Informações sobre taxas
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: themeService.isDarkMode 
-                              ? const Color(0xFF1A1A1A) 
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
+                      // Nota sobre taxa — uma linha só, sem card pesado
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.account_balance,
-                                  color: Color(0xFF00C977),
-                                  size: 20,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Taxa MECA',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'A MECA cobra uma taxa de ${mecaFeeLabel}% sobre todos os pagamentos processados. Esta taxa é automaticamente deduzida do valor recebido pela oficina.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: themeService.isDarkMode 
-                                    ? const Color(0xFF8B8B8B) 
-                                    : Colors.grey[600],
+                            Icon(Icons.info_outline_rounded, size: 16, color: muted),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Taxa de $mecaFeePercent% sobre pagamentos; juros do parcelamento são do PagBank e pagos pelo cliente.',
+                                style: TextStyle(fontSize: 12, color: muted, height: 1.4),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildFeeInfo(
-                                    'Valor do Serviço',
-                                    currencyFormat.format(exampleBaseAmount),
-                                    themeService.isDarkMode,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildFeeInfo(
-                                    'Taxa MECA (${mecaFeeLabel}%)',
-                                    currencyFormat.format(exampleMecaFee),
-                                    themeService.isDarkMode,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildFeeInfo(
-                                    'Valor Líquido',
-                                    currencyFormat.format(exampleNetAmount),
-                                    themeService.isDarkMode,
-                                    isHighlight: true,
-                                  ),
-                                ),
-                              ],
                             ),
                           ],
                         ),
@@ -395,45 +283,4 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
       },
     );
   }
-
-  Widget _buildFeeInfo(String label, String value, bool isDarkMode, {bool isHighlight = false}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isHighlight 
-            ? const Color(0xFF00C977).withOpacity(0.1)
-            : (isDarkMode ? const Color(0xFF2A2A2A) : Colors.grey[100]),
-        borderRadius: BorderRadius.circular(8),
-        border: isHighlight 
-            ? Border.all(color: const Color(0xFF00C977).withOpacity(0.3))
-            : null,
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDarkMode ? const Color(0xFF8B8B8B) : Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: isHighlight ? const Color(0xFF00C977) : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
-
-
-
-
-
-

@@ -125,7 +125,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'A MECA arca com 100% das taxas PagBank',
+                                          'Para consultar os valores a receber ou adiantar pagamentos consulte o app Pagbank.',
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
@@ -134,7 +134,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'Você opera normalmente e recebe 88% do valor. Taxa MECA: 12%.',
+                                          'O MECA arca com 100% das taxas PagBank.',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: secondaryTextColor,
@@ -226,7 +226,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         'value': totals['net'],
         'icon': Icons.payments,
         'color': const Color(0xFF10B981),
-        'subtitle': 'Valores disponíveis após taxas',
+        'subtitle': 'Pagamentos aprovados, líquido de taxas',
       },
       {
         'title': 'Receita bruta',

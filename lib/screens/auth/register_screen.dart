@@ -38,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _bairroController = TextEditingController();
   final _cidadeController = TextEditingController();
   final _estadoController = TextEditingController();
+  final _referralCodeController = TextEditingController();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -275,6 +276,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'sexta': '08:00-18:00',
       }
     };
+    final referralCode = _referralCodeController.text.trim();
+    if (referralCode.isNotEmpty) {
+      data['referral_code'] = referralCode;
+    }
 
     // Log dos dados que serão enviados (sem senha) para debug
     final address = data['address'] as Map<String, dynamic>? ?? {};
@@ -288,6 +293,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     print('  - Bairro: ${address['bairro']}');
     print('  - Cidade: ${address['cidade']}');
     print('  - Estado: ${address['estado']}');
+    if (referralCode.isNotEmpty) {
+      print('  - Código de indicação: $referralCode');
+    }
 
     final result = await _apiService.registerWorkshop(data);
 
@@ -795,6 +803,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           
+                          const SizedBox(height: 30),
+                          _buildSectionTitle('🎁 Indicação (opcional)'),
+                          const SizedBox(height: 15),
+                          TextFormField(
+                            controller: _referralCodeController,
+                            style: FormStyles.inputTextStyle(context),
+                            cursorColor: AppColors.primaryColor,
+                            decoration: _inputDecoration(
+                              context,
+                              label: 'Código de Indicação',
+                              hint: 'Ex: MEC-1001',
+                              prefixIcon: const Icon(Icons.card_giftcard_outlined, color: AppColors.primaryColor),
+                            ),
+                            textCapitalization: TextCapitalization.characters,
+                          ),
                           const SizedBox(height: 30),
                           _buildSectionTitle('🔐 Segurança'),
                           const SizedBox(height: 15),

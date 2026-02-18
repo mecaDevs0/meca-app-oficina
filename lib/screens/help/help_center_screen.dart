@@ -18,7 +18,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
       items: [
         _FaqItem(
           'Como conectar o PagBank?',
-          'No Perfil, toque em "PagBank" e depois em "Conectar PagBank". Siga o fluxo no navegador para autorizar a MECA. Depois, no app, toque em "Reautorizar PagBank" se precisar atualizar a conexão.',
+          'No Perfil, toque em "PagBank" e depois em "Conectar PagBank". Siga o fluxo no navegador para autorizar o MECA. Depois, no app, toque em "Reautorizar PagBank" se precisar atualizar a conexão.',
         ),
         _FaqItem(
           'Taxas PagBank',
@@ -26,7 +26,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
         _FaqItem(
           'O que é a taxa MECA?',
-          'A MECA cobra 12% em cada pagamento (split automático). A MECA arca com 100% das taxas PagBank; você opera normalmente e recebe 88% do valor. Não há desconto de taxas do gateway para a oficina.',
+          'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas PagBank; você opera normalmente e recebe 88% do valor. Não há desconto de taxas do gateway para a oficina.',
         ),
         _FaqItem(
           'PagBank conectado mas não atualizou',

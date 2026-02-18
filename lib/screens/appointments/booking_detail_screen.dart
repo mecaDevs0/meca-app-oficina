@@ -322,12 +322,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     isDarkMode,
                   ),
                   
-                  // Informações do veículo
+                  // Informações do veículo (marca/modelo da API: vehicle_brand, vehicle_model)
                   _buildInfoCard(
                     'Informações do Veículo',
                     [
-                      _buildInfoRow('Modelo', booking['vehicle_info'] ?? 'Não informado', Icons.directions_car),
-                      _buildInfoRow('Placa', booking['vehicle_plate'] ?? 'Não informada', Icons.confirmation_number),
+                      _buildInfoRow('Marca', _vehicleDisplayValue(booking['vehicle_brand']), Icons.directions_car),
+                      _buildInfoRow('Modelo', _vehicleDisplayValue(booking['vehicle_model']), Icons.directions_car),
+                      _buildInfoRow('Placa', _vehicleDisplayValue(booking['vehicle_plate']), Icons.confirmation_number),
                     ],
                     isDarkMode,
                   ),
@@ -411,6 +412,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         ],
       ),
     );
+  }
+
+  String _vehicleDisplayValue(dynamic value) {
+    if (value == null) return 'Não informado';
+    final s = value.toString().trim();
+    return s.isEmpty ? 'Não informado' : s;
   }
 
   Widget _buildInfoRow(String label, String value, IconData icon) {

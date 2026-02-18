@@ -17,6 +17,7 @@ import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
+import 'referral_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -352,6 +353,32 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           if (mounted) {
                             await _loadWorkshopData();
                           }
+                        },
+                      ),
+                      _buildMenuOption(
+                        icon: Icons.credit_card_outlined,
+                        title: 'Parcelamento',
+                        subtitle: 'Aceitar ou não parcelamento no cartão',
+                        isDark: isDark,
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/config/installment');
+                          if (mounted) {
+                            await _loadWorkshopData();
+                          }
+                        },
+                      ),
+                      _buildMenuOption(
+                        icon: Icons.card_giftcard_outlined,
+                        title: 'Indique e Ganhe',
+                        subtitle: 'Código de indicação e taxa reduzida',
+                        isDark: isDark,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ReferralScreen(),
+                            ),
+                          );
                         },
                       ),
                       _buildMenuOption(
@@ -1729,12 +1756,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       ),
                       _buildFaqItem(
                         title: 'Taxa MECA',
-                        body: 'A MECA cobra 12% em cada pagamento (split automático). A MECA arca com 100% das taxas PagBank; você não é descontado pelas taxas do gateway.',
+                        body: 'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas PagBank; você não é descontado pelas taxas do gateway.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
                         title: 'Como o dinheiro cai para a oficina?',
-                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 12% vai para a MECA e 88% cai na sua conta PagBank. A MECA assume todas as taxas do PagBank.',
+                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 12% vai para o MECA e 88% cai na sua conta PagBank. O MECA assume todas as taxas do PagBank.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
