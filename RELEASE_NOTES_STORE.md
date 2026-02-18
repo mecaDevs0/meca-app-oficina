@@ -1,31 +1,28 @@
-# Meca Oficina – Release Notes (App Store / Play Store)
+# Meca Oficina – Release notes (App Store / Google Play)
 
-## Versão 2.1.6 (216) – Janeiro 2026
-
----
-
-### English
-
-**What’s New**
-- Payment flow improvements: platform fee (MECA 12% / Workshop 88%) applied correctly on all payments.
-- After completing a payment, navigation now goes to the order list instead of staying on the payment screen.
-- Financial and help screens updated with current fee information (12% MECA, 88% workshop).
-- Stability and performance improvements.
-
-**Notes for Reviewers**
-- This update aligns the app with the current marketplace fee (12% MECA, 88% workshop). No change to user data collection or permissions.
-- Payments are processed via PagBank; the workshop receives 88% of the payment amount after the platform fee.
+**Version:** 2.1.7 (217)
 
 ---
 
-### Português (Brasil)
+## Notes for reviewers (English)
 
-**O que há de novo**
-- Ajustes no fluxo de pagamento: taxa da plataforma (MECA 12% / Oficina 88%) aplicada corretamente em todos os pagamentos.
-- Após concluir o pagamento, a navegação passa a ir para a lista de pedidos em vez de permanecer na tela de pagamento.
-- Telas de financeiro e ajuda atualizadas com a informação de taxa vigente (12% MECA, 88% oficina).
-- Melhorias de estabilidade e desempenho.
+- This update includes improvements to the workshop dashboard, installment configuration, and booking details (vehicle info from API). No new permissions or sensitive data collection. All changes are backward compatible with our existing API.
+- **Testing:** You can log in with a workshop account to see appointments, financials, and configuration. No special reviewer credentials are required beyond a normal workshop account.
 
-**Notas para revisores**
-- Esta atualização alinha o app à taxa atual do marketplace (12% MECA, 88% oficina). Não há alteração na coleta de dados ou permissões.
-- Os pagamentos são processados via PagBank; a oficina recebe 88% do valor após a taxa da plataforma.
+---
+
+## O que há de novo (Português – Brasil)
+
+- **Parcelamento:** Configuração de parcelas e valores mínimos por parcela na área da oficina.
+- **Indicação de oficinas:** Programa de indicação acessível pelo perfil.
+- **Detalhe do agendamento:** Dados do veículo (marca, modelo, placa) exibidos no card do agendamento, vindos da API.
+- Ajustes de interface e estabilidade.
+
+---
+
+## What's new (English)
+
+- **Installments:** Configure installments and minimum amount per installment in the workshop area.
+- **Workshop referral:** Referral program available in the profile section.
+- **Booking detail:** Vehicle info (brand, model, plate) shown in the booking card, from the API.
+- UI and stability improvements.
