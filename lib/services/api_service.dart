@@ -1393,7 +1393,7 @@ class ApiService {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
 
-      // Usar o endpoint /workshop/:id/finance/extract conforme especificado
+      // Endpoint financial-summary: retorna effective_meca_fee (12%), values_to_receive, totals, metrics
       final queryParams = <String, dynamic>{};
       if (startDate != null) queryParams['startDate'] = startDate;
       if (endDate != null) queryParams['endDate'] = endDate;
@@ -1401,7 +1401,7 @@ class ApiService {
       if (offset != null) queryParams['offset'] = offset;
 
       final response = await _dio.get(
-        '/workshop/$workshopId/finance/extract',
+        '/workshop/$workshopId/financial-summary',
         queryParameters: queryParams.isEmpty ? null : queryParams,
       );
       return {

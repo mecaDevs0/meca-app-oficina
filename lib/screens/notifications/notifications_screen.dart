@@ -29,15 +29,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _initializeNotifications();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final provider = Provider.of<NotificationProvider>(context, listen: false);
       _previousUnreadCount = provider.unreadNotifications;
       provider.markProfileBadgeSeen();
-      // Marcar todas as notificações como lidas automaticamente ao entrar na tela
-      _markAllAsReadSilently();
+      // Marcar todas como lidas na API ANTES de carregar, para persistir e garantir estado correto ao reabrir o app
+      await _markAllAsReadSilently();
+      if (!mounted) return;
+      _loadNotifications();
     });
-    _loadNotifications();
   }
 
   // Marcar todas como lidas silenciosamente (sem mostrar mensagem)

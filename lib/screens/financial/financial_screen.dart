@@ -426,14 +426,14 @@ class _FinancialScreenState extends State<FinancialScreen> {
       },
       {
         'title': 'Taxa MECA efetiva',
-        'value': _formatPercent(metrics['effective_meca_fee']),
+        'value': _formatPercent(metrics['effective_meca_fee'] ?? 12, fallback: '12%'),
         'icon': Icons.percent,
         'color': const Color(0xFF8B5CF6),
       },
       {
-        'title': 'Pendências',
-        'value': _formatCurrency(totals['pending_gross'], fallback: 'R\$ 0,00'),
-        'icon': Icons.pending_actions,
+        'title': 'Valores a receber',
+        'value': _formatCurrency(totals['values_to_receive'] ?? totals['pending_gross'], fallback: 'R\$ 0,00'),
+        'icon': Icons.account_balance_wallet,
         'color': const Color(0xFFF97316),
       },
     ];
@@ -754,7 +754,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
   String _formatPercent(dynamic value, {String fallback = '—'}) {
     final parsed = _toDouble(value);
     if (parsed == null) return fallback;
-    return '${(parsed * 100).toStringAsFixed(2)}%';
+    // API retorna 12 para 12% (já em percentual); se < 1 é decimal (0.12)
+    final pct = parsed > 1 ? parsed : (parsed * 100);
+    return '${pct.toStringAsFixed(0)}%';
   }
 
   String _formatDate(dynamic value) {
