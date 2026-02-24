@@ -582,7 +582,9 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getMyBookings({String? status}) async {
+  /// Lista agendamentos da oficina.
+  /// [forceRefresh] bypassa cache (proxy/CDN) após mutação — use após reject/confirm/suggest.
+  Future<Map<String, dynamic>> getMyBookings({String? status, bool forceRefresh = false}) async {
     try {
       await loadToken();
       
@@ -591,8 +593,11 @@ class ApiService {
         return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
       }
       
-      // Usar endpoint real: /workshop/:id/bookings
-      final response = await _dio.get('/workshop/$workshopId/bookings');
+      final path = '/workshop/$workshopId/bookings';
+      final url = forceRefresh
+          ? '$path?_refresh=${DateTime.now().millisecondsSinceEpoch}'
+          : path;
+      final response = await _dio.get(url);
       
       List<dynamic> bookings = response.data['data'] ?? response.data ?? [];
       

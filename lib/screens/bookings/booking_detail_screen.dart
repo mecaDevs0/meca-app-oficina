@@ -790,14 +790,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       if (!mounted) return;
       
         if (apiResult['success'] == true) {
-        await _loadBookingDetails(forceRefresh: true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Agendamento recusado com sucesso. O cliente foi notificado.'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop();
+        // Pop com true para a tela anterior (Home/Schedule) recarregar e remover o item da lista
+        Navigator.of(context).pop(true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

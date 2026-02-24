@@ -11,6 +11,124 @@ import '../config/agenda_config_screen.dart';
 // PagBank config é acessado via rota nomeada: /config/pagbank
 import '../config/services_config_screen.dart';
 
+/// Banner sutil de incentivo à vinculação PagBank.
+/// Exibido somente quando oficina não possui PagBank vinculado e autorizado (OAuth).
+/// Tom de oportunidade (âmbar), não de erro. Fechar apenas para a sessão.
+class PagBankLinkBanner extends StatefulWidget {
+  final bool isDark;
+  final VoidCallback onVincular;
+  final VoidCallback onDismiss;
+
+  const PagBankLinkBanner({
+    super.key,
+    required this.isDark,
+    required this.onVincular,
+    required this.onDismiss,
+  });
+
+  @override
+  State<PagBankLinkBanner> createState() => _PagBankLinkBannerState();
+}
+
+class _PagBankLinkBannerState extends State<PagBankLinkBanner> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    )..forward();
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = widget.isDark
+        ? const Color(0xFF3D2E1A).withOpacity(0.9)
+        : const Color(0xFFFFF8E7);
+    final textColor = widget.isDark ? Colors.white : const Color(0xFF5D4E37);
+    final subtextColor = widget.isDark ? Colors.white70 : const Color(0xFF8B7355);
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFD4A84B).withOpacity(widget.isDark ? 0.3 : 0.5),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.credit_card_outlined, color: const Color(0xFFD4A84B), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Receba pagamentos pelo app',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Vincule sua conta PagBank para receber dos clientes automaticamente.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: subtextColor,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: widget.onVincular,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF00C977),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Vincular agora'),
+            ),
+            IconButton(
+              icon: Icon(Icons.close, size: 18, color: subtextColor),
+              onPressed: widget.onDismiss,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              style: IconButton.styleFrom(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
@@ -35,6 +153,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isPagBankConnected = false;
   bool _isPagBankVerified = false;
   int _activeBookingsCount = 0; // Contador de serviços em andamento
+  /// Fecha o banner apenas para esta sessão (reaparece ao reabrir o app).
+  bool _pagBankBannerDismissed = false;
 
   @override
   void initState() {
@@ -264,6 +384,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Banner PagBank: exibido quando oficina não tem conta vinculada E autorizada (OAuth).
+                            // Fechar (X) esconde apenas nesta sessão — reaparece ao reabrir o app.
+                            if (!_isPagBankVerified && !_pagBankBannerDismissed) ...[
+                              PagBankLinkBanner(
+                                isDark: isDark,
+                                onVincular: () async {
+                                  await Navigator.pushNamed(context, '/config/pagbank');
+                                  if (mounted) _loadData();
+                                },
+                                onDismiss: () => setState(() => _pagBankBannerDismissed = true),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
                             // Header com logo
                             _buildHeader(isDark, constraints.maxWidth),
                             

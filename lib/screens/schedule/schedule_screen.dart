@@ -126,46 +126,41 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     );
   }
 
-  Future<void> _loadBookings() async {
+  /// Carrega agendamentos do servidor (fonte única de verdade).
+  /// [forceRefresh] bypassa cache após mutação — reject, confirm, suggest.
+  Future<void> _loadBookings({bool forceRefresh = false}) async {
+    if (!mounted) return;
     _safeSetState(() => _isLoading = true);
     
     try {
       final token = await StorageService.getToken();
       if (token == null) {
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/login');
+        if (mounted) Navigator.pushReplacementNamed(context, '/login');
         return;
       }
 
       await _apiService.loadToken();
       
-      // Carregar agendamentos pendentes
-      final pendingResponse = await _apiService.getMyBookings(status: 'pendente_oficina');
-      if (pendingResponse['success']) {
-        _safeSetState(() {
-          _pendingBookings = List<Map<String, dynamic>>.from(pendingResponse['data']['bookings'] ?? []);
-        });
-      }
+      final pendingResponse = await _apiService.getMyBookings(status: 'pendente_oficina', forceRefresh: forceRefresh);
+      final confirmedResponse = await _apiService.getMyBookings(status: 'confirmado', forceRefresh: forceRefresh);
+      final completedResponse = await _apiService.getMyBookings(status: 'concluido', forceRefresh: forceRefresh);
 
-      // Carregar agendamentos confirmados
-      final confirmedResponse = await _apiService.getMyBookings(status: 'confirmado');
-      if (confirmedResponse['success']) {
-        _safeSetState(() {
-          _confirmedBookings = List<Map<String, dynamic>>.from(confirmedResponse['data']['bookings'] ?? []);
-        });
-      }
-
-      // Carregar agendamentos concluídos
-      final completedResponse = await _apiService.getMyBookings(status: 'concluido');
-      if (completedResponse['success']) {
-        _safeSetState(() {
-          _completedBookings = List<Map<String, dynamic>>.from(completedResponse['data']['bookings'] ?? []);
-        });
-      }
-      
+      if (!mounted) return;
+      _safeSetState(() {
+        if (pendingResponse['success']) {
+          _pendingBookings = List<Map<String, dynamic>>.from(pendingResponse['data']?['bookings'] ?? []);
+        }
+        if (confirmedResponse['success']) {
+          _confirmedBookings = List<Map<String, dynamic>>.from(confirmedResponse['data']?['bookings'] ?? []);
+        }
+        if (completedResponse['success']) {
+          _completedBookings = List<Map<String, dynamic>>.from(completedResponse['data']?['bookings'] ?? []);
+        }
+      });
     } catch (e) {
+      // Erro silencioso — manter dados atuais
     } finally {
-      _safeSetState(() => _isLoading = false);
+      if (mounted) _safeSetState(() => _isLoading = false);
     }
   }
 
@@ -330,7 +325,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     }
 
     return RefreshIndicator(
-      onRefresh: _loadBookings,
+      onRefresh: () => _loadBookings(forceRefresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         itemCount: bookings.length,
@@ -409,7 +404,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     }
     
     return RefreshIndicator(
-      onRefresh: _loadBookings,
+      onRefresh: () => _loadBookings(forceRefresh: true),
       child: CustomScrollView(
         slivers: [
           // Agendamentos atuais
@@ -633,7 +628,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           ),
         );
         if (result == true) {
-          _loadBookings();
+          _loadBookings(forceRefresh: true);
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -943,6 +938,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     try {
       final result = await _apiService.confirmBooking(booking['id']);
       if (result['success']) {
+        // Atualização otimista: usar resposta da mutação como fonte da verdade,
+        // evitando replicação lag quando refetch retorna dados antigos.
+        final id = booking['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          _safeSetState(() {
+            _pendingBookings.removeWhere((b) => b['id']?.toString() == id);
+            final updated = Map<String, dynamic>.from(booking);
+            updated['status'] = 'confirmado';
+            _confirmedBookings.insert(0, updated);
+          });
+        }
         // Mostrar modal informativo após aprovar
         if (mounted) {
           await showDialog(
@@ -1019,7 +1025,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                 ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _loadBookings();
+                    // Estado já atualizado (otimista). Sync em background após delay para consistência.
+                    Future.delayed(const Duration(milliseconds: 1500), () {
+                      if (mounted) _loadBookings(forceRefresh: true);
+                    });
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00C977),
@@ -1041,7 +1050,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             ),
           );
         }
-        _loadBookings();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1264,7 +1272,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               backgroundColor: Color(0xFFEF4444),
             ),
           );
-          _loadBookings();
+          await _loadBookings(forceRefresh: true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1823,7 +1831,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop();
-                      _loadBookings();
+                      _loadBookings(forceRefresh: true);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF59E0B),

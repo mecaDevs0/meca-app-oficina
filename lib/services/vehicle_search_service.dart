@@ -43,14 +43,26 @@ class VehicleSearchService {
       }
 
       // Limpar a placa (remover espaços e converter para maiúscula)
-      final cleanPlate = plate.replaceAll(' ', '').toUpperCase();
-      
-      final response = await _dio.get('/vehicles/plate/$cleanPlate');
-      
+      final cleanPlate = plate.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+      if (cleanPlate.length < 7 || cleanPlate.length > 8) {
+        return {'success': false, 'error': 'Placa inválida. Use formato ABC1234 ou ABC1D23'};
+      }
+
+      final response = await _dio.get(
+        '/vehicles/plate/$cleanPlate',
+        options: Options(
+          validateStatus: (status) => status != null && status < 600,
+          receiveTimeout: const Duration(seconds: 90),
+        ),
+      );
+
       if (response.data != null && response.data['success'] == true) {
         return {'success': true, 'data': response.data['data']};
       } else {
-        return {'success': false, 'error': response.data?['message'] ?? 'Veículo não encontrado'};
+        final err = response.data is Map
+            ? (response.data?['error'] ?? response.data?['message'] ?? 'Veículo não encontrado')
+            : 'Veículo não encontrado';
+        return {'success': false, 'error': err.toString()};
       }
     } catch (e) {
       return {'success': false, 'error': _getErrorMessage(e)};
@@ -65,12 +77,16 @@ class VehicleSearchService {
         case DioExceptionType.receiveTimeout:
           return 'Timeout de conexão. Verifique sua internet.';
         case DioExceptionType.badResponse:
+          final data = error.response?.data;
+          if (data is Map && (data['error'] ?? data['message']) != null) {
+            return (data['error'] ?? data['message']).toString();
+          }
           if (error.response?.statusCode == 401) {
             return 'Sessão expirada. Faça login novamente.';
           } else if (error.response?.statusCode == 404) {
             return 'Veículo não encontrado.';
           } else if (error.response?.statusCode == 500) {
-            return 'Erro interno do servidor. Tente novamente.';
+            return 'Erro ao consultar placa. Tente novamente.';
           }
           return 'Erro na requisição: ${error.response?.statusCode}';
         case DioExceptionType.cancel:

@@ -19,6 +19,149 @@ import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'referral_screen.dart';
 
+/// Card de incentivo à vinculação PagBank — mostra quando oficina ainda não vinculou conta.
+/// Design premium focado em conversão: necessidade + benefício (MECA paga taxa do cartão).
+class PagBankIncentiveCard extends StatelessWidget {
+  final VoidCallback onTapVincular;
+
+  const PagBankIncentiveCard({super.key, required this.onTapVincular});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF0D2B1A),
+            const Color(0xFF0F3D24),
+            const Color(0xFF0D2B1A),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00C977).withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.lock_open_rounded,
+                    color: Color(0xFF00C977),
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Libere seus recebimentos no app! 💸',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Para que os clientes consigam te pagar pelo MECA, é obrigatório vincular sua conta PagBank.',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.white.withOpacity(0.9),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C977).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00C977).withOpacity(0.35),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('🎁', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Vantagem: o MECA cuida das taxas da maquininha para você!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                        color: Colors.white.withOpacity(0.95),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: onTapVincular,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.link, size: 20, color: const Color(0xFF0D2B1A)),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Vincular PagBank Agora',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0D2B1A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
@@ -282,6 +425,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (_isPagBankNotLinked()) ...[
+                        PagBankIncentiveCard(
+                          onTapVincular: () async {
+                            await Navigator.pushNamed(context, '/config/pagbank');
+                            if (mounted) await _loadWorkshopData();
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                       _buildProfileHeader(isDark, textColor, secondaryText, themeService),
                       const SizedBox(height: 32),
                       _buildPagBankCard(isDark, textColor, secondaryText),
@@ -416,6 +568,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         );
       },
     );
+  }
+
+  /// true quando a oficina ainda não tem PagBank vinculado e pronto para receber
+  bool _isPagBankNotLinked() {
+    final data = _pagbankData ?? const {};
+    final hasAccountId = data['has_account_id'] == true ||
+        (data['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
+    final connected = data['connected'] == true ||
+        data['has_authorization'] == true ||
+        hasAccountId;
+    final isVerified =
+        data['pagbank_verified'] == true ||
+        data['approved_by_workshop'] == true ||
+        data['verified'] == true;
+    return !(connected && isVerified);
   }
 
   Widget _buildProfileHeader(
