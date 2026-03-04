@@ -21,6 +21,7 @@ import 'screens/insights/insights_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/referral_screen.dart';
+import 'screens/pre_compra/pre_compra_detail_screen.dart';
 import 'screens/schedule/schedule_screen.dart';
 import 'screens/service/service_details_screen.dart';
 import 'screens/splash_screen.dart';
@@ -187,6 +188,11 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.slideFromRight(const NotificationsScreen());
           case '/config/pagbank':
             return PageTransitions.slideFromRight(const PagBankConfigScreen());
+          case '/pre-compra-detail':
+            final args = settings.arguments as Map<String, dynamic>?;
+            return PageTransitions.slideFromRight(
+              PreCompraDetailOfinaScreen(preCompraId: args?['id']?.toString() ?? ''),
+            );
           default:
             return PageTransitions.fade(const SplashScreen());
         }

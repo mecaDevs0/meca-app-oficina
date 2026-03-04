@@ -557,6 +557,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ? Map<String, dynamic>.from(notification['data'] as Map)
         : <String, dynamic>{};
     final bookingId = data['booking_id'] ?? notification['booking_id'];
+    final preCompraId = data['pre_compra_id'] ?? data['id'] ?? notification['pre_compra_id'];
     final vehicleId = data['vehicle_id'] ?? notification['vehicle_id'];
     final serviceId = data['service_id'] ?? notification['service_id'];
     final route = data['route']?.toString();
@@ -566,11 +567,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return;
     }
 
-    // Verificar se é notificação de agendamento/orçamento (por tipo ou título)
     final typeLower = type.toLowerCase();
     final title = (notification['title'] ?? '').toString().toLowerCase();
     final message = (notification['message'] ?? '').toString().toLowerCase();
-    
+
+    // Verificar se é notificação de pré-compra
+    final isPreCompraRelated = typeLower.contains('pre_compra') ||
+        typeLower.contains('pre-compra') ||
+        typeLower.contains('precompra') ||
+        typeLower.contains('laudo') ||
+        title.contains('pré-compra') ||
+        title.contains('pre-compra') ||
+        title.contains('laudo') ||
+        message.contains('pré-compra') ||
+        message.contains('laudo');
+
+    if (isPreCompraRelated && preCompraId != null) {
+      await _openPreCompraDetail(preCompraId.toString());
+      return;
+    }
+
+    // Verificar se é notificação de agendamento/orçamento (por tipo ou título)
     final isBookingRelated = typeLower.contains('booking') ||
         typeLower.contains('agendamento') ||
         typeLower.contains('orcamento') ||
@@ -582,14 +599,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         message.contains('agendamento') ||
         message.contains('orcamento') ||
         message.contains('orçamento');
-    
+
     // Se for relacionado a agendamento e tiver booking_id, abrir detalhes
     if (isBookingRelated && bookingId != null) {
       await _openBookingDetail(bookingId.toString());
       return;
     }
-    
+
     switch (type) {
+      case 'pre_compra':
+      case 'pre_compra_created':
+      case 'pre_compra_confirmed':
+      case 'pre_compra_started':
+      case 'pre_compra_cancelled':
+      case 'pre_compra_concluido':
+      case 'laudo_submitted':
+        if (preCompraId != null) {
+          await _openPreCompraDetail(preCompraId.toString());
+        } else {
+          Navigator.pushNamed(context, '/schedule');
+        }
+        break;
       case 'new_booking':
       case 'booking_created':
       case 'booking_confirmed':
@@ -631,14 +661,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Navigator.pushNamed(context, '/profile');
         break;
       default:
-        // Se não identificou o tipo mas tem booking_id, tentar abrir detalhes
-        if (bookingId != null) {
+        // Se não identificou o tipo mas tem pre_compra_id, abrir detalhe pré-compra
+        if (preCompraId != null) {
+          await _openPreCompraDetail(preCompraId.toString());
+        } else if (bookingId != null) {
           await _openBookingDetail(bookingId.toString());
         } else {
           Navigator.pushNamed(context, '/home');
         }
         break;
     }
+  }
+
+  Future<void> _openPreCompraDetail(String preCompraId) async {
+    await Navigator.pushNamed(
+      context,
+      '/pre-compra-detail',
+      arguments: {'id': preCompraId},
+    );
+    _loadNotifications();
   }
 
   Future<void> _openBookingDetail(String bookingId) async {

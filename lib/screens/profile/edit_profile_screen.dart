@@ -309,16 +309,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   if (_logoUrl != null && _logoUrl!.isNotEmpty)
                     ...[
                       const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed: _isUploadingLogo ? null : _removeLogo,
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('Remover'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isUploadingLogo ? null : _removeLogo,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Remover'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),

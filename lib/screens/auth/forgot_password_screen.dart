@@ -155,23 +155,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 30),
           
-          const Text(
+          Text(
             'Esqueceu sua senha?',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF252940),
+              color: isDark ? Colors.white : const Color(0xFF252940),
             ),
           ),
           const SizedBox(height: 10),
-          
+
           Text(
-            'Digite seu email e enviaremos instruções para redefinir sua senha.',
+            'Digite seu email cadastrado e enviaremos um código para redefinir sua senha.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: isDark ? Colors.white60 : Colors.grey[600],
             ),
           ),
           const SizedBox(height: 30),
@@ -235,61 +235,78 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildSuccessView() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final textColor = ThemeService.getTextColor(isDark);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Icon(
           Icons.mark_email_read,
           size: 100,
-          color: Colors.green,
+          color: AppColors.primaryColor,
         ),
         const SizedBox(height: 30),
-        
-        const Text(
+
+        Text(
           'Email Enviado!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF252940),
+            color: textColor,
           ),
         ),
         const SizedBox(height: 15),
-        
+
         Text(
-          'Enviamos um código de acesso para:\n${_emailController.text}',
+          'Enviamos um código para:\n${_emailController.text}',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,
-            color: Colors.grey[600],
+            color: textColor.withOpacity(0.7),
           ),
         ),
-        const SizedBox(height: 10),
-        
+        const SizedBox(height: 20),
+
         Container(
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: AppColors.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
             borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: AppColors.primaryColor.withOpacity(0.3),
+            ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline, color: Colors.blue),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'O código é sua senha temporária. Use-o para fazer login e depois altere sua senha no perfil.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue[900],
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, color: AppColors.primaryColor, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Como acessar sua conta:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryColor,
+                    ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 12),
+              _buildStep('1', 'Abra o email e copie o código recebido', textColor),
+              const SizedBox(height: 8),
+              _buildStep('2', 'Use o código como senha no login', textColor),
+              const SizedBox(height: 8),
+              _buildStep('3', 'Após entrar, vá em Configurações e crie uma nova senha', textColor),
             ],
           ),
         ),
         const SizedBox(height: 30),
-        
+
         OutlinedButton(
           onPressed: () {
             Navigator.pop(context);
@@ -307,6 +324,42 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.primaryColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep(String number, String text, Color textColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: const BoxDecoration(
+            color: AppColors.primaryColor,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: textColor.withOpacity(0.85),
             ),
           ),
         ),

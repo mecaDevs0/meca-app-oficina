@@ -42,7 +42,26 @@ class _ScheduleConfigScreenState extends State<ScheduleConfigScreen> {
   Future<void> _loadSchedule() async {
     final result = await _apiService.getSchedule();
     if (result['success'] && result['data'] != null) {
-      // Load existing schedule
+      final data = result['data'];
+      if (data is Map) {
+        setState(() {
+          for (final dayKey in _schedule.keys) {
+            final dayData = data[dayKey];
+            if (dayData is Map) {
+              // Formato canônico: is_open, start_time, end_time
+              // Também aceita legado: enabled, start, end
+              final isOpen = dayData['is_open'] == true || dayData['enabled'] == true;
+              final start = (dayData['start_time'] ?? dayData['start'] ?? '08:00').toString();
+              final end = (dayData['end_time'] ?? dayData['end'] ?? '18:00').toString();
+              _schedule[dayKey] = {
+                'enabled': isOpen,
+                'start': start,
+                'end': end,
+              };
+            }
+          }
+        });
+      }
     }
   }
 

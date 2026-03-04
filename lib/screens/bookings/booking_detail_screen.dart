@@ -2241,25 +2241,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                                                 await _promptCheckInAndDo(bookingId);
                                                               },
                                                         icon: Icon(
-                                                          hasCheckIn ? Icons.check : Icons.directions_car,
-                                                          color: Colors.white,
+                                                          hasCheckIn ? Icons.check_circle : Icons.directions_car,
+                                                          color: hasCheckIn ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600) : Colors.white,
                                                           size: 18,
                                                         ),
                                                         label: Text(
-                                                          hasCheckIn ? 'Check-in feito' : 'Fazer check-in do veículo',
-                                                          style: const TextStyle(
-                                                            color: Colors.white,
+                                                          hasCheckIn ? 'Check-in realizado' : 'Fazer check-in do veículo',
+                                                          style: TextStyle(
+                                                            color: hasCheckIn ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600) : Colors.white,
                                                             fontWeight: FontWeight.bold,
                                                           ),
                                                         ),
                                                         style: ElevatedButton.styleFrom(
-                                                          backgroundColor: hasCheckIn ? systemGreen : systemBlue,
-                                                          disabledBackgroundColor: systemGreen.withOpacity(0.75),
+                                                          backgroundColor: hasCheckIn ? (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300) : systemBlue,
+                                                          disabledBackgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+                                                          foregroundColor: hasCheckIn ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600) : Colors.white,
                                                           padding: const EdgeInsets.symmetric(vertical: 14),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius: BorderRadius.circular(14),
                                                           ),
-                                                          elevation: 0,
+                                                          elevation: hasCheckIn ? 0 : 0,
                                                           shadowColor: Colors.transparent,
                                                         ),
                                                       ),

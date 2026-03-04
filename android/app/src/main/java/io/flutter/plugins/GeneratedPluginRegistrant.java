@@ -16,6 +16,11 @@ public final class GeneratedPluginRegistrant {
   private static final String TAG = "GeneratedPluginRegistrant";
   public static void registerWith(@NonNull FlutterEngine flutterEngine) {
     try {
+      flutterEngine.getPlugins().add(new com.mr.flutter.plugin.filepicker.FilePickerPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin file_picker, com.mr.flutter.plugin.filepicker.FilePickerPlugin", e);
+    }
+    try {
       flutterEngine.getPlugins().add(new com.fluttercandies.flutter_image_compress.ImageCompressPlugin());
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin flutter_image_compress_common, com.fluttercandies.flutter_image_compress.ImageCompressPlugin", e);

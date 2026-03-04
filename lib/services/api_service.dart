@@ -2334,6 +2334,66 @@ class ApiService {
     return null;
   }
 
+  // ============================================================
+  // Pré-Compra
+  // ============================================================
+
+  Future<Map<String, dynamic>> getWorkshopPreCompras() async {
+    try {
+      final response = await _dio.get('/pre-compra');
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro ao buscar pré-compras', 'data': []};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e), 'data': []};
+    }
+  }
+
+  // ============================================================
+  // Métodos genéricos para endpoints não mapeados (ex: pre-compra)
+  // ============================================================
+
+  Future<Map<String, dynamic>> get(String path, {bool skipCache = false}) async {
+    try {
+      final response = await _dio.get(path);
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro ao buscar dados'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.post(path, data: body);
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.put(path, data: body);
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
   String _getErrorMessage(dynamic error) {
     if (error is DioException) {
       final serverMessage = _extractServerMessage(error.response?.data);

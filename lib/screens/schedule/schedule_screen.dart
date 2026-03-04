@@ -7,7 +7,10 @@ import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
 import '../../utils/form_styles.dart';
 import '../../core/app_colors.dart';
+import 'package:intl/intl.dart';
+
 import '../bookings/booking_detail_screen.dart' show BookingDetailScreen;
+import '../pre_compra/pre_compra_detail_screen.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -23,6 +26,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   List<Map<String, dynamic>> _confirmedBookings = [];
   List<Map<String, dynamic>> _completedBookings = [];
   final ApiService _apiService = ApiService();
+  bool? _pagbankVerified; // null = ainda não carregou
 
   @override
   void initState() {
@@ -30,6 +34,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabChange);
     _loadBookings();
+    _loadPagBankStatus();
+  }
+
+  Future<void> _loadPagBankStatus() async {
+    try {
+      final profile = await _apiService.getProfile();
+      if (profile['success'] == true && profile['data'] != null) {
+        final data = profile['data'] as Map<String, dynamic>;
+        _safeSetState(() => _pagbankVerified = data['pagbank_verified'] == true);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -131,7 +146,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   Future<void> _loadBookings({bool forceRefresh = false}) async {
     if (!mounted) return;
     _safeSetState(() => _isLoading = true);
-    
+
     try {
       final token = await StorageService.getToken();
       if (token == null) {
@@ -140,21 +155,55 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       }
 
       await _apiService.loadToken();
-      
-      final pendingResponse = await _apiService.getMyBookings(status: 'pendente_oficina', forceRefresh: forceRefresh);
-      final confirmedResponse = await _apiService.getMyBookings(status: 'confirmado', forceRefresh: forceRefresh);
-      final completedResponse = await _apiService.getMyBookings(status: 'concluido', forceRefresh: forceRefresh);
+
+      // Buscar bookings normais (por status) e pré-compras em paralelo
+      final responses = await Future.wait([
+        _apiService.getMyBookings(status: 'pendente_oficina', forceRefresh: forceRefresh),
+        _apiService.getMyBookings(status: 'confirmado', forceRefresh: forceRefresh),
+        _apiService.getMyBookings(status: 'concluido', forceRefresh: forceRefresh),
+        _apiService.getWorkshopPreCompras(),
+      ]);
 
       if (!mounted) return;
+
+      final pendingResponse = responses[0];
+      final confirmedResponse = responses[1];
+      final completedResponse = responses[2];
+      final preCompraResponse = responses[3];
+
+      // Normalizar pré-compras e distribuir nas listas
+      final List<Map<String, dynamic>> preCompras = preCompraResponse['success'] == true
+          ? (preCompraResponse['data'] as List? ?? []).cast<Map<String, dynamic>>()
+          : [];
+
+      final pendingPreCompras = preCompras
+          .where((p) => (p['status'] ?? '') == 'pendente')
+          .toList();
+      final confirmedPreCompras = preCompras
+          .where((p) => ['confirmado', 'em_andamento', 'aguardando_pagamento'].contains(p['status'] ?? ''))
+          .toList();
+      final completedPreCompras = preCompras
+          .where((p) => ['concluido', 'concluído', 'cancelado'].contains(p['status'] ?? ''))
+          .toList();
+
       _safeSetState(() {
-        if (pendingResponse['success']) {
-          _pendingBookings = List<Map<String, dynamic>>.from(pendingResponse['data']?['bookings'] ?? []);
+        if (pendingResponse['success'] == true) {
+          _pendingBookings = [
+            ...List<Map<String, dynamic>>.from(pendingResponse['data']?['bookings'] ?? []),
+            ...pendingPreCompras,
+          ];
         }
-        if (confirmedResponse['success']) {
-          _confirmedBookings = List<Map<String, dynamic>>.from(confirmedResponse['data']?['bookings'] ?? []);
+        if (confirmedResponse['success'] == true) {
+          _confirmedBookings = [
+            ...List<Map<String, dynamic>>.from(confirmedResponse['data']?['bookings'] ?? []),
+            ...confirmedPreCompras,
+          ];
         }
-        if (completedResponse['success']) {
-          _completedBookings = List<Map<String, dynamic>>.from(completedResponse['data']?['bookings'] ?? []);
+        if (completedResponse['success'] == true) {
+          _completedBookings = [
+            ...List<Map<String, dynamic>>.from(completedResponse['data']?['bookings'] ?? []),
+            ...completedPreCompras,
+          ];
         }
       });
     } catch (e) {
@@ -201,6 +250,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       color: secondaryText,
                     ),
                   ),
+                  if (_pagbankVerified == false) ...[
+                    const SizedBox(height: 16),
+                    _buildPagBankBanner(themeService.isDarkMode),
+                  ],
                   const SizedBox(height: 20),
                   _buildStatusToolbar(themeService.isDarkMode),
                 ],
@@ -219,6 +272,44 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       ],
                     ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPagBankBanner(bool isDark) {
+    final bg = isDark ? const Color(0xFF0D2B1A) : const Color(0xFF0D2B1A);
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/profile'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF00C977).withOpacity(0.35)),
+          boxShadow: [BoxShadow(color: const Color(0xFF00C977).withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF00C977).withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF00C977), size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Vincule sua conta PagBank', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text('Receba pagamentos dos clientes pelo app', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.85))),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.8), size: 24),
           ],
         ),
       ),
@@ -331,7 +422,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         itemCount: bookings.length,
         itemBuilder: (context, index) {
           final booking = bookings[index];
-          return _buildBookingCard(booking, type);
+          return booking['booking_type'] == 'pre_compra'
+              ? _buildPreCompraCard(booking)
+              : _buildBookingCard(booking, type);
         },
       ),
     );
@@ -438,16 +531,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
+                  final item = currentBookings[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildBookingCard(currentBookings[index], 'confirmed'),
+                    child: item['booking_type'] == 'pre_compra'
+                        ? _buildPreCompraCard(item)
+                        : _buildBookingCard(item, 'confirmed'),
                   );
                 },
                 childCount: currentBookings.length,
               ),
             ),
           ],
-          
+
           // Separador para agendamentos antigos
           if (pastBookings.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -562,9 +658,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
+                  final item = pastBookings[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _buildBookingCard(pastBookings[index], 'confirmed'),
+                    child: item['booking_type'] == 'pre_compra'
+                        ? _buildPreCompraCard(item)
+                        : _buildBookingCard(item, 'confirmed'),
                   );
                 },
                 childCount: pastBookings.length,
@@ -613,6 +712,189 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       default:
         return 'Seus agendamentos aparecerão aqui';
     }
+  }
+
+  Widget _buildPreCompraCard(Map<String, dynamic> item) {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+    final status = (item['status'] ?? 'pendente').toString();
+    final brand = (item['vehicle_brand'] ?? '').toString();
+    final model = (item['vehicle_model'] ?? '').toString();
+    final year = (item['vehicle_year'] ?? '').toString();
+    final vehicleDesc = [brand, model, year].where((s) => s.isNotEmpty).join(' ');
+    final customerName = (item['customer_name'] ?? 'Cliente').toString();
+
+    String dateStr = 'Data não definida';
+    final rawDate = item['inspection_date'] ?? item['created_at'];
+    if (rawDate != null) {
+      try {
+        final parsed = DateTime.parse(rawDate.toString()).toLocal();
+        final prefix = item['inspection_date'] != null ? '' : 'Solicitado em ';
+        dateStr = '$prefix${DateFormat('dd/MM/yyyy').format(parsed)}';
+      } catch (_) {}
+    }
+
+    return InkWell(
+      onTap: () async {
+        final id = item['id']?.toString() ?? '';
+        if (id.isNotEmpty) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PreCompraDetailOfinaScreen(preCompraId: id),
+            ),
+          );
+          _loadBookings(forceRefresh: true);
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: ThemeService.getCardColor(isDark),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ThemeService.getBorderColor(isDark), width: 1),
+          boxShadow: isDark
+              ? []
+              : [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.search_rounded, color: Color(0xFF00C977), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vehicleDesc.isNotEmpty ? vehicleDesc : 'Veículo a inspecionar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: ThemeService.getTextColor(isDark),
+                        ),
+                      ),
+                      Text(
+                        customerName,
+                        style: TextStyle(fontSize: 14, color: ThemeService.getSecondaryTextColor(isDark)),
+                      ),
+                    ],
+                  ),
+                ),
+                // Badges
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C977).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF00C977).withOpacity(0.35)),
+                      ),
+                      child: const Text(
+                        'Pré-Compra',
+                        style: TextStyle(
+                          color: Color(0xFF00C977),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _getStatusText(status),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: _getStatusColor(status),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, size: 14, color: ThemeService.getSecondaryTextColor(isDark)),
+                const SizedBox(width: 6),
+                Text(dateStr, style: TextStyle(fontSize: 13, color: ThemeService.getSecondaryTextColor(isDark))),
+              ],
+            ),
+            if (status == 'pendente') ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _confirmPreCompra(item),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Aprovar', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF10B981),
+                        side: const BorderSide(color: Color(0xFF10B981)),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _cancelPreCompra(item),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Recusar', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF4444),
+                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _suggestNewTimePreCompra(item),
+                      icon: const Icon(Icons.schedule, size: 16),
+                      label: const Text('Sugerir', overflow: TextOverflow.ellipsis, maxLines: 1),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFF59E0B),
+                        side: const BorderSide(color: Color(0xFFF59E0B)),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildBookingCard(Map<String, dynamic> booking, String type) {
@@ -877,6 +1159,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         return const Color(0xFFF59E0B);
       case 'confirmado':
         return const Color(0xFF10B981);
+      case 'aguardando_pagamento':
+        return const Color(0xFFF59E0B); // amber — ação pendente (pagamento)
       case 'concluido':
         return const Color(0xFF6B7280);
       case 'cancelado':
@@ -911,6 +1195,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         return 'Cancelado';
       case 'recusado':
         return 'Recusado';
+      case 'aguardando_pagamento':
       case 'finalizado_aguardando_pagamento':
       case 'finalizado':
       case 'awaiting_payment':
@@ -1287,6 +1572,158 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             content: Text('Erro: $e'),
             backgroundColor: const Color(0xFFEF4444),
           ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmPreCompra(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    try {
+      final result = await _apiService.put('/pre-compra/$id/confirm', {});
+      if (result['success'] == true) {
+        _safeSetState(() {
+          _pendingBookings.removeWhere((b) => b['id']?.toString() == id);
+          final updated = Map<String, dynamic>.from(item);
+          updated['status'] = 'confirmado';
+          _confirmedBookings.insert(0, updated);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pré-Compra aprovada!'),
+              backgroundColor: Color(0xFF00C977),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${result['error'] ?? 'Falha ao aprovar'}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelPreCompra(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recusar Pré-Compra'),
+        content: const Text('Confirma o cancelamento desta pré-compra?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Não')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Recusar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      final result = await _apiService.put('/pre-compra/$id/cancel', {});
+      if (result['success'] == true) {
+        _safeSetState(() {
+          _pendingBookings.removeWhere((b) => b['id']?.toString() == id);
+          final updated = Map<String, dynamic>.from(item);
+          updated['status'] = 'cancelado';
+          _completedBookings.insert(0, updated);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pré-Compra recusada.'),
+              backgroundColor: Color(0xFF6B7280),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${result['error'] ?? 'Falha ao recusar'}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
+        );
+      }
+    }
+  }
+
+  Future<void> _suggestNewTimePreCompra(Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 90)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: Color(0xFF00C977)),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (pickedTime == null || !mounted) return;
+    final newDateTime = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime.hour, pickedTime.minute,
+    );
+    try {
+      final result = await _apiService.put('/pre-compra/$id', {
+        'appointment_date': newDateTime.toIso8601String(),
+      });
+      if (result['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Novo horário sugerido com sucesso!'),
+              backgroundColor: Color(0xFF00C977),
+            ),
+          );
+          _loadBookings(forceRefresh: true);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro: ${result['error'] ?? 'Falha ao sugerir horário'}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
         );
       }
     }
