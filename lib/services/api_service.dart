@@ -2059,6 +2059,116 @@ class ApiService {
   }
 
   // ============================================
+  // CONTA GRÁFICA PAGBANK (SPLIT GRÁFICO)
+  // Onboarding sem atrito — MECA cria e gerencia a conta
+  // ============================================
+
+  /// POST /workshop/:id/pagbank/grafico/onboard
+  /// Cria conta gráfica + chave PIX em uma única chamada.
+  /// [data] deve conter: name, email, tax_id, phone, address, birth_date (CPF)
+  Future<Map<String, dynamic>> onboardGrafico(Map<String, dynamic> data) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) return {'success': false, 'error': 'workshopId não encontrado'};
+      final response = await _dio.post(
+        '/workshop/$workshopId/pagbank/grafico/onboard',
+        data: data,
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data as Map) : {'success': true};
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ?? e.message ?? 'Erro no onboarding Conta Gráfica';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /workshop/:id/pagbank/grafico/status
+  /// Status da conta gráfica. Passe refresh=true para atualizar via API PagBank.
+  Future<Map<String, dynamic>> getGraficoStatus({bool refresh = false}) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) return {'success': false, 'error': 'workshopId não encontrado'};
+      final response = await _dio.get(
+        '/workshop/$workshopId/pagbank/grafico/status',
+        queryParameters: refresh ? {'refresh': 'true'} : null,
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data as Map) : {'success': false};
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ?? e.message ?? 'Erro ao buscar status Conta Gráfica';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// POST /workshop/:id/pagbank/grafico/pix-key
+  /// Registrar chave PIX na conta gráfica.
+  /// [keyType]: EVP | CPF | CNPJ | EMAIL | PHONE
+  Future<Map<String, dynamic>> createGraficoPixKey({
+    String keyType = 'EVP',
+    String? keyValue,
+  }) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) return {'success': false, 'error': 'workshopId não encontrado'};
+      final response = await _dio.post(
+        '/workshop/$workshopId/pagbank/grafico/pix-key',
+        data: {'key_type': keyType, if (keyValue != null) 'key_value': keyValue},
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data as Map) : {'success': true};
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ?? e.message ?? 'Erro ao registrar chave PIX';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ============================================
+  // ASAAS - ONBOARDING E STATUS
+  // ============================================
+
+  /// POST /asaas/workshop/:id/onboard
+  Future<Map<String, dynamic>> onboardAsaas(String workshopId, Map<String, dynamic> data) async {
+    try {
+      await loadToken();
+      final response = await _dio.post('/asaas/workshop/$workshopId/onboard', data: data);
+      return response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : {'success': true};
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ??
+          e.message ??
+          'Erro ao configurar conta Asaas';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /asaas/workshop/:id/status
+  Future<Map<String, dynamic>> getAsaasStatus(String workshopId) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/asaas/workshop/$workshopId/status');
+      return response.data is Map
+          ? Map<String, dynamic>.from(response.data as Map)
+          : {'success': false};
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ??
+          e.message ??
+          'Erro ao buscar status Asaas';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ============================================
   // WORKSHOP PROFILE - DADOS REAIS DA API EC2 AWS
   // ============================================
 
