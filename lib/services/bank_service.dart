@@ -44,6 +44,9 @@ class BankService {
     required String conta,
     required String accountType,
     bool acceptsInstallment = false,
+    String? birthDate,
+    String? companyType,
+    int? incomeValue,
   }) async {
     try {
       await loadToken();
@@ -55,6 +58,15 @@ class BankService {
         'account_type': accountType,
         'accepts_installment': acceptsInstallment,
       };
+      if (birthDate != null && birthDate.isNotEmpty) {
+        bankData['birth_date'] = birthDate;
+      }
+      if (companyType != null && companyType.isNotEmpty) {
+        bankData['company_type'] = companyType;
+      }
+      if (incomeValue != null && incomeValue > 0) {
+        bankData['income_value'] = incomeValue;
+      }
 
       final response = await _dio.put('/workshop/$workshopId/banking', data: bankData);
       
@@ -63,8 +75,20 @@ class BankService {
       } else {
         return {'success': false, 'error': 'Erro ao atualizar dados bancários'};
       }
+    } on DioException catch (e) {
+      final responseData = e.response?.data;
+      String serverMessage = '';
+      if (responseData is Map) {
+        serverMessage = (responseData['error'] ?? responseData['message'] ?? '').toString();
+      } else if (responseData is String && responseData.isNotEmpty) {
+        serverMessage = responseData;
+      }
+      final detail = serverMessage.isNotEmpty
+          ? serverMessage
+          : 'HTTP ${e.response?.statusCode ?? ''}: ${e.message ?? e.type.name}';
+      return {'success': false, 'error': detail};
     } catch (e) {
-      return {'success': false, 'error': 'Erro de conexão: ${e.toString()}'};
+      return {'success': false, 'error': 'Erro inesperado: ${e.toString()}'};
     }
   }
 

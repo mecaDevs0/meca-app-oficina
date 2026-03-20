@@ -22,6 +22,10 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   bool _loading = false;
   String _accountType = 'corrente';
   bool _acceptsInstallment = true;
+  final _birthDateController = TextEditingController();
+  final _incomeValueController = TextEditingController(text: '5000');
+  String _companyType = 'MEI';
+  static const _companyTypes = ['MEI', 'ME', 'EPP', 'LTDA', 'SA', 'Autônomo'];
 
   @override
   void initState() {
@@ -58,6 +62,14 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       return;
     }
 
+    String? birthDateFormatted;
+    if (_birthDateController.text.isNotEmpty) {
+      final parts = _birthDateController.text.split('/');
+      if (parts.length == 3) {
+        birthDateFormatted = '${parts[2]}-${parts[1]}-${parts[0]}';
+      }
+    }
+
     final result = await _bankService.updateBankDetails(
       workshopId: workshopId,
       bankName: _bankNameController.text,
@@ -65,23 +77,41 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       conta: _contaController.text,
       accountType: _accountType,
       acceptsInstallment: _acceptsInstallment,
+      birthDate: birthDateFormatted,
+      companyType: _companyType,
+      incomeValue: int.tryParse(_incomeValueController.text) ?? 5000,
     );
 
     setState(() => _loading = false);
 
     if (result['success']) {
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dados bancários salvos com sucesso!'),
-          backgroundColor: AppColors.primaryColor,
-        ),
-      );
+      final data = result['data'];
+      final asaas = data is Map ? data['asaas'] : null;
+      final asaasStatus = asaas is Map ? asaas['asaas_status'] : null;
+      String msg = 'Dados bancários salvos com sucesso!';
+      if (asaasStatus == 'PENDING') {
+        msg = 'Dados salvos! Conta de recebimento em análise (até 2 dias úteis).';
+      } else if (asaasStatus == 'ACTIVE') {
+        msg = 'Dados salvos! Conta de recebimento ativada com sucesso!';
+      }
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppColors.primaryColor,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } else {
+      final rawError = (result['error'] ?? 'Erro desconhecido').toString();
+      final errorMsg = rawError.length > 200 ? '${rawError.substring(0, 200)}...' : rawError;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro: ${result['error']}'),
-          backgroundColor: Colors.red,
+          content: Text(errorMsg),
+          backgroundColor: Colors.red[700],
+          duration: const Duration(seconds: 5),
         ),
       );
     }
@@ -300,6 +330,100 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: const Color(0xFF00C977).withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.person_outline, color: Color(0xFF00C977), size: 22),
+                        SizedBox(width: 10),
+                        Text(
+                          'Dados do Responsável',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00C977),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Necessário para ativar a conta de recebimento',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _birthDateController,
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primaryColor,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Data de nascimento *',
+                          hintText: 'dd/mm/aaaa',
+                          prefixIcon: Icon(Icons.cake_outlined, color: AppColors.primaryColor),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime(1990, 1, 1),
+                          firstDate: DateTime(1940),
+                          lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+                          locale: const Locale('pt', 'BR'),
+                        );
+                        if (picked != null && mounted) {
+                          setState(() {
+                            _birthDateController.text =
+                                '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                          });
+                        }
+                      },
+                      validator: (v) => (v?.isEmpty ?? true) ? 'Campo obrigatório' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _companyType,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Tipo de empresa *',
+                          prefixIcon: Icon(Icons.business_center_outlined, color: AppColors.primaryColor),
+                        ),
+                      ),
+                      items: _companyTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (v) => setState(() => _companyType = v ?? 'MEI'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _incomeValueController,
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primaryColor,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Faturamento mensal estimado (R\$) *',
+                          hintText: '5000',
+                          prefixIcon: Icon(Icons.attach_money, color: AppColors.primaryColor),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (v) => (v?.isEmpty ?? true) ? 'Campo obrigatório' : null,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 40),
 
               // Save Button
@@ -368,6 +492,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     _bankNameController.dispose();
     _agenciaController.dispose();
     _contaController.dispose();
+    _birthDateController.dispose();
+    _incomeValueController.dispose();
     super.dispose();
   }
 }
