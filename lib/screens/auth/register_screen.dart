@@ -44,6 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _isSearchingCNPJ = false;
   bool _isSearchingCEP = false;
+  String? _ownerName; // Nome do responsável obtido via QSA da ReceitaWS
 
   /// Limpa os campos preenchidos automaticamente
   void _limparCamposPreenchidos() {
@@ -57,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _cidadeController.clear();
       _estadoController.clear();
       _cepController.clear();
+      _ownerName = null;
     });
   }
 
@@ -78,11 +80,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final data = json.decode(response.body);
         
         if (data['status'] != 'ERROR' && data['nome'] != null) {
+          // Extrair nome do responsável via QSA (quadro de sócios e administradores)
+          String? ownerNameFromQsa;
+          final qsa = data['qsa'];
+          if (qsa != null && qsa is List && qsa.isNotEmpty) {
+            ownerNameFromQsa = qsa[0]['nome'] as String?;
+          }
+
           setState(() {
             _nomeController.text = data['nome'] ?? '';
             _emailController.text = data['email'] ?? '';
             _phoneController.text = data['telefone']?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
-            
+
             // Endereço
             _logradouroController.text = data['logradouro'] ?? '';
             _numeroController.text = data['numero'] ?? '';
@@ -90,6 +99,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _cidadeController.text = data['municipio'] ?? '';
             _estadoController.text = data['uf'] ?? '';
             _cepController.text = data['cep']?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
+
+            // Responsável pelo CNPJ
+            _ownerName = ownerNameFromQsa;
           });
 
           if (!mounted) return;
@@ -256,6 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final data = {
       'name': _nomeController.text.trim(),
+      'owner_name': _ownerName ?? '',
       'cnpj': _cnpjController.text, // Será normalizado no api_service
       'email': _emailController.text.trim(),
       'password': _passwordController.text,
