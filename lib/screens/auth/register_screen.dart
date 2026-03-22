@@ -80,38 +80,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
         final data = json.decode(response.body);
         
         if (data['status'] != 'ERROR' && data['nome'] != null) {
-          // Extrair nome do responsável via QSA (quadro de sócios e administradores)
+          // Extrair nome do responsável via QSA
           String? ownerNameFromQsa;
           final qsa = data['qsa'];
           if (qsa != null && qsa is List && qsa.isNotEmpty) {
             ownerNameFromQsa = qsa[0]['nome'] as String?;
           }
 
-          setState(() {
-            _nomeController.text = data['nome'] ?? '';
-            _emailController.text = data['email'] ?? '';
-            _phoneController.text = data['telefone']?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
-
-            // Endereço
-            _logradouroController.text = data['logradouro'] ?? '';
-            _numeroController.text = data['numero'] ?? '';
-            _bairroController.text = data['bairro'] ?? '';
-            _cidadeController.text = data['municipio'] ?? '';
-            _estadoController.text = data['uf'] ?? '';
-            _cepController.text = data['cep']?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
-
-            // Responsável pelo CNPJ
-            _ownerName = ownerNameFromQsa;
-          });
+          setState(() => _isSearchingCNPJ = false);
 
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Dados preenchidos automaticamente! Você pode editar qualquer campo.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
+
+          // Mostrar modal de revisão dos dados do CNPJ
+          final confirmed = await _showCnpjReviewDialog(
+            nome: data['nome'] ?? '',
+            email: data['email'] ?? '',
+            telefone: data['telefone']?.replaceAll(RegExp(r'[^\d]'), '') ?? '',
+            logradouro: data['logradouro'] ?? '',
+            numero: data['numero'] ?? '',
+            bairro: data['bairro'] ?? '',
+            cidade: data['municipio'] ?? '',
+            estado: data['uf'] ?? '',
+            cep: data['cep']?.replaceAll(RegExp(r'[^\d]'), '') ?? '',
+            ownerName: ownerNameFromQsa ?? '',
           );
+
+          return; // Skip the setState(_isSearchingCNPJ = false) below since dialog handles it
         } else {
           // CNPJ inválido ou não encontrado
           if (!mounted) return;
@@ -186,6 +180,126 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isSearchingCEP = false);
+  }
+
+  /// Modal de revisão dos dados preenchidos via CNPJ
+  Future<bool?> _showCnpjReviewDialog({
+    required String nome,
+    required String email,
+    required String telefone,
+    required String logradouro,
+    required String numero,
+    required String bairro,
+    required String cidade,
+    required String estado,
+    required String cep,
+    required String ownerName,
+  }) {
+    // Controllers temporários para edição no modal
+    final tmpNome = TextEditingController(text: nome);
+    final tmpEmail = TextEditingController(text: email);
+    final tmpTelefone = TextEditingController(text: telefone);
+    final tmpLogradouro = TextEditingController(text: logradouro);
+    final tmpNumero = TextEditingController(text: numero);
+    final tmpBairro = TextEditingController(text: bairro);
+    final tmpCidade = TextEditingController(text: cidade);
+    final tmpEstado = TextEditingController(text: estado);
+    final tmpCep = TextEditingController(text: cep);
+    final tmpOwnerName = TextEditingController(text: ownerName);
+
+    final controllers = [tmpNome, tmpEmail, tmpTelefone, tmpLogradouro, tmpNumero, tmpBairro, tmpCidade, tmpEstado, tmpCep, tmpOwnerName];
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+        return AlertDialog(
+        backgroundColor: isDark
+            ? const Color(0xFF1A1A1A)
+            : Colors.white,
+        title: Text('Revisar dados do CNPJ',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Confira e corrija os dados antes de continuar:',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _buildDialogField('Nome da empresa', tmpNome),
+              _buildDialogField('Responsável', tmpOwnerName),
+              _buildDialogField('Email', tmpEmail),
+              _buildDialogField('Telefone', tmpTelefone),
+              _buildDialogField('Logradouro', tmpLogradouro),
+              _buildDialogField('Número', tmpNumero),
+              _buildDialogField('Bairro', tmpBairro),
+              _buildDialogField('Cidade', tmpCidade),
+              _buildDialogField('Estado', tmpEstado),
+              _buildDialogField('CEP', tmpCep),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Preencher manualmente'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00C977),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _nomeController.text = tmpNome.text;
+                _emailController.text = tmpEmail.text;
+                _phoneController.text = tmpTelefone.text;
+                _logradouroController.text = tmpLogradouro.text;
+                _numeroController.text = tmpNumero.text;
+                _bairroController.text = tmpBairro.text;
+                _cidadeController.text = tmpCidade.text;
+                _estadoController.text = tmpEstado.text;
+                _cepController.text = tmpCep.text;
+                _ownerName = tmpOwnerName.text.isNotEmpty ? tmpOwnerName.text : null;
+              });
+              Navigator.of(ctx).pop(true);
+            },
+            child: const Text('Confirmar dados'),
+          ),
+        ],
+      );
+      },
+    ).whenComplete(() {
+      for (final c in controllers) {
+        c.dispose();
+      }
+    });
+  }
+
+  Widget _buildDialogField(String label, TextEditingController controller) {
+    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
+          filled: true,
+          fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleRegister() async {

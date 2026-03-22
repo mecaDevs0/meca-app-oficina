@@ -2132,11 +2132,11 @@ class ApiService {
   // ASAAS - ONBOARDING E STATUS
   // ============================================
 
-  /// POST /asaas/workshop/:id/onboard
+  /// POST /workshop/:id/asaas/onboard
   Future<Map<String, dynamic>> onboardAsaas(String workshopId, Map<String, dynamic> data) async {
     try {
       await loadToken();
-      final response = await _dio.post('/asaas/workshop/$workshopId/onboard', data: data);
+      final response = await _dio.post('/workshop/$workshopId/asaas/onboard', data: data);
       return response.data is Map
           ? Map<String, dynamic>.from(response.data as Map)
           : {'success': true};
@@ -2150,11 +2150,11 @@ class ApiService {
     }
   }
 
-  /// GET /asaas/workshop/:id/status
+  /// GET /workshop/:id/asaas/status
   Future<Map<String, dynamic>> getAsaasStatus(String workshopId) async {
     try {
       await loadToken();
-      final response = await _dio.get('/asaas/workshop/$workshopId/status');
+      final response = await _dio.get('/workshop/$workshopId/asaas/status');
       return response.data is Map
           ? Map<String, dynamic>.from(response.data as Map)
           : {'success': false};
