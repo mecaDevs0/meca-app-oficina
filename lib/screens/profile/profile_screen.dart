@@ -12,155 +12,11 @@ import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
 import '../../utils/formatters.dart';
-import '../../widgets/verify_account_modal.dart';
 import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'referral_screen.dart';
-
-/// Card de incentivo à vinculação PagBank — mostra quando oficina ainda não vinculou conta.
-/// Design premium focado em conversão: necessidade + benefício (MECA paga taxa do cartão).
-class PagBankIncentiveCard extends StatelessWidget {
-  final VoidCallback onTapVincular;
-
-  const PagBankIncentiveCard({super.key, required this.onTapVincular});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF0D2B1A),
-            const Color(0xFF0F3D24),
-            const Color(0xFF0D2B1A),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00C977).withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00C977).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.lock_open_rounded,
-                    color: Color(0xFF00C977),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Libere seus recebimentos no app! 💸',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Para que os clientes consigam te pagar pelo MECA, é obrigatório vincular sua conta PagBank.',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: Colors.white.withOpacity(0.9),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C977).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF00C977).withOpacity(0.35),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('🎁', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Vantagem: o MECA cuida das taxas da maquininha para você!',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                        color: Colors.white.withOpacity(0.95),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  onTap: onTapVincular,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.link, size: 20, color: const Color(0xFF0D2B1A)),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Vincular PagBank Agora',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0D2B1A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -169,42 +25,20 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
+class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService _apiService = ApiService();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = true;
   bool _isUploadingLogo = false;
-  bool _isConnectingPagbank = false;
   Map<String, dynamic>? _workshopData;
-  Map<String, dynamic>? _pagbankData;
+  Map<String, dynamic>? _asaasData;
+  bool _isLoadingAsaas = false;
   String? _logoUrl;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _loadWorkshopData();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // Quando o app volta ao foreground, recarregar dados PagBank
-    // Isso garante que após o OAuth, os dados sejam atualizados
-    if (state == AppLifecycleState.resumed && mounted) {
-      // Aguardar um pouco para garantir que o callback foi processado
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          _loadWorkshopData();
-        }
-      });
-    }
   }
 
   Future<void> _loadWorkshopData() async {
@@ -256,12 +90,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
       if (!mounted) return;
 
-      // Buscar dados PagBank (estado real salvo no nosso banco)
-      final pagbankStatusResponse = await _apiService.getPagBankAccount();
-      if (pagbankStatusResponse['success'] && mounted) {
-        setState(() {
-          _pagbankData = pagbankStatusResponse['data'] as Map<String, dynamic>?;
-        });
+      // Buscar status Asaas
+      final workshopId = _workshopData?['id']?.toString() ?? '';
+      if (workshopId.isNotEmpty) {
+        final asaasResponse = await _apiService.getAsaasStatus(workshopId);
+        if (mounted) {
+          setState(() {
+            _asaasData = asaasResponse;
+          });
+        }
       }
     } catch (e) {
       print('❌ Erro ao carregar dados: $e');
@@ -271,87 +108,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       }
     }
   }
-
-  Future<void> _handleConnectPagBank() async {
-    if (_isConnectingPagbank) return;
-
-    setState(() => _isConnectingPagbank = true);
-    String? feedback;
-    Color? snackBarColor;
-
-    try {
-      final response = await _apiService.startPagBankConnect();
-      
-      if (response['success'] == true) {
-        final data = Map<String, dynamic>.from(response['data'] ?? {});
-        final authorizeUrl = (data['authorize_url'] ?? data['url'] ?? data['redirect_url'])?.toString();
-        final expiresIn = data['expires_in_minutes'];
-
-
-        if (authorizeUrl != null && authorizeUrl.isNotEmpty) {
-          // Validar se a URL é válida
-          try {
-          final uri = Uri.parse(authorizeUrl);
-            
-            // Verificar se a URL contém os parâmetros necessários
-            if (!uri.queryParameters.containsKey('client_id')) {
-              feedback = '⚠️ URL de autorização inválida: falta client_id';
-              snackBarColor = Colors.orange;
-            } else if (!uri.queryParameters.containsKey('redirect_uri')) {
-              feedback = '⚠️ URL de autorização inválida: falta redirect_uri';
-              snackBarColor = Colors.orange;
-            } else {
-          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-          if (!launched) {
-                feedback = '❌ Não foi possível abrir a página de autorização do PagBank. Verifique se há um navegador instalado.';
-                snackBarColor = Colors.red;
-          } else {
-            feedback = expiresIn != null
-                    ? '✅ Autorização PagBank aberta. Conclua o processo em até $expiresIn minutos.'
-                    : '✅ Autorização PagBank aberta em uma nova janela.';
-                snackBarColor = Colors.green;
-                // Aguardar alguns segundos após abrir o navegador e recarregar dados
-                // Isso garante que quando o usuário voltar do OAuth, os dados sejam atualizados
-                Future.delayed(const Duration(seconds: 3), () {
-                  if (mounted) {
-                    _loadWorkshopData();
-                  }
-                });
-              }
-            }
-          } catch (e) {
-            feedback = '❌ URL de autorização inválida: $e';
-            snackBarColor = Colors.red;
-          }
-        } else {
-          feedback = '❌ A API não retornou a URL de autorização do PagBank. Verifique os logs do servidor.';
-          snackBarColor = Colors.red;
-        }
-      } else {
-        final errorMsg = response['error']?.toString() ?? 'Falha ao iniciar o fluxo PagBank Connect.';
-        feedback = '❌ Erro: $errorMsg';
-        snackBarColor = Colors.red;
-      }
-    } catch (e) {
-      feedback = '❌ Erro ao iniciar PagBank Connect: $e';
-      snackBarColor = Colors.red;
-    } finally {
-      if (mounted) {
-        setState(() => _isConnectingPagbank = false);
-        if (feedback != null && feedback.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(feedback),
-              backgroundColor: snackBarColor,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-      }
-    }
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -425,18 +181,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (_isPagBankNotLinked()) ...[
-                        PagBankIncentiveCard(
-                          onTapVincular: () async {
-                            await Navigator.pushNamed(context, '/config/pagbank');
-                            if (mounted) await _loadWorkshopData();
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                      ],
                       _buildProfileHeader(isDark, textColor, secondaryText, themeService),
                       const SizedBox(height: 32),
-                      _buildPagBankCard(isDark, textColor, secondaryText),
+                      _buildAsaasStatusCard(isDark, textColor, secondaryText),
                       const SizedBox(height: 32),
                       _buildThemeCard(isDark, themeService),
                       const SizedBox(height: 32),
@@ -497,12 +244,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       ),
                       _buildMenuOption(
                         icon: Icons.account_balance_wallet_outlined,
-                        title: 'Método de pagamento',
-                        subtitle: 'Configuração de pagamentos',
+                        title: 'Dados bancários',
+                        subtitle: 'Configurar conta de recebimento',
                         isDark: isDark,
                         onTap: () async {
-                          await Navigator.pushNamed(context, '/config/pagbank');
-                          if (mounted) {
+                          final result = await Navigator.pushNamed(context, '/config/banking');
+                          if (result == true && mounted) {
                             await _loadWorkshopData();
                           }
                         },
@@ -568,21 +315,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         );
       },
     );
-  }
-
-  /// true quando a oficina ainda não tem PagBank vinculado e pronto para receber
-  bool _isPagBankNotLinked() {
-    final data = _pagbankData ?? const {};
-    final hasAccountId = data['has_account_id'] == true ||
-        (data['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-    final connected = data['connected'] == true ||
-        data['has_authorization'] == true ||
-        hasAccountId;
-    final isVerified =
-        data['pagbank_verified'] == true ||
-        data['approved_by_workshop'] == true ||
-        data['verified'] == true;
-    return !(connected && isVerified);
   }
 
   Widget _buildProfileHeader(
@@ -924,577 +656,180 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildPagBankCard(bool isDark, Color textColor, Color secondaryText) {
-    final cardColor = ThemeService.getCardColor(isDark);
-    final borderColor = secondaryText.withOpacity(0.18);
-    final data = _pagbankData ?? const {};
-    final hasAccountId = data['has_account_id'] == true ||
-        (data['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-    final connected = data['connected'] == true ||
-        data['has_authorization'] == true ||
-        hasAccountId;
-    final accountId = data['pagbank_account_id'];
-    final isVerified =
-        data['pagbank_verified'] == true ||
-        data['approved_by_workshop'] == true ||
-        data['verified'] == true;
-    final status = (data['status'] ?? data['pagbank_status'] ?? 'pending').toString().toLowerCase();
-    final email = data['email']?.toString();
-    final name = data['name']?.toString();
-    final statusMessage = data['message']?.toString() ?? '';
-    final warningBackground = isDark ? const Color(0xFF2C1B0E) : const Color(0xFFFFF4E5);
-    final warningBorder = isDark ? const Color(0xFF5A3414) : const Color(0xFFFFD9B0);
-    final warningTitleColor = isDark ? const Color(0xFFFFC58F) : const Color(0xFF8A4B16);
-    final warningBodyColor = isDark ? Colors.white70 : const Color(0xFF5F3B10);
-
-    // Determinar estado: not_connected, connected, verified
-    String pagbankState;
-    if (connected && isVerified) {
-      pagbankState = 'verified';
-    } else if (connected && !isVerified) {
-      pagbankState = 'connected';
-    } else {
-      pagbankState = 'not_connected';
-    }
+  Widget _buildAsaasStatusCard(bool isDark, Color textColor, Color secondaryText) {
+    final asaasStatus = (_asaasData?['asaas_status'] ?? '').toString().toUpperCase();
+    final isActive = asaasStatus == 'ACTIVE';
+    final isPending = asaasStatus == 'PENDING';
+    final isConfigured = isActive || isPending;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: borderColor, width: 1.2),
-        boxShadow: isDark
-            ? [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 24, offset: const Offset(0, 18))]
-            : [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 16))],
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00C977).withOpacity(isDark ? 0.14 : 0.18),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF00C977), size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Recebimentos PagBank',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      pagbankState == 'not_connected'
-                          ? 'Conecte sua conta PagBank ou informe o Account ID (ACCO_...) para receber pagamentos.'
-                          : pagbankState == 'connected'
-                              ? 'Conta PagBank conectada'
-                              : pagbankState == 'verified'
-                                  ? 'Conta PagBank conectada e pronta para receber'
-                                  : pagbankState == 'pending'
-                                      ? 'Conta PagBank criada, pendente de validação'
-                                      : 'PagBank aprovado',
-                      style: TextStyle(color: secondaryText, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              if (pagbankState != 'not_connected')
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                    color: _pagbankStatusColor(pagbankState).withOpacity(isDark ? 0.15 : 0.18),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (pagbankState == 'verified')
-                      const Icon(Icons.check_circle, size: 14, color: Color(0xFF22C55E)),
-                    if (pagbankState == 'verified') const SizedBox(width: 4),
-                    Text(
-                        _pagbankStatusLabel(pagbankState),
-                      style: TextStyle(
-                          color: _pagbankStatusColor(pagbankState),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // ESTADO 1: Não conectado
-          if (pagbankState == 'not_connected') ...[
-            Text(
-              'Para começar a receber pagamentos, conecte sua conta PagBank.',
-              style: TextStyle(color: secondaryText, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await Navigator.pushNamed(context, '/config/pagbank');
-                  if (mounted) {
-                    await _loadWorkshopData();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C977),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.link),
-                label: const Text('Conectar PagBank'),
-              ),
-            ),
-          ]
-          
-          // ESTADO 2: Conectado via OAuth mas não verificado
-          else if (pagbankState == 'connected') ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7).withOpacity(isDark ? 0.2 : 1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFFCD34D).withOpacity(isDark ? 0.5 : 1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.link, color: const Color(0xFFF59E0B), size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Conta Conectada',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : const Color(0xFF92400E),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Sua conta PagBank está conectada. Agora você precisa validá-la para começar a receber pagamentos.',
-                          style: TextStyle(
-                            color: isDark ? Colors.white70 : const Color(0xFF78350F),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF00C977).withOpacity(0.15)
+                        : isPending
+                            ? const Color(0xFFF59E0B).withOpacity(0.15)
+                            : Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showVerifyAccountModal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C977),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Icon(
+                    isActive ? Icons.check_circle : isPending ? Icons.schedule : Icons.account_balance,
+                    color: isActive
+                        ? const Color(0xFF00C977)
+                        : isPending
+                            ? const Color(0xFFF59E0B)
+                            : secondaryText,
+                    size: 24,
+                  ),
                 ),
-                icon: const Icon(Icons.verified_user),
-                label: const Text('Confirmar validação'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  await Navigator.pushNamed(context, '/config/pagbank');
-                  if (mounted) {
-                    await _loadWorkshopData();
-                  }
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF00C977),
-                  side: const BorderSide(color: Color(0xFF00C977)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Ver PagBank'),
-              ),
-            ),
-          ]
-          
-          // ESTADO 2.5: Cadastrado mas não validado (método antigo)
-          else if (pagbankState == 'pending') ...[
-            if (name != null && name.isNotEmpty)
-              _buildKeyValueRow('Nome', name, textColor, secondaryText),
-            if (email != null && email.isNotEmpty)
-              _buildKeyValueRow('Email', email, textColor, secondaryText),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: warningBackground,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: warningBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline, color: Color(0xFFF97316), size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Status: Verificação pendente',
-                          style: TextStyle(
-                            color: warningTitleColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                      Text(
+                        'Conta de Recebimento',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isActive
+                            ? 'Ativa — voce esta recebendo normalmente'
+                            : isPending
+                                ? 'Em analise — validacao em ate 2 dias uteis'
+                                : 'Configure seus dados bancarios para receber',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: secondaryText,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    statusMessage.isNotEmpty
-                        ? statusMessage
-                        : 'Para validar sua conta e começar a receber pagamentos, você precisa entrar no app PagBank.',
-                    style: TextStyle(color: warningBodyColor, fontSize: 13, height: 1.4),
+                ),
+                if (isConfigured)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? const Color(0xFF00C977).withOpacity(0.15)
+                          : const Color(0xFFF59E0B).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isActive ? 'Ativa' : 'Pendente',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? const Color(0xFF00C977) : const Color(0xFFF59E0B),
+                      ),
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-                onPressed: _openPagBankAppStore,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C977),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('Abrir app PagBank'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-                onPressed: _checkAccountStatus,
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Já validei minha conta'),
-              ),
-            ),
-          ]
-          
-          // ESTADO 3: Verificado via OAuth
-          else if (pagbankState == 'verified') ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4).withOpacity(isDark ? 0.2 : 1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF86EFAC).withOpacity(isDark ? 0.5 : 1),
+
+            if (!isConfigured) ...[
+              const SizedBox(height: 16),
+              // CTA to configure banking
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00C977), Color(0xFF00A563)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () async {
+                      final result = await Navigator.pushNamed(context, '/config/banking');
+                      if (result == true && mounted) {
+                        _loadWorkshopData();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.account_balance, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Configurar Dados Bancarios',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Conta Verificada',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : const Color(0xFF166534),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Sua conta PagBank está conectada e verificada. Você já pode receber pagamentos!',
-                          style: TextStyle(
-                            color: isDark ? Colors.white70 : const Color(0xFF15803D),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+              const SizedBox(height: 12),
+              Text(
+                'A MECA arca com 100% das taxas do gateway de pagamento.',
+                style: TextStyle(fontSize: 12, color: secondaryText),
+                textAlign: TextAlign.center,
+              ),
+            ],
+
+            if (isConfigured) ...[
+              const SizedBox(height: 16),
+              // Settings shortcut
+              InkWell(
+                onTap: () async {
+                  final result = await Navigator.pushNamed(context, '/config/banking');
+                  if (result == true && mounted) {
+                    _loadWorkshopData();
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings, size: 16, color: secondaryText),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Editar dados bancarios',
+                        style: TextStyle(fontSize: 13, color: const Color(0xFF00C977), fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.chevron_right, size: 18, color: secondaryText),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            if (accountId != null)
-              _buildKeyValueRow('ID da Conta', accountId.toString(), textColor, secondaryText),
-          ]
-          
-          // ESTADO 3.5: Validado (método antigo)
-          else if (pagbankState == 'approved') ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF86EFAC)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'PagBank aprovado',
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Sua conta foi aprovada pelo PagBank. Agora você pode receber pagamentos normalmente.',
-                          style: TextStyle(color: secondaryText, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (email != null && email.isNotEmpty)
-              _buildKeyValueRow('Email cadastrado', email, textColor, secondaryText),
-            if (name != null && name.isNotEmpty)
-              _buildKeyValueRow('Nome da empresa', name, textColor, secondaryText),
+            ],
           ],
-        ],
+        ),
       ),
     );
-  }
-
-  Color _pagbankStatusColor(String state) {
-    switch (state) {
-      case 'verified':
-        return const Color(0xFF22C55E);
-      case 'connected':
-        return const Color(0xFF3B82F6);
-      case 'approved':
-        return const Color(0xFF22C55E);
-      case 'pending':
-        return const Color(0xFFF97316);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  String _pagbankStatusLabel(String state) {
-    switch (state) {
-      case 'verified':
-        return 'Verificado';
-      case 'connected':
-        return 'Conectado';
-      case 'approved':
-        return 'Aprovado';
-      case 'pending':
-        return 'Pendente';
-      default:
-        return 'Não conectado';
-    }
-  }
-
-  Future<void> _showVerifyAccountModal() async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => VerifyAccountModal(
-        onVerify: () async {
-          Navigator.pop(context);
-          await _verifyAccount();
-        },
-      ),
-    );
-  }
-
-  Future<void> _verifyAccount() async {
-    if (_isConnectingPagbank) return;
-
-    setState(() => _isConnectingPagbank = true);
-
-    try {
-      final response = await _apiService.verifyPagBankAccount();
-
-      if (response['success']) {
-        final data = response['data'];
-        final isValid = data['valid'] == true;
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isValid
-                    ? '✅ Conta verificada com sucesso! Você já pode receber pagamentos.'
-                    : '⚠️ Conta ainda não verificada. Valide sua conta no app PagBank primeiro.',
-              ),
-              backgroundColor: isValid ? Colors.green : Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-
-        // Recarregar dados
-        await _loadWorkshopData();
-      } else {
-        throw Exception(response['error'] ?? 'Erro ao verificar conta');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      setState(() => _isConnectingPagbank = false);
-    }
-  }
-
-  Future<void> _openPagBankAppStore() async {
-    try {
-      // Detectar plataforma e abrir loja apropriada
-      final package = 'com.pagseguro.app';
-      // App Store: usar ID correto do PagBank (precisa verificar o ID real)
-      final appStoreUrl = 'https://apps.apple.com/br/app/pagbank/id1455236751';
-      final playStoreUrl = 'https://play.google.com/store/apps/details?id=$package';
-      
-      // Detectar plataforma usando import 'dart:io'
-      final uri = Uri.parse(
-        Theme.of(context).platform == TargetPlatform.iOS 
-            ? appStoreUrl 
-            : playStoreUrl
-      );
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      
-      if (!launched) {
-                if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Não foi possível abrir a loja de aplicativos.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao abrir loja: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _checkAccountStatus() async {
-    if (!mounted) return;
-    
-    try {
-      setState(() => _isLoading = true);
-      
-      if (!mounted) return;
-      
-      final response = await _apiService.getPagBankAccount();
-      
-      if (!mounted) return;
-      
-      if (response['success']) {
-        setState(() {
-          _pagbankData = response['data'] as Map<String, dynamic>?;
-        });
-        
-        final connected = response['data']?['connected'] == true || response['data']?['has_authorization'] == true;
-        final isVerified = response['data']?['pagbank_verified'] == true || response['data']?['approved_by_workshop'] == true;
-        
-        if (mounted) {
-          if (connected && isVerified) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Conta PagBank conectada e verificada.'),
-                backgroundColor: Color(0xFF22C55E),
-              ),
-            );
-          } else if (connected && !isVerified) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Conta PagBank conectada.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Conta PagBank ainda não conectada.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${response['error'] ?? 'Erro ao verificar status'}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao verificar status: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 
   Widget _buildKeyValueRow(String label, dynamic value, Color primary, Color secondary) {
@@ -1797,7 +1132,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   String _formatAddressSummary() {
+    // Suportar formato plano da API (address, city, state, cep) e objeto (logradouro, cidade, etc.)
     final raw = _workshopData?['address'];
+    final flatCity = _workshopData?['city']?.toString().trim();
+    final flatState = _workshopData?['state']?.toString().trim();
+    final flatCep = _workshopData?['cep']?.toString().trim();
+    final flatAddressStr = raw is String ? (raw as String).trim() : null;
+
+    if (flatAddressStr != null && flatAddressStr.isNotEmpty) {
+      final parts = [flatAddressStr, flatCity, flatState, flatCep]
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (parts.isNotEmpty) return parts.join(', ');
+    }
+
     if (raw == null) return 'Endereço não cadastrado';
 
     try {
@@ -1805,7 +1154,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       if (raw is Map<String, dynamic>) {
         addressMap = raw;
       } else if (raw is String) {
-        addressMap = Map<String, dynamic>.from(jsonDecode(raw));
+        try {
+          addressMap = Map<String, dynamic>.from(jsonDecode(raw));
+        } catch (_) {
+          return raw.isEmpty ? 'Endereço não cadastrado' : raw;
+        }
       } else {
         return raw.toString();
       }
@@ -1917,23 +1270,23 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildFaqItem(
-                        title: 'Taxas PagBank',
-                        body: 'As taxas são definidas pelo próprio PagBank e podem variar por meio (PIX/cartão) e parcelamento. Você consegue ver no app do PagBank.',
+                        title: 'Taxas do gateway',
+                        body: 'As taxas do gateway de pagamento (PIX e cartao) sao arcadas integralmente pela MECA. Voce nao e descontado.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
-                        title: 'Taxa MECA',
-                        body: 'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas PagBank; você não é descontado pelas taxas do gateway.',
+                        title: 'Taxa MECA (12%)',
+                        body: 'O MECA cobra 12% em cada pagamento (split automatico). A MECA arca com 100% das taxas do gateway; voce recebe 88% do valor pago pelo cliente.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
-                        title: 'Como o dinheiro cai para a oficina?',
-                        body: 'O cliente paga no MECA e o PagBank faz o repasse automaticamente: 12% vai para o MECA e 88% cai na sua conta PagBank. O MECA assume todas as taxas do PagBank.',
+                        title: 'Como funciona o split',
+                        body: 'O cliente paga no MECA e o gateway faz o repasse automaticamente: 12% vai para o MECA e 88% vai para sua conta bancaria.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
-                        title: 'PagBank conectado mas não atualizou',
-                        body: 'Puxe a tela para atualizar ou toque em “Reautorizar PagBank”.',
+                        title: 'Conta nao atualizada',
+                        body: 'Puxe a tela para baixo para atualizar os dados. Se o problema persistir, entre em contato com suporte@mecabr.com.',
                         isDark: isDark,
                       ),
                     ],

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,7 @@ import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/form_styles.dart';
 import '../../utils/phone_formatter.dart';
+import '../../utils/cep_formatter.dart';
 import '../../core/app_colors.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -28,6 +30,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _cepController = TextEditingController();
   String? _logoUrl;
 
   @override
@@ -59,6 +65,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           }
         }
         _logoUrl = data['logo_url'] ?? data['logo'];
+        // Endereço: formato plano (address, city, state, cep) ou objeto
+        final addr = data['address'];
+        if (addr is String && addr.trim().isNotEmpty) {
+          _addressController.text = addr.trim();
+        } else if (addr is Map<String, dynamic>) {
+          final logradouro = addr['logradouro'] ?? addr['street'] ?? '';
+          final numero = addr['numero'] ?? addr['number'] ?? '';
+          _addressController.text = [logradouro, numero].where((s) => s.toString().trim().isNotEmpty).join(', ');
+        }
+        _cityController.text = data['city']?.toString().trim() ?? '';
+        _stateController.text = data['state']?.toString().trim() ?? '';
+        _cepController.text = data['cep']?.toString().trim() ?? '';
       }
     } catch (_) {
       // Mantém silencioso: tela simplificada apenas para edição básica.
@@ -77,6 +95,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
+        'address': _addressController.text.trim(),
+        'city': _cityController.text.trim(),
+        'state': _stateController.text.trim(),
+        'cep': _cepController.text.trim().replaceAll(RegExp(r'\D'), ''),
       };
       final response = await _apiService.updateProfile(payload);
       if (mounted) {
@@ -115,6 +137,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _cepController.dispose();
     super.dispose();
   }
 
@@ -170,6 +196,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   label: 'Telefone',
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  label: 'Endereço',
+                  controller: _addressController,
+                  keyboardType: TextInputType.streetAddress,
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  label: 'Cidade',
+                  controller: _cityController,
+                  keyboardType: TextInputType.text,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildTextField(
+                        label: 'Estado',
+                        controller: _stateController,
+                        keyboardType: TextInputType.text,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cepController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [CepFormatter()],
+                        style: FormStyles.inputTextStyle(context),
+                        cursorColor: AppColors.primaryColor,
+                        decoration: FormStyles.decorate(
+                          context,
+                          const InputDecoration(
+                            labelText: 'CEP',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 32),
                 _buildLogoSection(),

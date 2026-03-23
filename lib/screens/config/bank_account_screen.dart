@@ -24,6 +24,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isFetchingCep = false;
+  bool _graficoAvailable = false;
   Map<String, dynamic>? _bankData;
   final ApiService _apiService = ApiService();
 
@@ -92,8 +93,16 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       }
 
       await _apiService.loadToken();
-      
-      final response = await _apiService.getBankAccount();
+
+      final responses = await Future.wait([
+        _apiService.getBankAccount(),
+        _apiService.getGraficoStatus(),
+      ]);
+      final response = responses[0];
+      final graficoResponse = responses[1];
+
+      _graficoAvailable = graficoResponse['success'] == true &&
+          (graficoResponse['service_enabled'] == true || graficoResponse['mode'] == 'grafico');
       if (response['success']) {
         _safeSetState(() {
           _bankData = response['data'];
@@ -438,9 +447,11 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                     _buildInputField(
                       controller: _pixKeyController,
                       label: 'Chave PIX',
-                      hint: 'Digite a chave PIX',
+                      hint: _graficoAvailable
+                          ? 'Opcional no fluxo gráfico (o MECA pode registrar EVP)'
+                          : 'Digite a chave PIX',
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (!_graficoAvailable && (value == null || value.isEmpty)) {
                           return 'Chave PIX é obrigatória';
                         }
                         return null;

@@ -26,7 +26,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
   List<Map<String, dynamic>> _confirmedBookings = [];
   List<Map<String, dynamic>> _completedBookings = [];
   final ApiService _apiService = ApiService();
-  bool? _pagbankVerified; // null = ainda não carregou
 
   @override
   void initState() {
@@ -34,17 +33,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(_handleTabChange);
     _loadBookings();
-    _loadPagBankStatus();
-  }
-
-  Future<void> _loadPagBankStatus() async {
-    try {
-      final profile = await _apiService.getProfile();
-      if (profile['success'] == true && profile['data'] != null) {
-        final data = profile['data'] as Map<String, dynamic>;
-        _safeSetState(() => _pagbankVerified = data['pagbank_verified'] == true);
-      }
-    } catch (_) {}
   }
 
   @override
@@ -250,11 +238,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       color: secondaryText,
                     ),
                   ),
-                  if (_pagbankVerified == false) ...[
-                    const SizedBox(height: 16),
-                    _buildPagBankBanner(themeService.isDarkMode),
-                  ],
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 20);
                   _buildStatusToolbar(themeService.isDarkMode),
                 ],
               ),
@@ -272,44 +256,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       ],
                     ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPagBankBanner(bool isDark) {
-    final bg = isDark ? const Color(0xFF0D2B1A) : const Color(0xFF0D2B1A);
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/profile'),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF00C977).withOpacity(0.35)),
-          boxShadow: [BoxShadow(color: const Color(0xFF00C977).withOpacity(0.12), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFF00C977).withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF00C977), size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Vincule sua conta PagBank', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
-                  const SizedBox(height: 2),
-                  Text('Receba pagamentos dos clientes pelo app', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.85))),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.8), size: 24),
           ],
         ),
       ),

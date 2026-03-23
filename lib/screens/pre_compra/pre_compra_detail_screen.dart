@@ -562,7 +562,7 @@ class _PreCompraDetailOfinaScreenState extends State<PreCompraDetailOfinaScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Quando o cliente realizar o pagamento, você receberá uma notificação e o repasse será feito automaticamente via PagBank.',
+                        'Quando o cliente realizar o pagamento, você receberá uma notificação e o repasse será feito automaticamente.',
                         style: TextStyle(
                           fontSize: 13,
                           color: ThemeService.getSecondaryTextColor(_isDark),
@@ -684,7 +684,7 @@ class _PreCompraDetailOfinaScreenState extends State<PreCompraDetailOfinaScreen>
                       ),
                     ),
                     Text(
-                      'O repasse foi enviado via PagBank',
+                      'O repasse foi enviado pelo gateway de pagamento',
                       style: TextStyle(
                         fontSize: 12,
                         color: ThemeService.getSecondaryTextColor(_isDark),

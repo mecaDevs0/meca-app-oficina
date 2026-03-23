@@ -118,29 +118,16 @@ class _FinancialScreenState extends State<FinancialScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.verified_user, color: cardBorderColor, size: 28),
+                                  Icon(Icons.email_outlined, color: cardBorderColor, size: 28),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Para consultar os valores a receber ou adiantar pagamentos consulte o app Pagbank.',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: textColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'O MECA arca com 100% das taxas PagBank.',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: secondaryTextColor,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      'Para adiantar recebimentos, entre em contato com suporte@mecabr.com',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: textColor,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -201,6 +188,24 @@ class _FinancialScreenState extends State<FinancialScreen> {
                           borderColor: cardBorderColor,
                           textColor: textColor,
                           secondaryTextColor: secondaryTextColor,
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Center(
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.pushNamed(context, '/financial-history'),
+                            icon: const Icon(Icons.history, color: Color(0xFF00C977), size: 18),
+                            label: const Text(
+                              'Ver historico completo',
+                              style: TextStyle(
+                                color: Color(0xFF00C977),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -588,7 +593,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     final netAmount = _formatCurrency(transaction['net_amount'], fallback: '—');
     final mecaFeeAmount = _formatCurrency(transaction['meca_fee_amount'], fallback: '—');
-    final pagbankFeeAmount = _formatCurrency(transaction['pagbank_fee_amount'], fallback: '—');
+    final gatewayFeeAmount = _formatCurrency(transaction['pagbank_fee_amount'] ?? transaction['gateway_fee_amount'], fallback: '—');
     final grossAmount = _formatCurrency(transaction['gross_amount'], fallback: 'R\$ 0,00');
 
     return Padding(
@@ -647,7 +652,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
             children: [
               _buildAmountDetail('Taxa MECA', mecaFeeAmount, secondaryTextColor, textColor),
               const SizedBox(width: 12),
-              _buildAmountDetail('Taxa PagBank', pagbankFeeAmount, secondaryTextColor, textColor),
+              _buildAmountDetail('Taxa Gateway', gatewayFeeAmount, secondaryTextColor, textColor),
               const SizedBox(width: 12),
               _buildAmountDetail('Líquido', netAmount, secondaryTextColor, textColor,
                   highlight: true),

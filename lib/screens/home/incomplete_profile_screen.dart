@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../setup/bank_details_screen.dart';
 import '../setup/schedule_config_screen.dart';
 import '../setup/services_selection_screen.dart';
 import 'dashboard_screen.dart';
@@ -107,11 +106,12 @@ class IncompleteProfileScreen extends StatelessWidget {
                         gradient: const LinearGradient(
                           colors: [Color(0xFF00c977), Color(0xFF00a563)],
                         ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const BankDetailsScreen()),
-                          );
+                        onTap: () async {
+                          final result = await Navigator.pushNamed(context, '/config/banking');
+                          if (result == true && context.mounted) {
+                            // Refresh the screen after banking setup
+                            (context as Element).markNeedsBuild();
+                          }
                         },
                       ),
                       _buildActionCard(

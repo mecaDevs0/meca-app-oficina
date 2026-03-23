@@ -10,12 +10,13 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/config/agenda_config_screen.dart';
-import 'screens/config/bank_account_screen.dart';
+import 'screens/bank/bank_account_screen.dart';
+import 'screens/config/banking_screen.dart';
 import 'screens/config/installment_config_screen.dart';
-import 'screens/config/pagbank_config_screen.dart';
 import 'screens/config/services_config_screen.dart';
 import 'screens/core/core_screen.dart';
 import 'screens/financial/financial_screen.dart';
+import 'screens/financial/financial_history_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/insights/insights_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
@@ -159,6 +160,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.fade(const ScheduleScreen());
           case '/financial':
             return PageTransitions.fade(const FinancialScreen());
+          case '/financial-history':
+            return PageTransitions.slideFromRight(const FinancialHistoryScreen());
           case '/profile':
             return PageTransitions.fade(const ProfileScreen());
           case '/referrals':
@@ -186,8 +189,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.slideFromRight(const InsightsScreen());
           case '/notifications':
             return PageTransitions.slideFromRight(const NotificationsScreen());
-          case '/config/pagbank':
-            return PageTransitions.slideFromRight(const PagBankConfigScreen());
+          case '/config/banking':
+            return PageTransitions.slideFromRight(const BankingScreen());
           case '/pre-compra-detail':
             final args = settings.arguments as Map<String, dynamic>?;
             return PageTransitions.slideFromRight(

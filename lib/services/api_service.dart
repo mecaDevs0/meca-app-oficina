@@ -1794,7 +1794,7 @@ class ApiService {
   }
 
   // ============================================
-  // PAGBANK - DADOS REAIS DA API EC2 AWS
+  // GATEWAY DE PAGAMENTO — STATUS DA CONTA
   // ============================================
 
   Future<Map<String, dynamic>> getPagBankAccount() async {
@@ -1807,102 +1807,6 @@ class ApiService {
 
       final response = await _dio.get('/workshop/$workshopId/pagbank');
       return {'success': true, 'data': response.data['data'] ?? response.data};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // POST /workshop/:id/pagbank - Atualizar pagbank_account_id (manual)
-  Future<Map<String, dynamic>> updatePagBankAccountId(String? pagbankAccountId) async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final payload = <String, dynamic>{'pagbank_account_id': pagbankAccountId};
-      final response = await _dio.post('/workshop/$workshopId/pagbank', data: payload);
-      return {
-        'success': true,
-        'data': response.data['data'] ?? response.data,
-        'message': response.data['message'],
-      };
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao atualizar PagBank Account ID';
-      return {'success': false, 'error': errorMessage};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // GET /workshop/:id/pagbank/account-status - Verificar status da conta PagBank
-  Future<Map<String, dynamic>> getPagBankAccountStatus() async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final response = await _dio.get('/workshop/$workshopId/pagbank/account-status');
-      return {'success': true, 'data': response.data['data'] ?? response.data};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao verificar status da conta PagBank';
-      return {'success': false, 'error': errorMessage};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // POST /workshop/:id/pagbank/create-account - Criar conta PagBank
-  Future<Map<String, dynamic>> createPagBankAccount(Map<String, dynamic> registrationData) async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final response = await _dio.post(
-        '/workshop/$workshopId/pagbank/create-account',
-        data: registrationData,
-      );
-      return {'success': true, 'data': response.data['data'] ?? response.data, 'message': response.data['message']};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao criar conta PagBank';
-      return {'success': false, 'error': errorMessage, 'needs_authorization': errorData is Map && errorData['needs_authorization'] == true};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // PUT /workshop/:id/pagbank/confirm-approval - Confirmar aprovação da conta
-  Future<Map<String, dynamic>> confirmPagBankApproval() async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final response = await _dio.put('/workshop/$workshopId/pagbank/confirm-approval');
-      return {'success': true, 'data': response.data['data'] ?? response.data, 'message': response.data['message']};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao confirmar aprovação';
-      return {'success': false, 'error': errorMessage};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1926,141 +1830,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> startPagBankConnect({
-    String? redirectUri,
-    String? scope,
-  }) async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final payload = <String, dynamic>{};
-      if (redirectUri != null && redirectUri.isNotEmpty) {
-        payload['redirectUri'] = redirectUri;
-      }
-      if (scope != null && scope.isNotEmpty) {
-        payload['scope'] = scope;
-      }
-
-      // Adicionar timeout maior para esta requisição específica
-      // Salvar timeouts originais
-      final originalConnectTimeout = _dio.options.connectTimeout;
-      final originalReceiveTimeout = _dio.options.receiveTimeout;
-      
-      try {
-        // Configurar timeouts maiores temporariamente
-        _dio.options.connectTimeout = const Duration(seconds: 30);
-        _dio.options.receiveTimeout = const Duration(seconds: 30);
-        
-        final response = await _dio.post(
-          '/workshop/$workshopId/pagbank/connect/start',
-          // Nunca enviar null: backend pode tentar ler req.body
-          data: payload,
-        );
-        
-        return {'success': true, 'data': response.data['data'] ?? response.data};
-      } catch (e) {
-        // Restaurar timeouts em caso de erro também
-        _dio.options.connectTimeout = originalConnectTimeout;
-        _dio.options.receiveTimeout = originalReceiveTimeout;
-        
-        if (e is DioException) {
-          final dioError = e;
-          print('❌ [ApiService] Erro ao iniciar PagBank Connect: ${dioError.type}');
-          print('❌ [ApiService] Mensagem: ${dioError.message}');
-          print('❌ [ApiService] Response: ${dioError.response?.data}');
-          
-          final errorData = dioError.response?.data;
-          String errorMessage;
-          
-          if (dioError.type == DioExceptionType.connectionTimeout) {
-            errorMessage = 'Timeout de conexão. Verifique sua internet e tente novamente.';
-          } else if (dioError.type == DioExceptionType.receiveTimeout) {
-            errorMessage = 'Timeout ao receber resposta. Tente novamente.';
-          } else if (dioError.type == DioExceptionType.connectionError) {
-            errorMessage = 'Erro de conexão. Verifique se a API está online e sua internet está funcionando.';
-          } else if (errorData is Map && errorData['error'] != null) {
-            errorMessage = errorData['error'].toString();
-          } else {
-            errorMessage = dioError.message ?? 'Erro ao iniciar PagBank Connect';
-          }
-          
-          return {'success': false, 'error': errorMessage};
-        } else {
-          print('❌ [ApiService] Erro inesperado: $e');
-          return {'success': false, 'error': 'Erro inesperado: ${e.toString()}'};
-        }
-      } finally {
-        // Restaurar timeouts originais
-        _dio.options.connectTimeout = originalConnectTimeout;
-        _dio.options.receiveTimeout = originalReceiveTimeout;
-      }
-    } catch (e) {
-      // Erro ao carregar token ou obter workshopId
-      print('❌ [ApiService] Erro ao preparar PagBank Connect: $e');
-      return {'success': false, 'error': 'Erro ao preparar conexão: ${e.toString()}'};
-    }
-  }
-
-  // GET /pagbank/auth-url - Obter URL de autorização OAuth2
-  Future<Map<String, dynamic>> getPagBankAuthUrl({String? redirectUri}) async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final queryParams = <String, dynamic>{};
-      if (redirectUri != null && redirectUri.isNotEmpty) {
-        queryParams['redirect_uri'] = redirectUri;
-      }
-      queryParams['workshopId'] = workshopId;
-
-      final response = await _dio.get(
-        '/pagbank/auth-url',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
-      return {'success': true, 'data': response.data['data'] ?? response.data};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao obter URL de autorização';
-      return {'success': false, 'error': errorMessage};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // POST /workshop/:id/pagbank/verify - Verificar status da conta PagBank (KYC)
-  Future<Map<String, dynamic>> verifyPagBankAccount() async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
-      }
-
-      final response = await _dio.post('/workshop/$workshopId/pagbank/verify');
-      return {'success': true, 'data': response.data['data'] ?? response.data};
-    } on DioException catch (e) {
-      final errorData = e.response?.data;
-      final errorMessage = errorData is Map && errorData['error'] != null
-          ? errorData['error'].toString()
-          : e.message ?? 'Erro ao verificar conta PagBank';
-      return {'success': false, 'error': errorMessage};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
   // ============================================
-  // CONTA GRÁFICA PAGBANK (SPLIT GRÁFICO)
-  // Onboarding sem atrito — MECA cria e gerencia a conta
+  // CONTA GRÁFICA — SPLIT DE PAGAMENTO
   // ============================================
 
   /// POST /workshop/:id/pagbank/grafico/onboard
@@ -2085,7 +1856,7 @@ class ApiService {
   }
 
   /// GET /workshop/:id/pagbank/grafico/status
-  /// Status da conta gráfica. Passe refresh=true para atualizar via API PagBank.
+  /// Status da conta gráfica. Passe refresh=true para atualizar via gateway de pagamento.
   Future<Map<String, dynamic>> getGraficoStatus({bool refresh = false}) async {
     try {
       await loadToken();

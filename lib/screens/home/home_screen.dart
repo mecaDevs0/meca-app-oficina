@@ -8,122 +8,50 @@ import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/page_transitions.dart';
 import '../config/agenda_config_screen.dart';
-// PagBank config é acessado via rota nomeada: /config/pagbank
 import '../config/services_config_screen.dart';
 
-/// Banner sutil de incentivo à vinculação PagBank.
-/// Exibido somente quando oficina não possui PagBank vinculado e autorizado (OAuth).
-/// Tom de oportunidade (âmbar), não de erro. Fechar apenas para a sessão.
-class PagBankLinkBanner extends StatefulWidget {
+/// Banner âmbar exibido quando oficina não tem conta de recebimento Asaas configurada.
+class AsaasPendingBanner extends StatelessWidget {
   final bool isDark;
-  final VoidCallback onVincular;
-  final VoidCallback onDismiss;
+  final VoidCallback onConfigure;
 
-  const PagBankLinkBanner({
+  const AsaasPendingBanner({
     super.key,
     required this.isDark,
-    required this.onVincular,
-    required this.onDismiss,
+    required this.onConfigure,
   });
 
   @override
-  State<PagBankLinkBanner> createState() => _PagBankLinkBannerState();
-}
-
-class _PagBankLinkBannerState extends State<PagBankLinkBanner> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    )..forward();
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final bgColor = widget.isDark
-        ? const Color(0xFF3D2E1A).withOpacity(0.9)
-        : const Color(0xFFFFF8E7);
-    final textColor = widget.isDark ? Colors.white : const Color(0xFF5D4E37);
-    final subtextColor = widget.isDark ? Colors.white70 : const Color(0xFF8B7355);
-
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFD4A84B).withOpacity(widget.isDark ? 0.3 : 0.5),
-            width: 1,
+    final bgColor = isDark ? const Color(0xFF3D2E1A).withOpacity(0.9) : const Color(0xFFFFF8E7);
+    final textColor = isDark ? Colors.white : const Color(0xFF5D4E37);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance_wallet_outlined, color: Colors.orange, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Complete seus dados bancários para receber pagamentos',
+              style: TextStyle(color: textColor, fontSize: 13),
+            ),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(Icons.credit_card_outlined, color: const Color(0xFFD4A84B), size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Receba pagamentos pelo app',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Vincule sua conta PagBank para receber dos clientes automaticamente.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtextColor,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
+          TextButton(
+            onPressed: onConfigure,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: Colors.orange[700],
             ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: widget.onVincular,
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF00C977),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('Vincular agora'),
-            ),
-            IconButton(
-              icon: Icon(Icons.close, size: 18, color: subtextColor),
-              onPressed: widget.onDismiss,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              style: IconButton.styleFrom(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ],
-        ),
+            child: const Text('Configurar', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -146,15 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   
   // Variáveis para controle de configuração
-  bool _isDataBankInvalid = false;
   bool _isAgendaInvalid = false;
   bool _isServiceInvalid = false;
-  bool _hasPagBankData = false; // Tem dados cadastrados mas não verificado
-  bool _isPagBankConnected = false;
-  bool _isPagBankVerified = false;
+  bool _missingAsaasWallet = false;
+  bool _isAsaasOnboarded = false;
   int _activeBookingsCount = 0; // Contador de serviços em andamento
-  /// Fecha o banner apenas para esta sessão (reaparece ao reabrir o app).
-  bool _pagBankBannerDismissed = false;
 
   @override
   void initState() {
@@ -176,7 +100,6 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final futureNotif = _timeout('notificações', _apiService.getNotifications());
       final futureProfile = _timeout('perfil', _apiService.getProfile());
-      final futurePagbank = _timeout('PagBank', _apiService.getPagBankAccount());
       final futureSchedule = _timeout('agenda', _apiService.getSchedule());
       final futureServices = _timeout('serviços', _apiService.getMyServices());
       final futureBookings = _timeout('agendamentos', _apiService.getMyBookings());
@@ -184,7 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         futureNotif,
         futureProfile,
-        futurePagbank,
         futureSchedule,
         futureServices,
         futureBookings,
@@ -193,10 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       final notificationsResponse = results[0] as Map<String, dynamic>;
       final profileResponse = results[1] as Map<String, dynamic>;
-      final pagbankStatusResponse = results[2] as Map<String, dynamic>;
-      final scheduleResponse = results[3] as Map<String, dynamic>;
-      final servicesResponse = results[4] as Map<String, dynamic>;
-      final bookingsResponse = results[5] as Map<String, dynamic>;
+      final scheduleResponse = results[2] as Map<String, dynamic>;
+      final servicesResponse = results[3] as Map<String, dynamic>;
+      final bookingsResponse = results[4] as Map<String, dynamic>;
 
       try {
         if (notificationsResponse['success'] && mounted) {
@@ -228,28 +149,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (profileResponse['success']) {
         setState(() => _workshopData = profileResponse['data']);
+        final workshop = profileResponse['data'] is Map ? (profileResponse['data'] as Map) : {};
+        final walletId = (workshop['asaas_wallet_id'] as String? ?? '').toString().trim();
+        setState(() {
+          _isAsaasOnboarded = walletId.isNotEmpty;
+          _missingAsaasWallet = walletId.isEmpty;
+        });
       }
-
-      bool hasPagBankAccount = false;
-      bool hasPagBankData = false;
-      try {
-        if (pagbankStatusResponse['success'] && pagbankStatusResponse['data'] != null) {
-          final statusData = pagbankStatusResponse['data'];
-          final hasAccountId = statusData['has_account_id'] == true ||
-              (statusData['pagbank_account_id'] ?? '').toString().trim().isNotEmpty;
-          final connected = statusData['connected'] == true;
-          final connectionPending = statusData['connection_pending'] == true;
-          hasPagBankData = hasAccountId || connectionPending;
-          hasPagBankAccount = connected;
-          _isPagBankConnected = connected;
-          _isPagBankVerified = (statusData['pagbank_verified'] == true ||
-                  statusData['approved_by_workshop'] == true) &&
-              connected;
-        }
-      } catch (e) {
-        print('⚠️ Erro ao processar PagBank: $e');
-      }
-      setState(() => _hasPagBankData = hasPagBankData);
 
       bool hasSchedule = false;
       try {
@@ -281,7 +187,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       setState(() {
-        _isDataBankInvalid = !hasPagBankAccount;
         _isAgendaInvalid = !hasSchedule;
         _isServiceInvalid = !hasServices;
       });
@@ -384,16 +289,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Banner PagBank: exibido quando oficina não tem conta vinculada E autorizada (OAuth).
-                            // Fechar (X) esconde apenas nesta sessão — reaparece ao reabrir o app.
-                            if (!_isPagBankVerified && !_pagBankBannerDismissed) ...[
-                              PagBankLinkBanner(
+                            if (_missingAsaasWallet) ...[
+                              AsaasPendingBanner(
                                 isDark: isDark,
-                                onVincular: () async {
-                                  await Navigator.pushNamed(context, '/config/pagbank');
+                                onConfigure: () async {
+                                  await Navigator.pushNamed(context, '/config/banking');
                                   if (mounted) _loadData();
                                 },
-                                onDismiss: () => setState(() => _pagBankBannerDismissed = true),
                               ),
                               const SizedBox(height: 20),
                             ],
@@ -407,13 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             
                             const SizedBox(height: 24),
 
-                            // Status PagBank (só exibir se NÃO estiver verificado)
-                            if (!_isPagBankVerified) ...[
-                              _buildPagBankStatusCard(isDark),
-                              const SizedBox(height: 24),
-                            ],
-
-                            // Configuração necessária (somente Agenda/Serviços — PagBank já tem card acima)
+                            // Configuração necessária (Agenda e Serviços)
                             if (_isAgendaInvalid || _isServiceInvalid) ...[
                               const SizedBox(height: 20),
                               _buildConfigNeededSection(isDark),
@@ -666,102 +562,6 @@ class _HomeScreenState extends State<HomeScreen> {
             isDark: isDark,
           ),
       ],
-    );
-  }
-
-  Widget _buildPagBankStatusCard(bool isDark) {
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final secondaryText = isDark ? Colors.grey[400]! : Colors.grey[700]!;
-    final cardColor = isDark ? const Color(0xFF141414) : Colors.white;
-
-    final statusLabel = _isPagBankConnected
-        ? (_isPagBankVerified ? 'PagBank conectado (verificado)' : 'PagBank conectado')
-        : (_hasPagBankData ? 'Conexão pendente — autorize no PagBank' : 'PagBank não conectado');
-    final statusColor = _isPagBankConnected ? const Color(0xFF22C55E) : const Color(0xFFF97316);
-    final isConnected = _isPagBankConnected;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusColor.withOpacity(0.20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.35 : 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              _isPagBankConnected ? Icons.check_circle_outline : Icons.link,
-              color: statusColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recebimentos PagBank',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  statusLabel,
-                  style: TextStyle(color: secondaryText, height: 1.25),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          isConnected
-              ? OutlinedButton(
-                  onPressed: () async {
-                    await Navigator.pushNamed(context, '/config/pagbank');
-                    if (mounted) _loadData();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: const Color(0xFF00C977).withOpacity(0.8)),
-                    foregroundColor: const Color(0xFF00C977),
-                    minimumSize: const Size(92, 40),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Ver'),
-                )
-              : ElevatedButton(
-                  onPressed: () async {
-                    await Navigator.pushNamed(context, '/config/pagbank');
-                    if (mounted) _loadData();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C977),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    minimumSize: const Size(108, 40),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Conectar'),
-                ),
-        ],
-      ),
     );
   }
 

@@ -402,7 +402,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Taxa de $mecaFeePercent% sobre pagamentos. Juros do parcelamento são do PagBank.',
+                                'Taxa de $mecaFeePercent% sobre pagamentos. Juros do parcelamento são cobrados pelo gateway de pagamento.',
                                 style: TextStyle(fontSize: 13, color: muted, height: 1.4),
                               ),
                             ),
