@@ -373,6 +373,7 @@ class ApiService {
           .post('/auth/workshop/login', data: {
             'email': email.trim(),
             'password': password,
+            'role': 'workshop',
           })
           .timeout(Duration(seconds: loginTimeoutSeconds));
 

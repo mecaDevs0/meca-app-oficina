@@ -195,8 +195,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String cep,
     required String ownerName,
   }) {
-    // Controllers temporários para edição no modal
-    final tmpNome = TextEditingController(text: nome);
+    // Se o usuário já digitou um nome, preservar; senão, campo vazio com placeholder da razão social
+    final userTypedName = _nomeController.text.trim();
+    final tmpNome = TextEditingController(text: userTypedName.isNotEmpty ? userTypedName : '');
+    final razaoSocial = nome; // Razão social do CNPJ (para exibir como sugestão)
     final tmpEmail = TextEditingController(text: email);
     final tmpTelefone = TextEditingController(text: telefone);
     final tmpLogradouro = TextEditingController(text: logradouro);
@@ -229,7 +231,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 16),
-              _buildDialogField('Nome da empresa', tmpNome),
+              _buildDialogFieldWithHint('Nome da oficina', tmpNome, razaoSocial),
               _buildDialogField('Responsável', tmpOwnerName),
               _buildDialogField('Email', tmpEmail),
               _buildDialogField('Telefone', tmpTelefone),
@@ -254,7 +256,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             onPressed: () {
               setState(() {
-                _nomeController.text = tmpNome.text;
+                // Se nome vazio, usar razão social como fallback
+                _nomeController.text = tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial;
                 _emailController.text = tmpEmail.text;
                 _phoneController.text = tmpTelefone.text;
                 _logradouroController.text = tmpLogradouro.text;
@@ -298,6 +301,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
+      ),
+    );
+  }
+
+  /// Campo com hint da razão social (para nome da oficina)
+  Widget _buildDialogFieldWithHint(String label, TextEditingController controller, String razaoSocial) {
+    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: razaoSocial,
+              hintStyle: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
+              labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          if (razaoSocial.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text(
+                'Razão social: $razaoSocial',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
+              ),
+            ),
+        ],
       ),
     );
   }
