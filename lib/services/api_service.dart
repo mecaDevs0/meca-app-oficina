@@ -107,7 +107,7 @@ class ApiService {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return null;
-      
+
       // Decodificar payload (parte 2)
       String payload = parts[1];
       // Adicionar padding se necessário
@@ -122,12 +122,16 @@ class ApiService {
           payload += '=';
           break;
       }
-      
+
       final decoded = utf8.decode(base64Url.decode(payload));
       final Map<String, dynamic> payloadMap = json.decode(decoded);
-      
-      // Retornar workshopId ou userId (a API pode usar qualquer one)
-      return payloadMap['workshopId'] ?? payloadMap['userId'] ?? payloadMap['id'];
+
+      // Se o token é de customer, não tem workshopId válido
+      final role = payloadMap['role'] as String?;
+      if (role == 'customer') return null;
+
+      // Retornar workshopId (não usar userId como fallback — causa 403)
+      return payloadMap['workshopId'];
     } catch (e) {
       return null;
     }
@@ -492,17 +496,23 @@ class ApiService {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     try {
       await loadToken();
-      
+
       final workshopId = await getWorkshopId();
       if (workshopId == null) {
-        return {'success': false, 'error': 'Token inválido ou workshopId não encontrado'};
+        return {'success': false, 'error': 'Sessão inválida. Faça logout e entre novamente.'};
       }
-      
+
       // Usar endpoint real: PUT /workshop/:id
       final response = await _dio.put('/workshop/$workshopId', data: data);
       return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        return {'success': false, 'error': 'Sem permissão. Faça logout e entre novamente.'};
+      }
+      final msg = e.response?.data?['error'] ?? 'Erro ao atualizar perfil. Tente novamente.';
+      return {'success': false, 'error': msg.toString()};
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': 'Erro ao atualizar perfil. Tente novamente.'};
     }
   }
 

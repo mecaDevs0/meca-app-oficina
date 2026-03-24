@@ -119,8 +119,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar perfil: $e'),
+          const SnackBar(
+            content: Text('Erro ao atualizar perfil. Tente novamente.'),
             backgroundColor: Colors.redAccent,
           ),
         );
