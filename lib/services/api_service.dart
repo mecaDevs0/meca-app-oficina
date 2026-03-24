@@ -1227,24 +1227,32 @@ class ApiService {
     return booking;
   }
 
-  Map<String, dynamic>? _normalizeAddress(dynamic raw) {
+  /// Normaliza o campo address: se for JSON string → Map; se for string simples → mantém string;
+  /// se já for Map → retorna como está. Isso permite _formatAddressSummary lidar com ambos formatos.
+  dynamic _normalizeAddress(dynamic raw) {
     if (raw == null) return null;
     if (raw is Map<String, dynamic>) {
       return Map<String, dynamic>.from(raw);
     }
 
     if (raw is String) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) {
-          return Map<String, dynamic>.from(decoded);
+      // Tentar decodificar como JSON (endereço estruturado)
+      final trimmed = raw.trim();
+      if (trimmed.startsWith('{')) {
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {
+          // Não é JSON válido — manter como string simples
         }
-      } catch (_) {
-        return {'raw': raw};
       }
+      // String simples (ex: "Quadra 100, Asa Norte") — retornar como está
+      return raw;
     }
 
-    return {'raw': raw.toString()};
+    return raw.toString();
   }
 
   Future<Map<String, dynamic>> addService({
@@ -1288,8 +1296,8 @@ class ApiService {
       if (durationMinutes != null) data['duration_minutes'] = durationMinutes;
       if (description != null) data['description'] = description;
       
-      // Usar endpoint real: /services/:id
-      final response = await _dio.put('/services/$serviceId', data: data);
+      // Usar endpoint correto: /workshop/:id/services/:serviceId
+      final response = await _dio.put('/workshop/$workshopId/services/$serviceId', data: data);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
@@ -1574,13 +1582,30 @@ class ApiService {
         return {'success': false, 'error': 'Número da conta é obrigatório'};
       }
       
-      final apiData = {
+      // Build API payload — forward all fields, not just 4
+      final apiData = <String, dynamic>{
         'bank_code': bankCode,
         'agency': agency,
         'account': account,
         'account_type': accountType,
       };
-      
+
+      // Forward all other fields that the API accepts
+      final passthroughFields = [
+        'bank_name', 'account_holder_name', 'account_holder_document',
+        'pix_key', 'pix_key_type',
+        'bank_cep', 'bank_street', 'bank_number', 'bank_neighborhood',
+        'bank_city', 'bank_state', 'bank_complement',
+        'accepts_installment', 'max_installments',
+        // Asaas onboarding fields
+        'birth_date', 'company_type', 'income_value',
+      ];
+      for (final field in passthroughFields) {
+        if (bankingData[field] != null) {
+          apiData[field] = bankingData[field];
+        }
+      }
+
       // Usar endpoint real: /workshop/:id/banking
       await _dio.put('/workshop/$workshopId/banking', data: apiData);
       
