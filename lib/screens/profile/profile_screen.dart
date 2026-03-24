@@ -657,7 +657,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAsaasStatusCard(bool isDark, Color textColor, Color secondaryText) {
-    final asaasStatus = (_asaasData?['asaas_status'] ?? '').toString().toUpperCase();
+    final asaasDataInner = _asaasData?['data'] as Map<String, dynamic>?;
+    final asaasStatus = (asaasDataInner?['asaas_status'] ?? '').toString().toUpperCase();
     final isActive = asaasStatus == 'ACTIVE';
     final isPending = asaasStatus == 'PENDING';
     final isConfigured = isActive || isPending;

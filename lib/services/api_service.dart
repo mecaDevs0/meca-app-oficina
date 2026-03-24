@@ -1789,6 +1789,9 @@ class ApiService {
     String? city,
     String? state,
     String? complement,
+    String? birthDate,
+    String? companyType,
+    int? incomeValue,
   }) async {
     final bankingData = {
       'bank_code': bankCode ?? bankName,
@@ -1809,6 +1812,9 @@ class ApiService {
       if (city != null && city.isNotEmpty) 'bank_city': city,
       if (state != null && state.isNotEmpty) 'bank_state': state,
       if (complement != null && complement.isNotEmpty) 'bank_complement': complement,
+      if (birthDate != null && birthDate.isNotEmpty) 'birth_date': birthDate,
+      if (companyType != null && companyType.isNotEmpty) 'company_type': companyType,
+      if (incomeValue != null && incomeValue > 0) 'income_value': incomeValue,
     };
     try {
       await loadToken();

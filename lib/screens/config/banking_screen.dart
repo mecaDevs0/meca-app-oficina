@@ -266,6 +266,11 @@ class _BankingScreenState extends State<BankingScreen> {
         city: _cityController.text.trim(),
         state: _stateController.text.trim(),
         complement: _complementController.text.trim(),
+        birthDate: _birthDate != null
+            ? '${_birthDate!.year}-${_birthDate!.month.toString().padLeft(2, '0')}-${_birthDate!.day.toString().padLeft(2, '0')}'
+            : null,
+        companyType: _selectedCompanyType,
+        incomeValue: int.tryParse(_incomeController.text.replaceAll(RegExp(r'[^0-9]'), '')),
       );
 
       if (bankResp['success'] != true) {

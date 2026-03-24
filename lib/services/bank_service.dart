@@ -53,8 +53,9 @@ class BankService {
       
       final bankData = {
         'bank_name': bankName,
-        'agencia': agencia,
-        'conta': conta,
+        'bank_code': bankName,
+        'agency': agencia,
+        'account': conta,
         'account_type': accountType,
         'accepts_installment': acceptsInstallment,
       };
