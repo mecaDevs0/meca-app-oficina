@@ -10,11 +10,11 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/config/agenda_config_screen.dart';
-import 'screens/bank/bank_account_screen.dart';
 import 'screens/config/banking_screen.dart';
 import 'screens/config/installment_config_screen.dart';
 import 'screens/config/services_config_screen.dart';
 import 'screens/core/core_screen.dart';
+import 'screens/financial/anticipation_screen.dart';
 import 'screens/financial/financial_screen.dart';
 import 'screens/financial/financial_history_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -123,8 +123,13 @@ void main() async {
 class MecaOficinaApp extends StatelessWidget {
   const MecaOficinaApp({Key? key}) : super(key: key);
 
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
+    // Registrar navigatorKey para navegação a partir de push notifications
+    OneSignalService.setNavigatorKey(navigatorKey);
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => ThemeService()),
@@ -136,6 +141,7 @@ class MecaOficinaApp extends StatelessWidget {
         child: Consumer<ThemeService>(
           builder: (context, themeService, child) {
                    return MaterialApp(
+                   navigatorKey: navigatorKey,
                    title: 'MECA Oficina',
                    debugShowCheckedModeBanner: false,
                    theme: ThemeService.lightTheme,
@@ -162,6 +168,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.fade(const FinancialScreen());
           case '/financial-history':
             return PageTransitions.slideFromRight(const FinancialHistoryScreen());
+          case '/financial/anticipation':
+            return PageTransitions.slideFromRight(const AnticipationScreen());
           case '/profile':
             return PageTransitions.fade(const ProfileScreen());
           case '/referrals':
@@ -169,7 +177,8 @@ class MecaOficinaApp extends StatelessWidget {
           case '/config/agenda':
             return PageTransitions.slideFromRight(const AgendaConfigScreen());
           case '/config/bank':
-            return PageTransitions.slideFromRight(const BankAccountScreen());
+            // Rota legada — redireciona para a tela unificada BankingScreen
+            return PageTransitions.slideFromRight(const BankingScreen());
           case '/config/services':
             return PageTransitions.slideFromRight(ServicesConfigScreen());
           case '/config/installment':

@@ -42,11 +42,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     super.dispose();
   }
 
-  Future<void> _loadBookings() async {
+  Future<void> _loadBookings({bool forceRefresh = false}) async {
     setState(() => _loading = true);
-    
+
     try {
-      final response = await _apiService.getMyBookings();
+      final response = await _apiService.getMyBookings(forceRefresh: forceRefresh);
       if (response['success']) {
         setState(() {
           _bookings = List<Map<String, dynamic>>.from(response['data']['bookings'] ?? []);
@@ -173,7 +173,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
 
     return RefreshIndicator(
       color: const Color(0xFF00C977),
-      onRefresh: _loadBookings,
+      onRefresh: () => _loadBookings(forceRefresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: bookings.length,
@@ -208,7 +208,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
           );
           // Recarregar lista quando voltar para garantir que o status está atualizado
           if (result == true || mounted) {
-            await _loadBookings();
+            await _loadBookings(forceRefresh: true);
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -477,7 +477,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     
     return RefreshIndicator(
       color: const Color(0xFF00C977),
-      onRefresh: _loadBookings,
+      onRefresh: () => _loadBookings(forceRefresh: true),
       child: CustomScrollView(
         slivers: [
           // Agendamentos atuais

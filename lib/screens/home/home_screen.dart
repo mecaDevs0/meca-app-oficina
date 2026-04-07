@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_config.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/page_transitions.dart';
+import '../asaas/identity_verification_screen.dart';
 import '../config/agenda_config_screen.dart';
 import '../config/services_config_screen.dart';
 
@@ -39,7 +42,7 @@ class AsaasPendingBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Complete seus dados bancários para receber pagamentos',
+              'Ative seus recebimentos! Preencha dados bancários e data de nascimento para começar a receber pagamentos.',
               style: TextStyle(color: textColor, fontSize: 13),
             ),
           ),
@@ -78,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isServiceInvalid = false;
   bool _missingAsaasWallet = false;
   bool _isAsaasOnboarded = false;
+  bool _asaasNeedsVerification = false;
   int _activeBookingsCount = 0; // Contador de serviços em andamento
 
   @override
@@ -151,9 +155,13 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _workshopData = profileResponse['data']);
         final workshop = profileResponse['data'] is Map ? (profileResponse['data'] as Map) : {};
         final walletId = (workshop['asaas_wallet_id'] as String? ?? '').toString().trim();
+        final bankCode = (workshop['bank_code'] ?? '').toString().trim();
+        final pixKey = (workshop['pix_key'] ?? '').toString().trim();
+        final asaasStatus = (workshop['asaas_status'] ?? '').toString().trim().toUpperCase();
         setState(() {
           _isAsaasOnboarded = walletId.isNotEmpty;
           _missingAsaasWallet = walletId.isEmpty;
+          _asaasNeedsVerification = walletId.isNotEmpty && asaasStatus != 'APPROVED' && asaasStatus != 'ACTIVE';
         });
       }
 
@@ -299,6 +307,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 20),
                             ],
+                            if (_asaasNeedsVerification) ...[
+                              _buildVerificationBanner(isDark),
+                              const SizedBox(height: 20),
+                            ],
                             // Header com logo
                             _buildHeader(isDark, constraints.maxWidth),
                             
@@ -306,7 +318,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             
                             // Componente de 3 colunas (estatísticas)
                             _buildStatsCard(isDark),
-                            
+
+                            const SizedBox(height: 20),
+
+                            // Card promocional do Dashboard Web
+                            _buildDashboardPromoCard(isDark),
+
                             const SizedBox(height: 24),
 
                             // Configuração necessária (Agenda e Serviços)
@@ -327,6 +344,46 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         );
       },
+    );
+  }
+
+  Widget _buildVerificationBanner(bool isDark) {
+    final bgColor = isDark ? const Color(0xFF1A2A20).withOpacity(0.9) : const Color(0xFFE8FFF3);
+    final textColor = isDark ? Colors.white : const Color(0xFF1A5C3A);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF00C977).withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_user_outlined, color: Color(0xFF00C977), size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Complete a verificação de identidade para ativar sua conta e receber pagamentos.',
+              style: TextStyle(color: textColor, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+              );
+              if (mounted) _loadData();
+            },
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              foregroundColor: const Color(0xFF00C977),
+            ),
+            child: const Text('Verificar', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -398,6 +455,119 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardPromoCard(bool isDark) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF0D3B2A), const Color(0xFF1A1A2E)]
+              : [const Color(0xFFE8FFF3), const Color(0xFFE0F4FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF00C977).withOpacity(isDark ? 0.3 : 0.2),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Clipboard.setData(const ClipboardData(text: 'https://dashboard.mecabr.com'));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Color(0xFF00C977), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Link copiado!',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                backgroundColor: const Color(0xFF1A1A1A),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.dashboard_rounded,
+                    color: Color(0xFF00C977),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Painel Web da Oficina',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Gerencie agenda, financeiro e servicos pelo computador',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy_rounded, color: Colors.white, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'Copiar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

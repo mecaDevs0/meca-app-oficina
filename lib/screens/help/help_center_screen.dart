@@ -13,24 +13,24 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   String _searchQuery = '';
   final _faqItems = <_FaqSection>[
     _FaqSection(
-      title: 'Pagamentos e PagBank',
+      title: 'Pagamentos',
       icon: Icons.payment_rounded,
       items: [
         _FaqItem(
-          'Como conectar o PagBank?',
-          'No Perfil, toque em "PagBank" e depois em "Conectar PagBank". Siga o fluxo no navegador para autorizar o MECA. Depois, no app, toque em "Reautorizar PagBank" se precisar atualizar a conexão.',
+          'Como ativar recebimentos?',
+          'Acesse Configurações > Dados Bancários. Preencha seus dados bancários, data de nascimento e CNPJ. Ao salvar, sua conta de recebimentos sera criada automaticamente. A aprovação leva até 2 dias úteis.',
         ),
         _FaqItem(
-          'Taxas PagBank',
-          'As taxas são definidas pelo PagBank e podem variar por meio (PIX/cartão) e parcelamento. Consulte no app ou site do PagBank.',
+          'Taxas de pagamento',
+          'As taxas variam por meio de pagamento: PIX (R\$ 1,99), Cartão à vista (2,99% + R\$ 0,49), Cartão parcelado (3,49% a 4,29% + R\$ 0,49). O MECA arca com 100% dessas taxas.',
         ),
         _FaqItem(
           'O que é a taxa MECA?',
-          'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas PagBank; você opera normalmente e recebe 88% do valor. Não há desconto de taxas do gateway para a oficina.',
+          'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas do gateway; você opera normalmente e recebe 88% do valor. Não há desconto de taxas para a oficina.',
         ),
         _FaqItem(
-          'PagBank conectado mas não atualizou',
-          'Puxe a tela do perfil para atualizar ou toque em "Reautorizar PagBank" e conclua a autorização. Isso garante que o Account ID esteja sincronizado para receber pagamentos.',
+          'Conta em análise ou com erro',
+          'Se sua conta está "em análise", aguarde até 2 dias úteis. Se há erro, verifique se CNPJ e data de nascimento estão corretos em Dados Bancários e salve novamente.',
         ),
       ],
     ),

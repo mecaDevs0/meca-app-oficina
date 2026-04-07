@@ -100,17 +100,30 @@ class ServicesProvider extends ChangeNotifier {
   }
   
   Future<void> addService(String serviceId, {double? price, int? duration}) async {
+    // Backup para rollback em caso de falha
+    final previousList = List<Map<String, dynamic>>.from(_myServices);
+
+    // Atualização otimista: adicionar na lista local e notificar para checkbox refletir na hora
+    _myServices.add({
+      'service_id': serviceId,
+      'price': price,
+      'duration': duration,
+    });
+    notifyListeners();
+
     try {
       final workshopId = await _apiService.getWorkshopId();
       if (workshopId == null) {
         if (kDebugMode) print('❌ WorkshopId não encontrado');
+        _myServices = previousList;
+        notifyListeners();
         return;
       }
-      
+
       if (kDebugMode) {
         print('➕ Adicionando serviço: serviceId=$serviceId, price=$price, duration=$duration');
       }
-      
+
       // Adicionar serviço ao workshop
       final result = await _apiService.addServiceToWorkshop(
         workshopId,
@@ -118,18 +131,25 @@ class ServicesProvider extends ChangeNotifier {
         price: price,
         duration: duration,
       );
-      
+
       if (result['success']) {
         if (kDebugMode) print('✅ Serviço adicionado com sucesso, recarregando lista...');
-        // Recarregar serviços da API para garantir que temos os dados atualizados
+        // Recarregar serviços da API para sincronizar IDs reais
         await loadMyServices();
+        notifyListeners();
       } else {
         if (kDebugMode) print('❌ Erro ao adicionar serviço: ${result['error']}');
+        // Rollback otimista
+        _myServices = previousList;
         notifyListeners();
         throw Exception(result['error'] ?? 'Erro ao adicionar serviço');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Exceção ao adicionar serviço: $e');
+      // Rollback otimista
+      if (!_myServices.any((s) => s['service_id'] == serviceId && s.length > 3)) {
+        _myServices = previousList;
+      }
       notifyListeners();
       rethrow;
     }

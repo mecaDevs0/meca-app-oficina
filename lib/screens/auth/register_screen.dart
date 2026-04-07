@@ -792,9 +792,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             decoration: _inputDecoration(
                               context,
                               label: 'Nome da Oficina *',
+                              hint: 'Ex: Oficina do João, Auto Center Silva...',
                               prefixIcon: const Icon(Icons.business, color: AppColors.primaryColor),
+                              suffixIcon: Tooltip(
+                                message: 'Visível para clientes',
+                                child: Icon(Icons.visibility, color: AppColors.primaryColor.withOpacity(0.7), size: 20),
+                              ),
                             ),
                             validator: (value) => value?.isEmpty ?? true ? 'Campo obrigatório' : null,
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, size: 14, color: AppColors.primaryColor.withOpacity(0.7)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Este nome será exibido para os clientes no app',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.primaryColor.withOpacity(0.8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 15),
 

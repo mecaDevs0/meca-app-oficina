@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -33,9 +34,16 @@ class _BankingScreenState extends State<BankingScreen> {
   bool _isSaving = false;
   bool _isFetchingCep = false;
   bool _hasUnsavedChanges = false;
+  bool _isViewMode = false; // true = modo visualização read-only
 
   // Seção Asaas colapsável
   bool _asaasExpanded = false;
+
+  // ── Estado Asaas ──────────────────────────────
+  String? _asaasStatus;
+  String? _asaasError;
+  bool _isCheckingStatus = false;
+  Timer? _pollingTimer;
 
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
@@ -132,6 +140,7 @@ class _BankingScreenState extends State<BankingScreen> {
     ]) {
       c.dispose();
     }
+    _pollingTimer?.cancel();
     super.dispose();
   }
 
@@ -208,6 +217,23 @@ class _BankingScreenState extends State<BankingScreen> {
         if (birthStr != null && birthStr.isNotEmpty) {
           _birthDate = DateTime.tryParse(birthStr);
         }
+
+        // ── Status Asaas ──
+        _asaasStatus = d['asaas_status']?.toString();
+        _asaasError = d['asaas_error']?.toString();
+        // Pre-fill Asaas fields from DB
+        if (d['asaas_birth_date'] != null) {
+          try { _birthDate = DateTime.parse(d['asaas_birth_date'].toString()); } catch (_) {}
+        }
+        if (d['asaas_company_type'] != null) {
+          _selectedCompanyType = d['asaas_company_type'].toString();
+        }
+        if (d['asaas_income_value'] != null) {
+          final val = double.tryParse(d['asaas_income_value'].toString());
+          if (val != null) _incomeController.text = val.toStringAsFixed(0);
+        }
+        // Start polling if PENDING
+        if (_asaasStatus == 'PENDING') _startStatusPolling();
       }
 
       // ── Parcelamento (perfil da oficina) ──────
@@ -226,6 +252,13 @@ class _BankingScreenState extends State<BankingScreen> {
         }
       }
 
+      // Determinar modo: view (dados existem E subconta Asaas ok) ou edit (falta algo)
+      final hasBankData = _selectedBank != null &&
+          _agencyController.text.trim().isNotEmpty &&
+          _accountNumberController.text.trim().isNotEmpty;
+      // Se falta birth_date, forçar modo edição para o usuário preencher
+      _isViewMode = hasBankData && _birthDate != null;
+
       // Resetar flag de mudanças após carregamento
       _safeSetState(() => _hasUnsavedChanges = false);
     } catch (_) {
@@ -241,6 +274,11 @@ class _BankingScreenState extends State<BankingScreen> {
 
     if (_selectedBank == null) {
       _showSnackbar('Selecione um banco.', isError: true);
+      return;
+    }
+
+    if (_birthDate == null) {
+      _showSnackbar('Data de nascimento é obrigatória para ativar recebimentos.', isError: true);
       return;
     }
 
@@ -279,6 +317,31 @@ class _BankingScreenState extends State<BankingScreen> {
           isError: true,
         );
         return;
+      }
+
+      // 1b) Resultado Asaas
+      final asaasResult = bankResp['asaas'];
+      if (asaasResult != null) {
+        setState(() {
+          _asaasStatus = asaasResult['asaas_status']?.toString();
+          _asaasError = asaasResult['error']?.toString();
+        });
+        if (_asaasStatus == 'PENDING') _startStatusPolling();
+        final isAsaasError = _asaasStatus == 'ERROR' || _asaasStatus == 'REJECTED';
+        final msg = asaasResult['message']?.toString();
+        if (msg != null && msg.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isAsaasError
+                    ? 'Dados bancários salvos, mas houve um erro ao ativar recebimentos. Tente salvar novamente em alguns minutos.'
+                    : msg,
+              ),
+              backgroundColor: isAsaasError ? Colors.red : const Color(0xFF00C977),
+              duration: isAsaasError ? const Duration(seconds: 6) : const Duration(seconds: 4),
+            ),
+          );
+        }
       }
 
       // 2) Parcelamento
@@ -441,13 +504,18 @@ class _BankingScreenState extends State<BankingScreen> {
             ),
             body: _isLoading
                 ? _buildSkeleton(isDark)
-                : SingleChildScrollView(
+                : _isViewMode
+                    ? _buildViewBody(isDark, textColor, secondaryColor)
+                    : SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // ── Banner status Asaas ───────────────────
+                          _buildAsaasStatusBanner(),
+
                           // ── Cabeçalho ────────────────────────────
                           Text(
                             'Dados Financeiros',
@@ -540,6 +608,12 @@ class _BankingScreenState extends State<BankingScreen> {
                                 validator: (v) =>
                                     (v == null || v.isEmpty) ? 'CPF/CNPJ é obrigatório' : null,
                               ),
+                              const SizedBox(height: 16),
+
+                              // Data de nascimento — obrigatória para ativar recebimentos via Asaas
+                              _buildFieldLabel('Data de Nascimento do Responsável *', textColor),
+                              const SizedBox(height: 8),
+                              _buildDatePickerField(isDark, textColor, secondaryColor),
                             ],
                           ),
                           const SizedBox(height: 20),
@@ -700,11 +774,6 @@ class _BankingScreenState extends State<BankingScreen> {
                             onToggle: () =>
                                 _safeSetState(() => _asaasExpanded = !_asaasExpanded),
                             children: [
-                              _buildFieldLabel('Data de Nascimento do Responsável', textColor),
-                              const SizedBox(height: 8),
-                              _buildDatePickerField(isDark, textColor, secondaryColor),
-                              const SizedBox(height: 16),
-
                               _buildFieldLabel('Tipo de Empresa', textColor),
                               const SizedBox(height: 8),
                               _buildCompanyTypeDropdown(isDark, textColor),
@@ -776,6 +845,325 @@ class _BankingScreenState extends State<BankingScreen> {
           ),
         );
       },
+    );
+  }
+
+  // ── Polling Asaas ─────────────────────────────
+  void _startStatusPolling() {
+    _pollingTimer?.cancel();
+    int attempts = 0;
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      attempts++;
+      if (attempts > 10) { timer.cancel(); return; }
+      await _checkAsaasStatus();
+    });
+  }
+
+  Future<void> _checkAsaasStatus() async {
+    if (_isCheckingStatus) return;
+    setState(() => _isCheckingStatus = true);
+    try {
+      final workshopId = await _apiService.getWorkshopId();
+      if (workshopId == null) return;
+      final response = await _apiService.getAsaasStatus(workshopId);
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'];
+        final newStatus = data['asaas_status']?.toString();
+        if (newStatus != _asaasStatus) {
+          setState(() {
+            _asaasStatus = newStatus;
+            _asaasError = data['asaas_error']?.toString();
+          });
+          if (newStatus == 'APPROVED') {
+            _pollingTimer?.cancel();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Conta Asaas aprovada! Pronta para receber pagamentos.'),
+                  backgroundColor: Color(0xFF00C977),
+                ),
+              );
+            }
+          } else if (newStatus == 'REJECTED') {
+            _pollingTimer?.cancel();
+          }
+        }
+      }
+    } catch (_) {} finally {
+      if (mounted) setState(() => _isCheckingStatus = false);
+    }
+  }
+
+  // ── Helpers de mascaramento ───────────────────
+  String _maskAccount(String val) {
+    if (val.length <= 4) return val;
+    return '${'•' * (val.length - 4)}${val.substring(val.length - 4)}';
+  }
+
+  String _maskDocument(String val) {
+    final digits = val.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11) {
+      return '•••.•••.${digits.substring(6, 9)}-${digits.substring(9)}';
+    }
+    if (digits.length == 14) {
+      return '••.•••.•••/${digits.substring(8, 12)}-${digits.substring(12)}';
+    }
+    return val;
+  }
+
+  String _maskPixKey(String val, String type) {
+    if (type == 'cpf' || type == 'cnpj') return _maskDocument(val);
+    if (type == 'email' && val.contains('@')) {
+      final parts = val.split('@');
+      return '${parts[0].substring(0, 2)}•••@${parts[1]}';
+    }
+    if (val.length > 6) {
+      return '${val.substring(0, 3)}•••${val.substring(val.length - 3)}';
+    }
+    return val;
+  }
+
+  // ── Modo Visualização (Read-Only) ───────────
+  Widget _buildViewBody(bool isDark, Color textColor, Color secondaryColor) {
+    final cardBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final borderColor = isDark ? Colors.white10 : const Color(0xFFE5E7EB);
+    final accountTypeLabel = _selectedAccountType == 'checking' ? 'Corrente' : 'Poupança';
+
+    Widget infoTile(IconData icon, String label, String value, {Color? iconColor}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: (iconColor ?? const Color(0xFF00C977)).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: iconColor ?? const Color(0xFF00C977)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 12, color: secondaryColor, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(value, style: TextStyle(fontSize: 15, color: textColor, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget sectionCard(String title, IconData titleIcon, List<Widget> children) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+              child: Row(
+                children: [
+                  Icon(titleIcon, size: 18, color: const Color(0xFF00C977)),
+                  const SizedBox(width: 8),
+                  Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: textColor)),
+                ],
+              ),
+            ),
+            Divider(color: borderColor, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+              child: Column(children: children),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Status badge
+    String statusLabel;
+    Color statusColor;
+    IconData statusIcon;
+    if (_asaasStatus == 'APPROVED') {
+      statusLabel = 'Conta Ativa';
+      statusColor = const Color(0xFF00C977);
+      statusIcon = Icons.check_circle;
+    } else if (_asaasStatus == 'PENDING') {
+      statusLabel = 'Em Análise (1-2 dias úteis)';
+      statusColor = const Color(0xFFF59E0B);
+      statusIcon = Icons.hourglass_top;
+    } else if (_asaasStatus == 'REJECTED') {
+      statusLabel = 'Rejeitada';
+      statusColor = const Color(0xFFEF4444);
+      statusIcon = Icons.cancel;
+    } else {
+      statusLabel = 'Pendente de Configuração';
+      statusColor = const Color(0xFF6B7280);
+      statusIcon = Icons.info_outline;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Text('Dados Financeiros', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: textColor, letterSpacing: -0.5)),
+          const SizedBox(height: 8),
+          Text('Seus dados bancários para recebimento de pagamentos.', style: TextStyle(fontSize: 14, color: secondaryColor, height: 1.4)),
+          const SizedBox(height: 24),
+
+          // Status Asaas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(statusIcon, color: statusColor, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(statusLabel, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: statusColor)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Banco
+          sectionCard('Conta Bancária', Icons.account_balance_rounded, [
+            infoTile(Icons.business, 'Banco', _selectedBank != null ? '${_selectedBank!.name} (${_selectedBank!.code})' : 'Não informado'),
+            infoTile(Icons.credit_card, 'Tipo', accountTypeLabel),
+            infoTile(Icons.tag, 'Agência', _agencyController.text.isNotEmpty ? _agencyController.text : '—'),
+            infoTile(Icons.numbers, 'Conta', _accountNumberController.text.isNotEmpty ? _maskAccount(_accountNumberController.text) : '—'),
+          ]),
+
+          // Titular
+          sectionCard('Titular', Icons.person_rounded, [
+            infoTile(Icons.badge, 'Nome', _holderNameController.text.isNotEmpty ? _holderNameController.text : '—'),
+            infoTile(Icons.fingerprint, 'Documento', _holderDocumentController.text.isNotEmpty ? _maskDocument(_holderDocumentController.text) : '—'),
+          ]),
+
+          // PIX
+          if (_pixKeyController.text.isNotEmpty)
+            sectionCard('Chave PIX', Icons.pix_rounded, [
+              infoTile(Icons.vpn_key, _selectedPixKeyType.toUpperCase(), _maskPixKey(_pixKeyController.text, _selectedPixKeyType)),
+            ]),
+
+          // Parcelamento
+          sectionCard('Parcelamento', Icons.calendar_month_rounded, [
+            infoTile(
+              _acceptsInstallment ? Icons.check_circle : Icons.cancel,
+              'Aceita Parcelamento',
+              _acceptsInstallment ? 'Sim — até ${_maxInstallments}x' : 'Não',
+              iconColor: _acceptsInstallment ? const Color(0xFF00C977) : const Color(0xFFEF4444),
+            ),
+          ]),
+
+          const SizedBox(height: 32),
+
+          // Botão Editar
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => _safeSetState(() => _isViewMode = false),
+              icon: const Icon(Icons.edit, size: 20),
+              label: const Text('Editar Dados Bancários', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF00C977),
+                side: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ── Banner de status Asaas ────────────────────
+  Widget _buildAsaasStatusBanner() {
+    Color bgColor;
+    IconData icon;
+    String title;
+    String subtitle;
+
+    switch (_asaasStatus) {
+      case 'APPROVED':
+        bgColor = const Color(0xFF00C977);
+        icon = Icons.check_circle;
+        title = 'Conta Asaas Ativa';
+        subtitle = 'Pronta para receber pagamentos';
+      case 'PENDING':
+        bgColor = Colors.orange;
+        icon = Icons.hourglass_top;
+        title = 'Em Analise pelo Asaas';
+        subtitle = 'Aguardando aprovacao (1-2 dias uteis)';
+      case 'REJECTED':
+        bgColor = Colors.red;
+        icon = Icons.error;
+        title = 'Documentos Rejeitados';
+        subtitle = _asaasError ?? 'Verifique seus dados e salve novamente';
+      case 'ERROR':
+        bgColor = Colors.red.shade700;
+        icon = Icons.warning;
+        title = 'Erro no Cadastro';
+        subtitle = _asaasError ?? 'Tente salvar novamente';
+      case 'DISABLED':
+        bgColor = Colors.grey;
+        icon = Icons.block;
+        title = 'Conta Desativada';
+        subtitle = 'Entre em contato com o suporte';
+      default:
+        bgColor = Colors.grey;
+        icon = Icons.account_balance_wallet_outlined;
+        title = 'Configure sua Conta';
+        subtitle = 'Preencha os dados para ativar recebimentos';
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: bgColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: bgColor, size: 32),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: bgColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(color: bgColor.withOpacity(0.8), fontSize: 13)),
+              ],
+            ),
+          ),
+          if (_asaasStatus == 'PENDING')
+            _isCheckingStatus
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : IconButton(icon: const Icon(Icons.refresh, color: Colors.orange), onPressed: _checkAsaasStatus, tooltip: 'Verificar status'),
+        ],
+      ),
     );
   }
 

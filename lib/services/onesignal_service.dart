@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -10,7 +11,13 @@ typedef OnNotificationReceived = void Function(OSNotification notification);
 class OneSignalService {
   static String get _appId => AppConfig.oneSignalAppId;
   static OnNotificationReceived? _onNotificationReceived;
-  
+  static GlobalKey<NavigatorState>? _navigatorKey;
+
+  /// Define a chave do Navigator para permitir navegação a partir de notificações push
+  static void setNavigatorKey(GlobalKey<NavigatorState> key) {
+    _navigatorKey = key;
+  }
+
   static void setNotificationReceivedCallback(OnNotificationReceived? callback) {
     _onNotificationReceived = callback;
   }
@@ -133,23 +140,37 @@ class OneSignalService {
   static void _handleNotificationOpened(OSNotificationClickEvent event) {
     final notification = event.notification;
     final additionalData = notification.additionalData;
-    
-    // Handler será configurado externamente se necessário
-    // Por padrão, o OneSignal já exibe a notificação automaticamente
+
     if (additionalData != null) {
-      if (additionalData.containsKey('booking_id')) {
+      final action = additionalData['action']?.toString();
+
+      // Navegar para tela de dados bancários quando oficina recebe push de pagamento falhado
+      if (action == 'open_bank_account_screen') {
+        print('[OneSignal] Ação: abrir tela de dados bancários');
+        _navigateTo('/config/banking');
+      } else if (additionalData.containsKey('booking_id')) {
         final bookingId = additionalData['booking_id'].toString();
-        // Navegação será tratada pelo app quando necessário
         print('[OneSignal] Notificação clicada - booking_id: $bookingId');
+        _navigateTo('/booking-detail', arguments: {'id': bookingId});
       } else if (additionalData.containsKey('type')) {
         final type = additionalData['type'].toString();
         print('[OneSignal] Notificação clicada - type: $type');
       }
     }
-    
+
     // Chamar callback para atualizar notificações quando clicada
     if (_onNotificationReceived != null) {
       _onNotificationReceived!(notification);
+    }
+  }
+
+  /// Navega para uma rota usando o navigatorKey global
+  static void _navigateTo(String route, {Object? arguments}) {
+    final navigator = _navigatorKey?.currentState;
+    if (navigator != null) {
+      navigator.pushNamed(route, arguments: arguments);
+    } else {
+      print('[OneSignal] Navigator key não disponível para navegar para $route');
     }
   }
   

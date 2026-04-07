@@ -13,7 +13,7 @@ class AppConfig {
   /// Timeout de recebimento (segundos) - Otimizado para EC2
   static const int receiveTimeout = 60;
   
-  /// Timeout para carregamento da home (notificações, perfil, PagBank, agenda, etc.)
+  /// Timeout para carregamento da home (notificações, perfil, agenda, etc.)
   static const int homeLoadTimeoutSeconds = 30;
   
   /// Usar endpoints admin (sempre false - usar endpoints reais)
@@ -33,13 +33,10 @@ class AppConfig {
   static const String buildNumber = '116';
   
   // ========================================
-  // PAGSEGURO / PAGBANK
+  // PLATAFORMA MECA
   // ========================================
-  
-  /// Chave pública PagBank
-  static const String pagBankPublicKey = 'YOUR_PUBLIC_KEY_HERE'; // TODO: Adicionar chave real
-  
-  /// Taxa da plataforma MECA (12%). O MECA arca com 100% das taxas PagBank; a oficina não é descontada.
+
+  /// Taxa da plataforma MECA (12%). O MECA arca com 100% das taxas do gateway; a oficina não é descontada.
   static const double mecaPlatformFee = 0.12; // 12%
   
   // ========================================

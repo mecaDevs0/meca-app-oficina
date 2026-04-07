@@ -90,15 +90,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      // Buscar status Asaas
+      // Buscar status Asaas + banking data (para asaas_error)
       final workshopId = _workshopData?['id']?.toString() ?? '';
       if (workshopId.isNotEmpty) {
-        final asaasResponse = await _apiService.getAsaasStatus(workshopId);
-        if (mounted) {
-          setState(() {
-            _asaasData = asaasResponse;
-          });
-        }
+        try {
+          final asaasResponse = await _apiService.getAsaasStatus(workshopId);
+          if (mounted) {
+            setState(() => _asaasData = asaasResponse);
+          }
+        } catch (_) {}
+        try {
+          final bankingResponse = await _apiService.get('/workshop/$workshopId/banking');
+          if (bankingResponse['success'] == true && mounted) {
+            final bankData = bankingResponse['data'] as Map<String, dynamic>? ?? {};
+            setState(() {
+              _workshopData = {...?_workshopData, ...bankData};
+            });
+          }
+        } catch (_) {}
       }
     } catch (e) {
       print('❌ Erro ao carregar dados: $e');
@@ -658,10 +667,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildAsaasStatusCard(bool isDark, Color textColor, Color secondaryText) {
     final asaasDataInner = _asaasData?['data'] as Map<String, dynamic>?;
-    final asaasStatus = (asaasDataInner?['asaas_status'] ?? '').toString().toUpperCase();
-    final isActive = asaasStatus == 'ACTIVE';
+    final asaasStatus = (asaasDataInner?['asaas_status'] ??
+        _workshopData?['asaas_status'] ?? '').toString().toUpperCase();
+    final asaasError = (_workshopData?['asaas_error'] ?? '').toString();
+    final isActive = asaasStatus == 'APPROVED' || asaasStatus == 'ACTIVE';
     final isPending = asaasStatus == 'PENDING';
+    final isError = asaasStatus == 'ERROR';
+    final isRejected = asaasStatus == 'REJECTED';
+    final hasBankData = (_workshopData?['bank_code'] ?? '').toString().trim().isNotEmpty ||
+        (_workshopData?['pix_key'] ?? '').toString().trim().isNotEmpty;
     final isConfigured = isActive || isPending;
+
+    // Status visual config
+    final Color statusColor = isActive
+        ? const Color(0xFF00C977)
+        : isPending
+            ? const Color(0xFFF59E0B)
+            : isError
+                ? const Color(0xFFEF4444)
+                : isRejected
+                    ? const Color(0xFFEF4444)
+                    : hasBankData
+                        ? const Color(0xFFF59E0B)
+                        : Colors.grey;
+
+    final IconData statusIcon = isActive
+        ? Icons.check_circle
+        : isPending
+            ? Icons.hourglass_top_rounded
+            : isError
+                ? Icons.error_outline
+                : isRejected
+                    ? Icons.cancel_outlined
+                    : hasBankData
+                        ? Icons.info_outline
+                        : Icons.account_balance_outlined;
+
+    final String statusLabel = isActive
+        ? 'Ativa'
+        : isPending
+            ? 'Em analise'
+            : isError
+                ? 'Erro'
+                : isRejected
+                    ? 'Rejeitada'
+                    : hasBankData
+                        ? 'Incompleto'
+                        : 'Pendente';
+
+    final String statusDescription = isActive
+        ? 'Sua conta esta ativa e pronta para receber pagamentos dos clientes.'
+        : isPending
+            ? 'Sua conta esta em analise pelo Asaas. Esse processo leva ate 2 dias uteis. Voce sera notificado quando for aprovada.'
+            : isError
+                ? 'Houve um erro ao configurar sua conta. Toque em "Tentar novamente" para corrigir.'
+                : isRejected
+                    ? 'Sua conta foi rejeitada. Verifique se os dados cadastrados estao corretos e tente novamente.'
+                    : hasBankData
+                        ? 'Seus dados bancarios foram salvos, mas a conta de recebimento ainda nao foi ativada. Preencha todos os campos obrigatorios.'
+                        : 'Configure seus dados bancarios para comecar a receber pagamentos dos clientes.';
 
     return Container(
       width: double.infinity,
@@ -677,28 +741,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header row
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? const Color(0xFF00C977).withOpacity(0.15)
-                        : isPending
-                            ? const Color(0xFFF59E0B).withOpacity(0.15)
-                            : Colors.grey.withOpacity(0.15),
+                    color: statusColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    isActive ? Icons.check_circle : isPending ? Icons.schedule : Icons.account_balance,
-                    color: isActive
-                        ? const Color(0xFF00C977)
-                        : isPending
-                            ? const Color(0xFFF59E0B)
-                            : secondaryText,
-                    size: 24,
-                  ),
+                  child: Icon(statusIcon, color: statusColor, size: 24),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -707,51 +760,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'Conta de Recebimento',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: textColor),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
-                        isActive
-                            ? 'Ativa — voce esta recebendo normalmente'
-                            : isPending
-                                ? 'Em analise — validacao em ate 2 dias uteis'
-                                : 'Configure seus dados bancarios para receber',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: secondaryText,
-                        ),
+                        statusDescription,
+                        style: TextStyle(fontSize: 13, color: secondaryText, height: 1.4),
                       ),
                     ],
                   ),
                 ),
-                if (isConfigured)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? const Color(0xFF00C977).withOpacity(0.15)
-                          : const Color(0xFFF59E0B).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isActive ? 'Ativa' : 'Pendente',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isActive ? const Color(0xFF00C977) : const Color(0xFFF59E0B),
-                      ),
-                    ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Text(
+                    statusLabel,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor),
+                  ),
+                ),
               ],
             ),
 
-            if (!isConfigured) ...[
+            // Progress steps (when pending)
+            if (isPending) ...[
+              const SizedBox(height: 20),
+              _buildProgressSteps(isDark, secondaryText),
+            ],
+
+            // Error message
+            if ((isError || isRejected) && asaasError.isNotEmpty) ...[
               const SizedBox(height: 16),
-              // CTA to configure banking
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        asaasError.length > 120 ? '${asaasError.substring(0, 120)}...' : asaasError,
+                        style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFFF8A8A) : const Color(0xFFB91C1C), height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Action buttons
+            if (isActive) ...[
+              // Active: show edit button
+              _buildActionRow(
+                icon: Icons.settings_outlined,
+                label: 'Editar dados bancarios',
+                color: const Color(0xFF00C977),
+                secondaryText: secondaryText,
+                onTap: () => _navigateToBanking(),
+              ),
+            ] else if (isPending) ...[
+              // Pending: show refresh + edit
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.refresh,
+                      label: 'Atualizar status',
+                      color: const Color(0xFFF59E0B),
+                      isDark: isDark,
+                      isLoading: _isLoadingAsaas,
+                      onTap: _refreshAsaasStatus,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.edit_outlined,
+                      label: 'Ver dados',
+                      color: secondaryText,
+                      isDark: isDark,
+                      outlined: true,
+                      onTap: () => _navigateToBanking(),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (isError || isRejected) ...[
+              // Error/Rejected: retry button prominent
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _navigateToBanking(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.refresh, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Tentar novamente',
+                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Not configured: CTA
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -763,12 +902,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () async {
-                      final result = await Navigator.pushNamed(context, '/config/banking');
-                      if (result == true && mounted) {
-                        _loadWorkshopData();
-                      }
-                    },
+                    onTap: () => _navigateToBanking(),
                     borderRadius: BorderRadius.circular(12),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 14),
@@ -779,11 +913,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           SizedBox(width: 8),
                           Text(
                             'Configurar Dados Bancarios',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -791,44 +921,232 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 'A MECA arca com 100% das taxas do gateway de pagamento.',
                 style: TextStyle(fontSize: 12, color: secondaryText),
                 textAlign: TextAlign.center,
               ),
             ],
-
-            if (isConfigured) ...[
-              const SizedBox(height: 16),
-              // Settings shortcut
-              InkWell(
-                onTap: () async {
-                  final result = await Navigator.pushNamed(context, '/config/banking');
-                  if (result == true && mounted) {
-                    _loadWorkshopData();
-                  }
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.settings, size: 16, color: secondaryText),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Editar dados bancarios',
-                        style: TextStyle(fontSize: 13, color: const Color(0xFF00C977), fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      Icon(Icons.chevron_right, size: 18, color: secondaryText),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProgressSteps(bool isDark, Color secondaryText) {
+    return Row(
+      children: [
+        _buildStep(label: 'Cadastro', done: true, isDark: isDark),
+        _buildStepConnector(done: true),
+        _buildStep(label: 'Analise', done: false, active: true, isDark: isDark),
+        _buildStepConnector(done: false),
+        _buildStep(label: 'Aprovado', done: false, isDark: isDark),
+      ],
+    );
+  }
+
+  Widget _buildStep({required String label, required bool done, bool active = false, required bool isDark}) {
+    final color = done
+        ? const Color(0xFF00C977)
+        : active
+            ? const Color(0xFFF59E0B)
+            : Colors.grey.withOpacity(0.4);
+
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: done ? const Color(0xFF00C977) : Colors.transparent,
+              border: Border.all(color: color, width: 2),
+            ),
+            child: done
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : active
+                    ? Center(
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFF59E0B),
+                          ),
+                        ),
+                      )
+                    : null,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color: done
+                  ? const Color(0xFF00C977)
+                  : active
+                      ? const Color(0xFFF59E0B)
+                      : Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepConnector({required bool done}) {
+    return Container(
+      width: 30,
+      height: 2,
+      margin: const EdgeInsets.only(bottom: 18),
+      color: done ? const Color(0xFF00C977) : Colors.grey.withOpacity(0.3),
+    );
+  }
+
+  Widget _buildActionRow({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color secondaryText,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: secondaryText),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Icon(Icons.chevron_right, size: 18, color: secondaryText),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool isDark,
+    bool outlined = false,
+    bool isLoading = false,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: outlined ? Colors.transparent : color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: outlined ? Border.all(color: color.withOpacity(0.3)) : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: color))
+                else
+                  Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _navigateToBanking() async {
+    final result = await Navigator.pushNamed(context, '/config/banking');
+    if (result == true && mounted) {
+      _loadWorkshopData();
+    }
+  }
+
+  Future<void> _refreshAsaasStatus() async {
+    final workshopId = _workshopData?['id']?.toString() ?? '';
+    if (workshopId.isEmpty) return;
+
+    setState(() => _isLoadingAsaas = true);
+    try {
+      final asaasResponse = await _apiService.getAsaasStatus(workshopId);
+      if (mounted) {
+        setState(() {
+          _asaasData = asaasResponse;
+        });
+        // Reload full profile to get updated workshop data
+        final response = await _apiService.getProfile();
+        if (response['success'] && mounted) {
+          setState(() {
+            _workshopData = response['data'];
+          });
+        }
+
+        final newStatus = (asaasResponse['data']?['asaas_status'] ?? '').toString().toUpperCase();
+        if (newStatus == 'APPROVED' || newStatus == 'ACTIVE') {
+          _showStatusSnackbar('Conta aprovada! Voce ja pode receber pagamentos.', const Color(0xFF00C977));
+        } else if (newStatus == 'PENDING') {
+          _showStatusSnackbar('Sua conta ainda esta em analise. Voce sera notificado quando for aprovada.', const Color(0xFFF59E0B));
+        } else if (newStatus == 'REJECTED') {
+          _showStatusSnackbar('Conta rejeitada. Verifique seus dados e tente novamente.', const Color(0xFFEF4444));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showStatusSnackbar('Erro ao verificar status. Tente novamente.', const Color(0xFFEF4444));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingAsaas = false);
+      }
+    }
+  }
+
+  void _showStatusSnackbar(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              color == const Color(0xFF00C977)
+                  ? Icons.check_circle
+                  : color == const Color(0xFFF59E0B)
+                      ? Icons.info_outline
+                      : Icons.error_outline,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: const TextStyle(fontSize: 14))),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

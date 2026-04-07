@@ -18,6 +18,7 @@ class FinancialScreen extends StatefulWidget {
 class _FinancialScreenState extends State<FinancialScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _financialData;
+  bool _isAsaasOnboarded = false;
   final ApiService _apiService = ApiService();
   final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
@@ -51,13 +52,28 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
       await _apiService.loadToken();
       
-      final response = await _apiService.getFinancialSummary();
+      final results = await Future.wait([
+        _apiService.getFinancialSummary(),
+        _apiService.getProfile(),
+      ]);
+
+      final response = results[0];
+      final profileResponse = results[1];
+
       if (response['success']) {
         _safeSetState(() {
           _financialData = response['data'];
         });
       }
-      
+
+      if (profileResponse['success'] == true) {
+        final workshop = profileResponse['data'];
+        if (workshop is Map) {
+          final walletId = (workshop['asaas_wallet_id'] as String? ?? '').trim();
+          _safeSetState(() => _isAsaasOnboarded = walletId.isNotEmpty);
+        }
+      }
+
     } catch (e) {
     } finally {
       _safeSetState(() => _isLoading = false);
@@ -108,31 +124,38 @@ class _FinancialScreenState extends State<FinancialScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: cardBorderColor.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: cardBorderColor.withOpacity(0.4)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.email_outlined, color: cardBorderColor, size: 28),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Para adiantar recebimentos, entre em contato com suporte@mecabr.com',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: textColor,
+                            if (_isAsaasOnboarded)
+                              _buildAnticipationCard(
+                                cardColor: cardColor,
+                                borderColor: cardBorderColor,
+                                textColor: textColor,
+                              )
+                            else
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: cardBorderColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: cardBorderColor.withOpacity(0.4)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.email_outlined, color: cardBorderColor, size: 28),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Para adiantar recebimentos, entre em contato com suporte@mecabr.com',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: textColor,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -213,6 +236,66 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildAnticipationCard({
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+  }) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/financial/anticipation'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C977).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.flash_on_outlined,
+                color: Color(0xFF00C977),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Antecipacao de Recebiveis',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Receba antes do prazo previsto',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF00C977),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00C977)),
+          ],
+        ),
       ),
     );
   }
@@ -593,7 +676,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     final netAmount = _formatCurrency(transaction['net_amount'], fallback: '—');
     final mecaFeeAmount = _formatCurrency(transaction['meca_fee_amount'], fallback: '—');
-    final gatewayFeeAmount = _formatCurrency(transaction['pagbank_fee_amount'] ?? transaction['gateway_fee_amount'], fallback: '—');
+    final gatewayFeeAmount = _formatCurrency(transaction['gateway_fee_amount'] ?? transaction['pagbank_fee_amount'], fallback: '—');
     final grossAmount = _formatCurrency(transaction['gross_amount'], fallback: 'R\$ 0,00');
 
     return Padding(

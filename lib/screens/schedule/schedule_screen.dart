@@ -238,7 +238,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       color: secondaryText,
                     ),
                   ),
-                  const SizedBox(height: 20);
+                  const SizedBox(height: 20),
                   _buildStatusToolbar(themeService.isDarkMode),
                 ],
               ),
@@ -849,15 +849,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     
     return InkWell(
       onTap: () async {
-        final result = await Navigator.push<bool>(
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => BookingDetailScreen(booking: booking),
           ),
         );
-        if (result == true) {
-          _loadBookings(forceRefresh: true);
-        }
+        // Sempre recarregar ao voltar — o user pode ter aprovado, orçado ou alterado status
+        if (mounted) _loadBookings(forceRefresh: true);
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(

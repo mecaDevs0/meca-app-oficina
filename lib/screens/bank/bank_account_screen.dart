@@ -4,6 +4,7 @@ import '../../services/bank_service.dart';
 import '../../services/api_service.dart';
 import '../../core/app_colors.dart';
 import '../../utils/form_styles.dart';
+import '../asaas/identity_verification_screen.dart';
 
 class BankAccountScreen extends StatefulWidget {
   const BankAccountScreen({Key? key}) : super(key: key);
@@ -95,7 +96,6 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         msg = 'Dados salvos! Conta de recebimento ativada com sucesso!';
       }
       if (mounted) {
-        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -103,6 +103,40 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
             duration: const Duration(seconds: 4),
           ),
         );
+        if (asaasStatus == 'PENDING') {
+          // Oferecer ir para a tela de verificação de identidade
+          final goVerify = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Verificação de Identidade'),
+              content: const Text(
+                'Sua conta está em análise. Para acelerar a aprovação, complete a verificação de identidade agora.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Depois'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Verificar Agora'),
+                ),
+              ],
+            ),
+          );
+          if (goVerify == true && mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+            );
+            return;
+          }
+        }
+        if (mounted) Navigator.pop(context, true);
       }
     } else {
       final rawError = (result['error'] ?? 'Erro desconhecido').toString();

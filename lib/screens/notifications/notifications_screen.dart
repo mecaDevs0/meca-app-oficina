@@ -290,7 +290,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           itemCount: _notifications.length,
                           itemBuilder: (context, index) {
                             final notification = _notifications[index];
-                            return _buildNotificationCard(notification, isDark);
+                            return _buildNotificationCard(notification, isDark, index);
                           },
                         ),
                 ),
@@ -351,19 +351,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDark) {
+  Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDark, int index) {
     final isRead = notification['is_read'] == true || notification['read'] == true;
     final type = notification['type'] as String?;
     final priority = notification['priority'] as String?;
     final textColor = ThemeService.getTextColor(isDark);
-    final cardColor = isDark ? const Color(0xFF162031) : Colors.white;
-    final tertiary = isDark ? Colors.white60 : const Color(0xFF6B7280);
-    final borderColor = isRead
-        ? (isDark ? Colors.white24 : const Color(0xFFE5E7EB))
-        : _getNotificationColor(type, priority).withOpacity(isDark ? 0.6 : 0.2);
+    final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final tertiaryColor = isDark ? Colors.white60 : const Color(0xFF6B7280);
+    final notifColor = _getNotificationColor(type, priority);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+    final card = Container(
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () async {
           if (!isRead) {
@@ -372,120 +370,143 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           await _handleNotificationTap(notification);
         },
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: borderColor,
-              width: isRead ? 1 : 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Ícone da notificação
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _getNotificationColor(type, priority).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white10 : const Color(0xFFE5E7EB),
+                  width: 1,
                 ),
-                child: Icon(
-                  _getNotificationIcon(type),
-                  color: _getNotificationColor(type, priority),
-                  size: 24,
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              
-              // Conteúdo da notificação
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            notification['title'] ?? 'Notificação',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
-                              color: textColor,
-                            ),
-                          ),
-                        ),
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF252940),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon in colored circle — 40px
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: notifColor.withOpacity(0.12),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      notification['message'] ?? '',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: tertiary,
-                        height: 1.4,
-                      ),
+                    child: Icon(
+                      _getNotificationIcon(type),
+                      color: notifColor,
+                      size: 20,
                     ),
-                    const SizedBox(height: 12),
-                    Row(
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: const Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 4),
+                        // Title
                         Text(
-                          _formatDate(notification['created_at']),
+                          notification['title'] ?? 'Notificação',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: tertiary,
+                            fontSize: 15,
+                            fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                            color: textColor,
                           ),
                         ),
-                        const Spacer(),
-                        if (priority == 'high')
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'Urgente',
+                        const SizedBox(height: 4),
+
+                        // Message — max 2 lines
+                        Text(
+                          notification['message'] ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: tertiaryColor,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Footer row: priority badge left, timestamp right
+                        Row(
+                          children: [
+                            if (priority == 'high')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Urgente',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFEF4444),
+                                  ),
+                                ),
+                              ),
+                            const Spacer(),
+                            Text(
+                              _formatDate(notification['created_at']),
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFFEF4444),
+                                fontSize: 11,
+                                color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
                               ),
                             ),
-                          ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Unread green dot — top-right
+            if (!isRead)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00C977),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
+    );
+
+    // FadeIn animation with staggered delay
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + (index * 50).clamp(0, 500)),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: card,
     );
   }
 
@@ -515,7 +536,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'new_booking':
         return const Color(0xFF3B82F6);
       case 'booking_confirmed':
-        return const Color(0xFF10B981);
+        return const Color(0xFF00C977);
       case 'booking_cancelled':
         return const Color(0xFFEF4444);
       case 'payment_received':
@@ -523,7 +544,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'system':
         return const Color(0xFF6B7280);
       default:
-        return const Color(0xFF252940);
+        return const Color(0xFF6B7280);
     }
   }
 
@@ -570,6 +591,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final typeLower = type.toLowerCase();
     final title = (notification['title'] ?? '').toString().toLowerCase();
     final message = (notification['message'] ?? '').toString().toLowerCase();
+
+    // Verificar se é notificação de conta bancária / pagamento falhado
+    final isBankAccountRelated =
+        typeLower.contains('bank_account') ||
+        title.contains('conta de recebimentos') ||
+        title.contains('dados bancários') ||
+        title.contains('dados bancarios') ||
+        title.contains('cliente tentou pagar') ||
+        message.contains('conta de recebimentos') ||
+        message.contains('não está configurada') ||
+        message.contains('configurações → dados bancários');
+    if (isBankAccountRelated) {
+      Navigator.pushNamed(context, '/config/banking');
+      return;
+    }
 
     // Verificar se é notificação de pré-compra
     final isPreCompraRelated = typeLower.contains('pre_compra') ||
@@ -667,7 +703,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         } else if (bookingId != null) {
           await _openBookingDetail(bookingId.toString());
         } else {
-          Navigator.pushNamed(context, '/home');
+          // Voltar para a tela anterior (não navegar para /home que fica sem bottom bar)
+          Navigator.pop(context);
         }
         break;
     }
