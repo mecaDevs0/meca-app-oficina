@@ -31,6 +31,7 @@ class _IdentityVerificationScreenState
   Map<String, dynamic> _approval = {};
   List<Map<String, dynamic>> _documentGroups = [];
   String? _asaasStatus;
+  String? _rootOnboardingUrl;
   List<dynamic>? _rejectReasons;
 
   // Upload state
@@ -78,6 +79,7 @@ class _IdentityVerificationScreenState
           _approval = Map<String, dynamic>.from(
               (data['approval'] as Map?) ?? {});
           _asaasStatus = data['asaas_status']?.toString();
+          _rootOnboardingUrl = data['onboarding_url']?.toString();
           _rejectReasons = data['reject_reasons'] as List?;
 
           final rawGroups = data['document_groups'];
@@ -927,7 +929,11 @@ class _IdentityVerificationScreenState
     final type = group['type']?.toString() ?? 'UNKNOWN';
     final title = group['title']?.toString() ?? '';
     final description = group['description']?.toString() ?? '';
-    final onboardingUrl = group['onboardingUrl']?.toString();
+    final groupOnboardingUrl = group['onboardingUrl']?.toString();
+    // Fallback: usar URL raiz da conta quando o grupo não tem URL próprio
+    final onboardingUrl = (groupOnboardingUrl != null && groupOnboardingUrl.isNotEmpty)
+        ? groupOnboardingUrl
+        : _rootOnboardingUrl;
     final requiresExternalLink = group['requiresExternalLink'] == true;
     final isUploading = _uploading[groupId] == true;
     final uploadMsg = _uploadMessages[groupId];
