@@ -82,6 +82,17 @@ class ApiService {
     return fallback;
   }
 
+  /// Remove sufixo "(mesma mensagem)" quando API repete o texto em asaas_errors.
+  String _dedupeTrailingRepeatedError(String detail) {
+    final t = detail.trim();
+    final openIdx = t.lastIndexOf(' (');
+    if (openIdx <= 0 || !t.endsWith(')')) return t;
+    final main = t.substring(0, openIdx).trim();
+    final inner = t.substring(openIdx + 2, t.length - 1).trim();
+    if (inner == main) return main;
+    return t;
+  }
+
   Future<void> loadToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -2076,9 +2087,83 @@ class ApiService {
             .whereType<String>()
             .where((s) => s.isNotEmpty)
             .join('; ');
-        if (parts.isNotEmpty) detail = '$detail ($parts)';
+        if (parts.isNotEmpty && parts != detail) detail = '$detail ($parts)';
       }
+      detail = _dedupeTrailingRepeatedError(detail);
       return {'success': false, 'error': detail};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// POST /workshop/:id/asaas/documents/resend-link — reenvio do link KYC por e-mail (rate-limit 5 min).
+  Future<Map<String, dynamic>> resendAsaasOnboardingLink() async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Oficina não identificada'};
+      }
+      final response = await _dio.post(
+        '/workshop/$workshopId/asaas/documents/resend-link',
+        data: <String, dynamic>{},
+      );
+      final raw = response.data;
+      if (raw is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(raw);
+      }
+      if (raw is Map) {
+        return Map<String, dynamic>.from(raw);
+      }
+      return {'success': false, 'error': 'Resposta inválida'};
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final m = Map<String, dynamic>.from(data);
+        m['success'] = false;
+        m['error'] ??= e.message ?? 'Erro ao reenviar link';
+        return m;
+      }
+      return {
+        'success': false,
+        'error': e.message ?? 'Erro ao reenviar link',
+      };
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// PUT /workshop/:id/asaas/commercial-info — re-submissão comercial pós-rejeição.
+  Future<Map<String, dynamic>> updateAsaasCommercialInfo(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      await loadToken();
+      final workshopId = await getWorkshopId();
+      if (workshopId == null) {
+        return {'success': false, 'error': 'Oficina não identificada'};
+      }
+      final response = await _dio.put(
+        '/workshop/$workshopId/asaas/commercial-info',
+        data: payload,
+      );
+      final raw = response.data;
+      if (raw is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(raw);
+      }
+      if (raw is Map) {
+        return Map<String, dynamic>.from(raw);
+      }
+      return {'success': false, 'error': 'Resposta inválida'};
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map) {
+        return {
+          'success': false,
+          'error': (data['error'] ?? e.message).toString(),
+        };
+      }
+      return {'success': false, 'error': e.message ?? 'Erro ao atualizar dados'};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
