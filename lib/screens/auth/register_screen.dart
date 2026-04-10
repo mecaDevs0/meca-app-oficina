@@ -215,7 +215,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+        final isDark = Provider.of<ThemeService>(ctx, listen: false).isDarkMode;
         return AlertDialog(
         backgroundColor: isDark
             ? const Color(0xFF1A1A1A)
@@ -255,20 +255,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              setState(() {
-                // Se nome vazio, usar razão social como fallback
-                _nomeController.text = tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial;
-                _emailController.text = tmpEmail.text;
-                _phoneController.text = tmpTelefone.text;
-                _logradouroController.text = tmpLogradouro.text;
-                _numeroController.text = tmpNumero.text;
-                _bairroController.text = tmpBairro.text;
-                _cidadeController.text = tmpCidade.text;
-                _estadoController.text = tmpEstado.text;
-                _cepController.text = tmpCep.text;
-                _ownerName = tmpOwnerName.text.isNotEmpty ? tmpOwnerName.text : null;
-              });
+              // Coletar valores ANTES de pop — setState só depois do dialog fechar
+              final values = {
+                'nome': tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial,
+                'email': tmpEmail.text,
+                'telefone': tmpTelefone.text,
+                'logradouro': tmpLogradouro.text,
+                'numero': tmpNumero.text,
+                'bairro': tmpBairro.text,
+                'cidade': tmpCidade.text,
+                'estado': tmpEstado.text,
+                'cep': tmpCep.text,
+                'ownerName': tmpOwnerName.text,
+              };
               Navigator.of(ctx).pop(true);
+              // setState após pop evita _dependents.isEmpty crash
+              setState(() {
+                _nomeController.text = values['nome']!;
+                _emailController.text = values['email']!;
+                _phoneController.text = values['telefone']!;
+                _logradouroController.text = values['logradouro']!;
+                _numeroController.text = values['numero']!;
+                _bairroController.text = values['bairro']!;
+                _cidadeController.text = values['cidade']!;
+                _estadoController.text = values['estado']!;
+                _cepController.text = values['cep']!;
+                _ownerName = values['ownerName']!.isNotEmpty ? values['ownerName'] : null;
+              });
             },
             child: const Text('Confirmar dados'),
           ),
