@@ -202,7 +202,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isSearchingCEP = false);
   }
 
-  /// Bottom sheet de revisão dos dados preenchidos via CNPJ.
+  /// Mostra bottom sheet de revisão dos dados do CNPJ.
   /// Retorna Map<String, String> com os dados confirmados, ou null se cancelou.
   Future<Map<String, String>?> _showCnpjReviewSheet({
     required String nome,
@@ -217,236 +217,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String ownerName,
   }) {
     final userTypedName = _nomeController.text.trim();
-    final razaoSocial = nome;
-    final tmpNome = TextEditingController(text: userTypedName.isNotEmpty ? userTypedName : '');
-    final tmpEmail = TextEditingController(text: email);
-    final tmpTelefone = TextEditingController(text: telefone);
-    final tmpLogradouro = TextEditingController(text: logradouro);
-    final tmpNumero = TextEditingController(text: numero);
-    final tmpBairro = TextEditingController(text: bairro);
-    final tmpCidade = TextEditingController(text: cidade);
-    final tmpEstado = TextEditingController(text: estado);
-    final tmpCep = TextEditingController(text: cep);
-    final tmpOwnerName = TextEditingController(text: ownerName);
-
-    final controllers = [tmpNome, tmpEmail, tmpTelefone, tmpLogradouro, tmpNumero, tmpBairro, tmpCidade, tmpEstado, tmpCep, tmpOwnerName];
-    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
-
     return showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 8),
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[600],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C977).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.business_outlined, color: Color(0xFF00C977), size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dados encontrados',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Confira e ajuste se necessario',
-                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (razaoSocial.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF252525) : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.apartment, size: 16, color: Colors.grey[500]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          razaoSocial,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 8),
-              // Scrollable fields
-              Flexible(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: bottomInset),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        _sheetField('Nome da oficina', tmpNome, isDark, hint: razaoSocial),
-                        _sheetField('Responsavel', tmpOwnerName, isDark),
-                        _sheetField('Email', tmpEmail, isDark),
-                        _sheetField('Telefone', tmpTelefone, isDark),
-                        _sheetField('Logradouro', tmpLogradouro, isDark),
-                        Row(
-                          children: [
-                            Expanded(flex: 2, child: _sheetField('Numero', tmpNumero, isDark)),
-                            const SizedBox(width: 10),
-                            Expanded(flex: 3, child: _sheetField('Bairro', tmpBairro, isDark)),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Expanded(flex: 3, child: _sheetField('Cidade', tmpCidade, isDark)),
-                            const SizedBox(width: 10),
-                            Expanded(flex: 1, child: _sheetField('UF', tmpEstado, isDark)),
-                          ],
-                        ),
-                        _sheetField('CEP', tmpCep, isDark),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Action buttons
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                  border: Border(top: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: BorderSide(color: Colors.grey[600]!),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(null),
-                        child: Text('Preencher manual', style: TextStyle(color: Colors.grey[400], fontSize: 14)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00C977),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          // Retornar dados via pop — SEM setState aqui
-                          Navigator.of(ctx).pop({
-                            'nome': tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial,
-                            'email': tmpEmail.text,
-                            'telefone': tmpTelefone.text,
-                            'logradouro': tmpLogradouro.text,
-                            'numero': tmpNumero.text,
-                            'bairro': tmpBairro.text,
-                            'cidade': tmpCidade.text,
-                            'estado': tmpEstado.text,
-                            'cep': tmpCep.text,
-                            'ownerName': tmpOwnerName.text,
-                          });
-                        },
-                        child: const Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    ).whenComplete(() {
-      for (final c in controllers) {
-        c.dispose();
-      }
-    });
-  }
-
-  Widget _sheetField(String label, TextEditingController controller, bool isDark, {String? hint}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic, fontSize: 13),
-          filled: true,
-          fillColor: isDark ? const Color(0xFF252525) : Colors.grey[50],
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF00C977), width: 1.5),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
+      builder: (_) => _CnpjReviewSheetContent(
+        razaoSocial: nome,
+        initialNome: userTypedName,
+        email: email,
+        telefone: telefone,
+        logradouro: logradouro,
+        numero: numero,
+        bairro: bairro,
+        cidade: cidade,
+        estado: estado,
+        cep: cep,
+        ownerName: ownerName,
       ),
     );
   }
@@ -1292,5 +1078,301 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cidadeController.dispose();
     _estadoController.dispose();
     super.dispose();
+  }
+}
+
+/// Widget isolado para o bottom sheet de revisão CNPJ.
+/// Gerencia seus próprios controllers — evita _dependents.isEmpty.
+class _CnpjReviewSheetContent extends StatefulWidget {
+  final String razaoSocial;
+  final String initialNome;
+  final String email;
+  final String telefone;
+  final String logradouro;
+  final String numero;
+  final String bairro;
+  final String cidade;
+  final String estado;
+  final String cep;
+  final String ownerName;
+
+  const _CnpjReviewSheetContent({
+    required this.razaoSocial,
+    required this.initialNome,
+    required this.email,
+    required this.telefone,
+    required this.logradouro,
+    required this.numero,
+    required this.bairro,
+    required this.cidade,
+    required this.estado,
+    required this.cep,
+    required this.ownerName,
+  });
+
+  @override
+  State<_CnpjReviewSheetContent> createState() => _CnpjReviewSheetContentState();
+}
+
+class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
+  late final TextEditingController _nome;
+  late final TextEditingController _email;
+  late final TextEditingController _telefone;
+  late final TextEditingController _logradouro;
+  late final TextEditingController _numero;
+  late final TextEditingController _bairro;
+  late final TextEditingController _cidade;
+  late final TextEditingController _estado;
+  late final TextEditingController _cep;
+  late final TextEditingController _ownerName;
+
+  @override
+  void initState() {
+    super.initState();
+    _nome = TextEditingController(text: widget.initialNome.isNotEmpty ? widget.initialNome : '');
+    _email = TextEditingController(text: widget.email);
+    _telefone = TextEditingController(text: widget.telefone);
+    _logradouro = TextEditingController(text: widget.logradouro);
+    _numero = TextEditingController(text: widget.numero);
+    _bairro = TextEditingController(text: widget.bairro);
+    _cidade = TextEditingController(text: widget.cidade);
+    _estado = TextEditingController(text: widget.estado);
+    _cep = TextEditingController(text: widget.cep);
+    _ownerName = TextEditingController(text: widget.ownerName);
+  }
+
+  @override
+  void dispose() {
+    _nome.dispose();
+    _email.dispose();
+    _telefone.dispose();
+    _logradouro.dispose();
+    _numero.dispose();
+    _bairro.dispose();
+    _cidade.dispose();
+    _estado.dispose();
+    _cep.dispose();
+    _ownerName.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final data = <String, String>{
+      'nome': _nome.text.isNotEmpty ? _nome.text : widget.razaoSocial,
+      'email': _email.text,
+      'telefone': _telefone.text,
+      'logradouro': _logradouro.text,
+      'numero': _numero.text,
+      'bairro': _bairro.text,
+      'cidade': _cidade.text,
+      'estado': _estado.text,
+      'cep': _cep.text,
+      'ownerName': _ownerName.text,
+    };
+    Navigator.of(context).pop(data);
+  }
+
+  Widget _field(String label, TextEditingController controller, bool isDark, {String? hint}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic, fontSize: 13),
+          filled: true,
+          fillColor: isDark ? const Color(0xFF252525) : Colors.grey[50],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.business_outlined, color: Color(0xFF00C977), size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dados encontrados',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Confira e ajuste se necessario',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.razaoSocial.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF252525) : Colors.grey[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.apartment, size: 16, color: Colors.grey[500]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.razaoSocial,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          // Scrollable fields
+          Flexible(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    _field('Nome da oficina', _nome, isDark, hint: widget.razaoSocial),
+                    _field('Responsavel', _ownerName, isDark),
+                    _field('Email', _email, isDark),
+                    _field('Telefone', _telefone, isDark),
+                    _field('Logradouro', _logradouro, isDark),
+                    Row(
+                      children: [
+                        Expanded(flex: 2, child: _field('Numero', _numero, isDark)),
+                        const SizedBox(width: 10),
+                        Expanded(flex: 3, child: _field('Bairro', _bairro, isDark)),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(flex: 3, child: _field('Cidade', _cidade, isDark)),
+                        const SizedBox(width: 10),
+                        Expanded(flex: 1, child: _field('UF', _estado, isDark)),
+                      ],
+                    ),
+                    _field('CEP', _cep, isDark),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Action buttons
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                border: Border(top: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.grey[600]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(null),
+                      child: Text(
+                        'Preencher manual',
+                        style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C977),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: _confirm,
+                      child: const Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
