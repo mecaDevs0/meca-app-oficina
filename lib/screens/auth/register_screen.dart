@@ -91,8 +91,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
           if (!mounted) return;
 
-          // Mostrar modal de revisão dos dados do CNPJ
-          final confirmed = await _showCnpjReviewDialog(
+          // Mostrar bottom sheet de revisão dos dados do CNPJ
+          final result = await _showCnpjReviewSheet(
             nome: data['nome'] ?? '',
             email: data['email'] ?? '',
             telefone: data['telefone']?.replaceAll(RegExp(r'[^\d]'), '') ?? '',
@@ -105,7 +105,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ownerName: ownerNameFromQsa ?? '',
           );
 
-          return; // Skip the setState(_isSearchingCNPJ = false) below since dialog handles it
+          // setState FORA do dialog — após pop completo
+          if (result != null && mounted) {
+            setState(() {
+              _nomeController.text = result['nome'] ?? '';
+              _emailController.text = result['email'] ?? '';
+              _phoneController.text = result['telefone'] ?? '';
+              _logradouroController.text = result['logradouro'] ?? '';
+              _numeroController.text = result['numero'] ?? '';
+              _bairroController.text = result['bairro'] ?? '';
+              _cidadeController.text = result['cidade'] ?? '';
+              _estadoController.text = result['estado'] ?? '';
+              _cepController.text = result['cep'] ?? '';
+              _ownerName = (result['ownerName'] ?? '').isNotEmpty ? result['ownerName'] : null;
+            });
+          }
+
+          return; // Skip the setState(_isSearchingCNPJ = false) below since sheet handles it
         } else {
           // CNPJ inválido ou não encontrado
           if (!mounted) return;
@@ -182,8 +198,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isSearchingCEP = false);
   }
 
-  /// Modal de revisão dos dados preenchidos via CNPJ
-  Future<bool?> _showCnpjReviewDialog({
+  /// Bottom sheet de revisão dos dados preenchidos via CNPJ.
+  /// Retorna Map<String, String> com os dados confirmados, ou null se cancelou.
+  Future<Map<String, String>?> _showCnpjReviewSheet({
     required String nome,
     required String email,
     required String telefone,
@@ -195,10 +212,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String cep,
     required String ownerName,
   }) {
-    // Se o usuário já digitou um nome, preservar; senão, campo vazio com placeholder da razão social
     final userTypedName = _nomeController.text.trim();
+    final razaoSocial = nome;
     final tmpNome = TextEditingController(text: userTypedName.isNotEmpty ? userTypedName : '');
-    final razaoSocial = nome; // Razão social do CNPJ (para exibir como sugestão)
     final tmpEmail = TextEditingController(text: email);
     final tmpTelefone = TextEditingController(text: telefone);
     final tmpLogradouro = TextEditingController(text: logradouro);
@@ -210,83 +226,188 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final tmpOwnerName = TextEditingController(text: ownerName);
 
     final controllers = [tmpNome, tmpEmail, tmpTelefone, tmpLogradouro, tmpNumero, tmpBairro, tmpCidade, tmpEstado, tmpCep, tmpOwnerName];
+    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
 
-    return showDialog<bool>(
+    return showModalBottomSheet<Map<String, String>>(
       context: context,
-      barrierDismissible: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        final isDark = Provider.of<ThemeService>(ctx, listen: false).isDarkMode;
-        return AlertDialog(
-        backgroundColor: isDark
-            ? const Color(0xFF1A1A1A)
-            : Colors.white,
-        title: Text('Revisar dados do CNPJ',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-        content: SingleChildScrollView(
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Confira e corrija os dados antes de continuar:',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[600],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
-              _buildDialogFieldWithHint('Nome da oficina', tmpNome, razaoSocial),
-              _buildDialogField('Responsável', tmpOwnerName),
-              _buildDialogField('Email', tmpEmail),
-              _buildDialogField('Telefone', tmpTelefone),
-              _buildDialogField('Logradouro', tmpLogradouro),
-              _buildDialogField('Número', tmpNumero),
-              _buildDialogField('Bairro', tmpBairro),
-              _buildDialogField('Cidade', tmpCidade),
-              _buildDialogField('Estado', tmpEstado),
-              _buildDialogField('CEP', tmpCep),
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.business_outlined, color: Color(0xFF00C977), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dados encontrados',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Confira e ajuste se necessario',
+                            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (razaoSocial.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF252525) : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.apartment, size: 16, color: Colors.grey[500]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          razaoSocial,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              // Scrollable fields
+              Flexible(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        _sheetField('Nome da oficina', tmpNome, isDark, hint: razaoSocial),
+                        _sheetField('Responsavel', tmpOwnerName, isDark),
+                        _sheetField('Email', tmpEmail, isDark),
+                        _sheetField('Telefone', tmpTelefone, isDark),
+                        _sheetField('Logradouro', tmpLogradouro, isDark),
+                        Row(
+                          children: [
+                            Expanded(flex: 2, child: _sheetField('Numero', tmpNumero, isDark)),
+                            const SizedBox(width: 10),
+                            Expanded(flex: 3, child: _sheetField('Bairro', tmpBairro, isDark)),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Expanded(flex: 3, child: _sheetField('Cidade', tmpCidade, isDark)),
+                            const SizedBox(width: 10),
+                            Expanded(flex: 1, child: _sheetField('UF', tmpEstado, isDark)),
+                          ],
+                        ),
+                        _sheetField('CEP', tmpCep, isDark),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Action buttons
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                  border: Border(top: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: Colors.grey[600]!),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(null),
+                        child: Text('Preencher manual', style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00C977),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          // Retornar dados via pop — SEM setState aqui
+                          Navigator.of(ctx).pop({
+                            'nome': tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial,
+                            'email': tmpEmail.text,
+                            'telefone': tmpTelefone.text,
+                            'logradouro': tmpLogradouro.text,
+                            'numero': tmpNumero.text,
+                            'bairro': tmpBairro.text,
+                            'cidade': tmpCidade.text,
+                            'estado': tmpEstado.text,
+                            'cep': tmpCep.text,
+                            'ownerName': tmpOwnerName.text,
+                          });
+                        },
+                        child: const Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Preencher manualmente'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C977),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              // Coletar valores ANTES de pop — setState só depois do dialog fechar
-              final values = {
-                'nome': tmpNome.text.isNotEmpty ? tmpNome.text : razaoSocial,
-                'email': tmpEmail.text,
-                'telefone': tmpTelefone.text,
-                'logradouro': tmpLogradouro.text,
-                'numero': tmpNumero.text,
-                'bairro': tmpBairro.text,
-                'cidade': tmpCidade.text,
-                'estado': tmpEstado.text,
-                'cep': tmpCep.text,
-                'ownerName': tmpOwnerName.text,
-              };
-              Navigator.of(ctx).pop(true);
-              // setState após pop evita _dependents.isEmpty crash
-              setState(() {
-                _nomeController.text = values['nome']!;
-                _emailController.text = values['email']!;
-                _phoneController.text = values['telefone']!;
-                _logradouroController.text = values['logradouro']!;
-                _numeroController.text = values['numero']!;
-                _bairroController.text = values['bairro']!;
-                _cidadeController.text = values['cidade']!;
-                _estadoController.text = values['estado']!;
-                _cepController.text = values['cep']!;
-                _ownerName = values['ownerName']!.isNotEmpty ? values['ownerName'] : null;
-              });
-            },
-            child: const Text('Confirmar dados'),
-          ),
-        ],
-      );
+        );
       },
     ).whenComplete(() {
       for (final c in controllers) {
@@ -295,64 +416,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  Widget _buildDialogField(String label, TextEditingController controller) {
-    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+  Widget _sheetField(String label, TextEditingController controller, bool isDark, {String? hint}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
-        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
+          labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic, fontSize: 13),
           filled: true,
-          fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          fillColor: isDark ? const Color(0xFF252525) : Colors.grey[50],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
-      ),
-    );
-  }
-
-  /// Campo com hint da razão social (para nome da oficina)
-  Widget _buildDialogFieldWithHint(String label, TextEditingController controller, String razaoSocial) {
-    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: controller,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: razaoSocial,
-              hintStyle: TextStyle(color: Colors.grey[500], fontStyle: FontStyle.italic),
-              labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700]),
-              filled: true,
-              fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[50],
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-          ),
-          if (razaoSocial.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4),
-              child: Text(
-                'Razão social: $razaoSocial',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
-              ),
-            ),
-        ],
       ),
     );
   }
