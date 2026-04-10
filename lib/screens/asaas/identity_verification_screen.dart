@@ -433,8 +433,177 @@ class _IdentityVerificationScreenState
     }
   }
 
+  Future<void> _showCommercialInfoEditor() async {
+    final cpfController = TextEditingController();
+    final phoneController = TextEditingController();
+    final cepController = TextEditingController();
+    final addressController = TextEditingController();
+    final numberController = TextEditingController();
+
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer<ThemeService>(
+        builder: (_, themeService, __) {
+          final isDark = themeService.isDarkMode;
+          final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+          final textColor = isDark ? Colors.white : AppColors.blackPrimaryColor;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : AppColors.grayMedium,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Corrigir Dados Comerciais',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Preencha apenas os campos que deseja corrigir. Os demais serão mantidos.',
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : AppColors.fontDarkGrayColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildSheetField('CPF/CNPJ', cpfController, textColor, isDark,
+                        keyboardType: TextInputType.number),
+                    _buildSheetField('Telefone', phoneController, textColor, isDark,
+                        keyboardType: TextInputType.phone),
+                    _buildSheetField('CEP', cepController, textColor, isDark,
+                        keyboardType: TextInputType.number),
+                    _buildSheetField('Endereço', addressController, textColor, isDark),
+                    _buildSheetField('Número', numberController, textColor, isDark,
+                        keyboardType: TextInputType.number),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          final payload = <String, dynamic>{};
+                          if (cpfController.text.trim().isNotEmpty) {
+                            payload['cpfCnpj'] = cpfController.text.trim();
+                          }
+                          if (phoneController.text.trim().isNotEmpty) {
+                            payload['mobilePhone'] = phoneController.text.trim();
+                          }
+                          if (cepController.text.trim().isNotEmpty) {
+                            payload['postalCode'] = cepController.text.trim();
+                          }
+                          if (addressController.text.trim().isNotEmpty) {
+                            payload['address'] = addressController.text.trim();
+                          }
+                          if (numberController.text.trim().isNotEmpty) {
+                            payload['addressNumber'] = numberController.text.trim();
+                          }
+                          Navigator.pop(ctx, payload);
+                        },
+                        child: const Text(
+                          'Enviar correção',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+
+    _safeSetState(() => _isLoading = true);
+    try {
+      final res = await _apiService.updateAsaasCommercialInfo(result);
+      if (res['success'] == true) {
+        _showSnack(res['message']?.toString() ??
+            'Dados atualizados! Novo ciclo de análise iniciado.');
+        await _loadData();
+      } else {
+        _showSnack(res['error']?.toString() ?? 'Erro ao atualizar dados',
+            isError: true);
+      }
+    } catch (e) {
+      _showSnack('Erro: ${e.toString()}', isError: true);
+    } finally {
+      _safeSetState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildSheetField(
+      String label, TextEditingController controller, Color textColor, bool isDark,
+      {TextInputType keyboardType = TextInputType.text}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: TextStyle(color: textColor, fontSize: 15),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            color: isDark ? Colors.white54 : AppColors.fontDarkGrayColor,
+            fontSize: 14,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: isDark ? Colors.white12 : AppColors.grayBorderColor,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.primaryColor),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openSupportWhatsApp() async {
-    const supportNumber = '5511999999999'; // TODO: número real do suporte MECA
+    const supportNumber = '551130644243';
     final uri = Uri.parse(
         'https://wa.me/$supportNumber?text=Preciso%20de%20ajuda%20com%20a%20verificação%20Asaas');
     if (await canLaunchUrl(uri)) {
@@ -1134,9 +1303,9 @@ class _IdentityVerificationScreenState
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('• ',
-                        style: TextStyle(
-                            color: textColor, fontWeight: FontWeight.w600)),
+                    Icon(Icons.error_outline,
+                        color: AppColors.redAlertColor, size: 16),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         reason.toString(),
@@ -1146,6 +1315,26 @@ class _IdentityVerificationScreenState
                   ],
                 ),
               )),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.redAlertColor,
+                side: BorderSide(color: AppColors.redAlertColor.withOpacity(0.5)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text(
+                'Corrigir dados comerciais',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              onPressed: _showCommercialInfoEditor,
+            ),
+          ),
         ],
       ),
     );

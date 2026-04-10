@@ -12,6 +12,7 @@ import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
 import '../../utils/formatters.dart';
+import '../asaas/identity_verification_screen.dart';
 import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
 import 'edit_password_screen.dart';
@@ -670,6 +671,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final asaasStatus = (asaasDataInner?['asaas_status'] ??
         _workshopData?['asaas_status'] ?? '').toString().toUpperCase();
     final asaasError = (_workshopData?['asaas_error'] ?? '').toString();
+    final needsKyc = asaasDataInner?['needs_kyc'] == true;
     final isActive = asaasStatus == 'APPROVED' || asaasStatus == 'ACTIVE';
     final isPending = asaasStatus == 'PENDING';
     final isError = asaasStatus == 'ERROR';
@@ -693,39 +695,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final IconData statusIcon = isActive
         ? Icons.check_circle
-        : isPending
-            ? Icons.hourglass_top_rounded
-            : isError
-                ? Icons.error_outline
-                : isRejected
-                    ? Icons.cancel_outlined
-                    : hasBankData
-                        ? Icons.info_outline
-                        : Icons.account_balance_outlined;
+        : isPending && needsKyc
+            ? Icons.verified_user_outlined
+            : isPending
+                ? Icons.hourglass_top_rounded
+                : isError
+                    ? Icons.error_outline
+                    : isRejected
+                        ? Icons.cancel_outlined
+                        : hasBankData
+                            ? Icons.info_outline
+                            : Icons.account_balance_outlined;
 
     final String statusLabel = isActive
         ? 'Ativa'
-        : isPending
-            ? 'Em analise'
-            : isError
-                ? 'Erro'
-                : isRejected
-                    ? 'Rejeitada'
-                    : hasBankData
-                        ? 'Incompleto'
-                        : 'Pendente';
+        : isPending && needsKyc
+            ? 'Verificacao pendente'
+            : isPending
+                ? 'Em analise'
+                : isError
+                    ? 'Erro'
+                    : isRejected
+                        ? 'Rejeitada'
+                        : hasBankData
+                            ? 'Incompleto'
+                            : 'Pendente';
 
     final String statusDescription = isActive
         ? 'Sua conta esta ativa e pronta para receber pagamentos dos clientes.'
-        : isPending
-            ? 'Sua conta esta em analise pelo Asaas. Esse processo leva ate 2 dias uteis. Voce sera notificado quando for aprovada.'
-            : isError
-                ? 'Houve um erro ao configurar sua conta. Toque em "Tentar novamente" para corrigir.'
-                : isRejected
-                    ? 'Sua conta foi rejeitada. Verifique se os dados cadastrados estao corretos e tente novamente.'
-                    : hasBankData
-                        ? 'Seus dados bancarios foram salvos, mas a conta de recebimento ainda nao foi ativada. Preencha todos os campos obrigatorios.'
-                        : 'Configure seus dados bancarios para comecar a receber pagamentos dos clientes.';
+        : isPending && needsKyc
+            ? 'Sua conta precisa de verificacao de identidade para ser ativada. Toque abaixo para completar.'
+            : isPending
+                ? 'Sua conta esta em analise pelo Asaas. Esse processo leva ate 2 dias uteis. Voce sera notificado quando for aprovada.'
+                : isError
+                    ? 'Houve um erro ao configurar sua conta. Toque em "Tentar novamente" para corrigir.'
+                    : isRejected
+                        ? 'Sua conta foi rejeitada. Verifique se os dados cadastrados estao corretos e tente novamente.'
+                        : hasBankData
+                            ? 'Seus dados bancarios foram salvos, mas a conta de recebimento ainda nao foi ativada. Preencha todos os campos obrigatorios.'
+                            : 'Configure seus dados bancarios para comecar a receber pagamentos dos clientes.';
 
     return Container(
       width: double.infinity,
@@ -831,6 +839,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => _navigateToBanking(),
               ),
             ] else if (isPending) ...[
+              // KYC needed: prominent verification button
+              if (needsKyc) ...[
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00C977), Color(0xFF00A865)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const IdentityVerificationScreen(),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.verified_user_outlined, color: Colors.white, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Completar verificacao',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               // Pending: show refresh + edit
               Row(
                 children: [
