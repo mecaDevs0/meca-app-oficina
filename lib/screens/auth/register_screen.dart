@@ -105,9 +105,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ownerName: ownerNameFromQsa ?? '',
           );
 
-          // setState FORA do dialog — após pop completo
+          // Agendar atualização para o próximo frame — garante que o
+          // bottom sheet está 100% disposed antes de tocar nos controllers
           if (result != null && mounted) {
-            setState(() {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
               _nomeController.text = result['nome'] ?? '';
               _emailController.text = result['email'] ?? '';
               _phoneController.text = result['telefone'] ?? '';
@@ -117,7 +119,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _cidadeController.text = result['cidade'] ?? '';
               _estadoController.text = result['estado'] ?? '';
               _cepController.text = result['cep'] ?? '';
-              _ownerName = (result['ownerName'] ?? '').isNotEmpty ? result['ownerName'] : null;
+              setState(() {
+                _ownerName = (result['ownerName'] ?? '').isNotEmpty ? result['ownerName'] : null;
+              });
             });
           }
 
