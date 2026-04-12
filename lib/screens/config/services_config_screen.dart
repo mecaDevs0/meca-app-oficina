@@ -12,7 +12,6 @@ class ServicesConfigScreen extends StatefulWidget {
 
 class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final Set<String> _processingServices = <String>{};
   bool _initialLoading = true;
 
   @override
@@ -41,7 +40,6 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
     return Consumer<ServicesProvider>(
       builder: (context, servicesProvider, child) {
         final allServices = servicesProvider.masterServices;
-        final myServices = servicesProvider.myServices;
         final filteredServices = _filterServices(allServices);
 
         return Scaffold(
@@ -109,7 +107,7 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                             
                             final currentPrice = myServiceData?['price'];
                             final currentDuration = myServiceData?['duration'];
-                            final isProcessing = _processingServices.contains(serviceId);
+                            final isProcessing = servicesProvider.isMutating(serviceId);
 
                             final theme = Theme.of(context);
                             final isDarkMode = theme.brightness == Brightness.dark;
@@ -188,18 +186,27 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
                                             ],
                                           ),
                                         ),
-                                        Switch(
-                                          value: isSelected,
-                                          onChanged: isProcessing
-                                              ? null
-                                              : (value) => _toggleService(
-                                                    service,
-                                                    serviceId,
-                                                    value,
-                                                    currentPrice: currentPrice,
-                                                    currentDuration: currentDuration,
-                                                  ),
-                                          activeColor: theme.colorScheme.primary,
+                                        SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: isProcessing
+                                              ? const Padding(
+                                                  padding: EdgeInsets.all(4),
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                )
+                                              : Checkbox(
+                                                  value: isSelected,
+                                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                  visualDensity: VisualDensity.compact,
+                                                  activeColor: theme.colorScheme.primary,
+                                                  onChanged: (value) => _toggleService(
+                                                        service,
+                                                        serviceId,
+                                                        value ?? false,
+                                                        currentPrice: currentPrice,
+                                                        currentDuration: currentDuration,
+                                                      ),
+                                                ),
                                         ),
                                       ],
                                     ),
@@ -269,53 +276,48 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
   }) async {
     if (serviceId.isEmpty) return;
 
-    setState(() {
-      _processingServices.add(serviceId);
-    });
+    final servicesProvider = context.read<ServicesProvider>();
+
+    // Lock anti double-tap: se já está mutando, ignora o toque.
+    if (servicesProvider.isMutating(serviceId)) return;
 
     try {
       if (value) {
-        // Adicionar serviço
+        // Adicionar: abre dialog primeiro. Se usuário cancelar, nada muda.
         final config = await _showServiceConfigDialog(
           serviceName: service['title'] ?? service['name'] ?? 'Serviço',
           initialPrice: _parsePrice(currentPrice),
           initialDuration: currentDuration,
         );
 
-        if (config != null && mounted) {
-          final servicesProvider = context.read<ServicesProvider>();
-          await servicesProvider.addService(
-            serviceId,
-            price: config.price,
-            duration: config.duration,
-          );
+        if (config == null || !mounted) return;
 
-          if (mounted) {
-            final parts = <String>[];
-            if (config.price != null) {
-              parts.add('preço R\$ ${_formatPrice(config.price)}');
-            }
-            if (config.duration != null) {
-              parts.add('duração ${config.duration} min');
-            }
-            final content = parts.isEmpty
-                ? 'Serviço adicionado à sua oficina.'
-                : 'Serviço adicionado com ${parts.join(' e ')}.';
+        await servicesProvider.addService(
+          serviceId,
+          price: config.price,
+          duration: config.duration,
+        );
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(content),
-                backgroundColor: Colors.green,
-              ),
-            );
+        if (mounted) {
+          final parts = <String>[];
+          if (config.price != null) {
+            parts.add('preço R\$ ${_formatPrice(config.price)}');
           }
-        } else if (config == null && mounted) {
-          // Usuário cancelou - o Switch vai voltar automaticamente porque
-          // o Consumer vai reconstruir com o estado real
+          if (config.duration != null) {
+            parts.add('duração ${config.duration} min');
+          }
+          final content = parts.isEmpty
+              ? 'Serviço adicionado à sua oficina.'
+              : 'Serviço adicionado com ${parts.join(' e ')}.';
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(content),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
       } else {
-        // Remover serviço
-        final servicesProvider = context.read<ServicesProvider>();
         await servicesProvider.removeService(serviceId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -334,12 +336,6 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _processingServices.remove(serviceId);
-        });
       }
     }
   }
@@ -360,18 +356,16 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
 
     if (config == null || !mounted) return;
 
-    setState(() {
-      _processingServices.add(serviceId);
-    });
+    final servicesProvider = context.read<ServicesProvider>();
+    if (servicesProvider.isMutating(serviceId)) return;
 
     try {
-      final servicesProvider = context.read<ServicesProvider>();
       await servicesProvider.addService(
         serviceId,
         price: config.price,
         duration: config.duration,
       );
-      
+
       if (mounted) {
         final parts = <String>[];
         if (config.price != null) {
@@ -399,12 +393,6 @@ class _ServicesConfigScreenState extends State<ServicesConfigScreen> {
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _processingServices.remove(serviceId);
-        });
       }
     }
   }

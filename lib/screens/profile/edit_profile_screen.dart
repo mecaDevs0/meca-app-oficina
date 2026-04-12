@@ -193,9 +193,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
-                  label: 'Telefone',
+                  label: 'Celular/WhatsApp',
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Informe o celular.';
+                    final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                    if (digits.length != 11 || digits[2] != '9') {
+                      return 'Celular inválido — use DDD + 9 + 8 dígitos (ex: 11987654321)';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(

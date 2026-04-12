@@ -25,16 +25,17 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   bool _acceptsInstallment = true;
   final _birthDateController = TextEditingController();
   final _incomeValueController = TextEditingController(text: '5000');
+  final _mobilePhoneController = TextEditingController();
   String _companyType = 'MEI';
   static const _companyTypes = ['MEI', 'ME', 'EPP', 'LTDA', 'SA', 'Autônomo'];
 
   @override
   void initState() {
     super.initState();
-    _loadInstallmentPreference();
+    _loadProfile();
   }
 
-  Future<void> _loadInstallmentPreference() async {
+  Future<void> _loadProfile() async {
     try {
       final res = await _apiService.getWorkshopProfile();
       if (res['success'] == true && res['data'] != null) {
@@ -42,10 +43,26 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         if (mounted) {
           setState(() {
             _acceptsInstallment = workshop['accepts_installment'] ?? true;
+            // Prefill phone somente se for celular válido (11 dígitos, 3º = 9).
+            final rawPhone = (workshop['phone'] ?? '').toString();
+            final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+            if (digits.length == 11 && digits[2] == '9') {
+              _mobilePhoneController.text = _formatMobile(digits);
+            }
           });
         }
       }
     } catch (_) {}
+  }
+
+  String _formatMobile(String digits) {
+    if (digits.length != 11) return digits;
+    return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+  }
+
+  bool _isValidMobile(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    return digits.length == 11 && digits[2] == '9';
   }
 
   Future<void> _saveBankDetails() async {
@@ -71,6 +88,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       }
     }
 
+    final mobileDigits = _mobilePhoneController.text.replaceAll(RegExp(r'\D'), '');
+
     final result = await _bankService.updateBankDetails(
       workshopId: workshopId,
       bankName: _bankNameController.text,
@@ -81,6 +100,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       birthDate: birthDateFormatted,
       companyType: _companyType,
       incomeValue: int.tryParse(_incomeValueController.text) ?? 5000,
+      mobilePhone: mobileDigits,
     );
 
     setState(() => _loading = false);
@@ -139,16 +159,128 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
         if (mounted) Navigator.pop(context, true);
       }
     } else {
-      final rawError = (result['error'] ?? 'Erro desconhecido').toString();
-      final errorMsg = rawError.length > 200 ? '${rawError.substring(0, 200)}...' : rawError;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMsg),
-          backgroundColor: Colors.red[700],
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      if (mounted) {
+        await _showValidationErrorDialog(
+          errorCode: result['errorCode']?.toString(),
+          message: (result['error'] ?? 'Erro desconhecido').toString(),
+          field: result['field']?.toString(),
+        );
+      }
     }
+  }
+
+  Future<void> _showValidationErrorDialog({
+    String? errorCode,
+    required String message,
+    String? field,
+  }) async {
+    // Mapa de mensagens amigáveis por errorCode.
+    String title;
+    String body;
+    String actionLabel;
+    IconData icon;
+    Color accent;
+
+    switch (errorCode) {
+      case 'INVALID_MOBILE_PHONE':
+        title = 'Celular inválido';
+        body = 'O número informado não é um celular válido.\n\n'
+            'O Asaas (nosso parceiro de pagamentos) aceita apenas celulares com DDD + 9 + 8 dígitos. '
+            'Linhas fixas não são aceitas.\n\n'
+            'Exemplo correto: (11) 98765-4321';
+        actionLabel = 'Corrigir celular';
+        icon = Icons.phone_android;
+        accent = Colors.orange.shade700;
+        break;
+      case 'ASAAS_EMAIL_IN_USE_OTHER_WORKSHOP':
+        title = 'E-mail já cadastrado';
+        body = 'Este e-mail já está vinculado a outra conta de recebimento no Asaas.\n\n'
+            'Isso pode acontecer se você já cadastrou a oficina antes com outro usuário, '
+            'ou se o e-mail está sendo usado por outra conta.\n\n'
+            'Entre em contato com o suporte MECA para resolver.';
+        actionLabel = 'Entendi';
+        icon = Icons.mark_email_read_outlined;
+        accent = Colors.red.shade700;
+        break;
+      case 'ASAAS_ONBOARDING_FAILED':
+        title = 'Falha ao ativar recebimentos';
+        body = 'Não foi possível ativar a conta de recebimentos agora.\n\n'
+            'Detalhes técnicos: $message\n\n'
+            'Revise os dados e tente novamente. Se o problema persistir, contate o suporte.';
+        actionLabel = 'Revisar dados';
+        icon = Icons.error_outline;
+        accent = Colors.red.shade700;
+        break;
+      default:
+        title = 'Erro ao salvar';
+        body = message;
+        actionLabel = 'Entendi';
+        icon = Icons.warning_amber_rounded;
+        accent = Colors.red.shade700;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: accent,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                body,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF252940), height: 1.45),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    if (field == 'mobile_phone') {
+                      FocusScope.of(context).unfocus();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -396,6 +528,46 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _mobilePhoneController,
+                      style: FormStyles.inputTextStyle(context),
+                      cursorColor: AppColors.primaryColor,
+                      decoration: FormStyles.decorate(
+                        context,
+                        const InputDecoration(
+                          labelText: 'Celular do responsável *',
+                          hintText: '(11) 98765-4321',
+                          prefixIcon: Icon(Icons.phone_android, color: AppColors.primaryColor),
+                          helperText: 'Somente celular (11 dígitos com DDD). Linhas fixas não são aceitas.',
+                          helperMaxLines: 2,
+                        ),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(11),
+                      ],
+                      onChanged: (value) {
+                        final digits = value.replaceAll(RegExp(r'\D'), '');
+                        if (digits.length == 11) {
+                          final formatted = _formatMobile(digits);
+                          if (formatted != value) {
+                            _mobilePhoneController.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.collapsed(offset: formatted.length),
+                            );
+                          }
+                        }
+                      },
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Campo obrigatório';
+                        if (!_isValidMobile(v)) {
+                          return 'Informe um celular válido (DDD + 9 + 8 dígitos)';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: _birthDateController,
                       style: FormStyles.inputTextStyle(context),
                       cursorColor: AppColors.primaryColor,
@@ -528,6 +700,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     _contaController.dispose();
     _birthDateController.dispose();
     _incomeValueController.dispose();
+    _mobilePhoneController.dispose();
     super.dispose();
   }
 }

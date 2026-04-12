@@ -290,7 +290,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_nomeController.text.trim().isEmpty) camposVazios.add('Nome da Oficina');
     if (_emailController.text.trim().isEmpty) camposVazios.add('Email');
     if (_passwordController.text.isEmpty) camposVazios.add('Senha');
-    if (_phoneController.text.replaceAll(RegExp(r'[^\d]'), '').length < 10) camposVazios.add('Telefone');
+    final phoneDigits = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (phoneDigits.length != 11 || phoneDigits[2] != '9') camposVazios.add('Celular');
     if (_cepController.text.replaceAll(RegExp(r'[^\d]'), '').length != 8) camposVazios.add('CEP');
     if (_logradouroController.text.trim().isEmpty) camposVazios.add('Rua');
     if (_numeroController.text.trim().isEmpty) camposVazios.add('Número');
@@ -722,8 +723,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             cursorColor: AppColors.primaryColor,
                             decoration: _inputDecoration(
                               context,
-                              label: 'Telefone/WhatsApp *',
-                              hint: '(00) 00000-0000',
+                              label: 'Celular/WhatsApp *',
+                              hint: '(11) 98765-4321',
                               prefixIcon: const Icon(Icons.phone, color: AppColors.primaryColor),
                             ),
                             keyboardType: TextInputType.phone,
@@ -732,11 +733,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                             validator: (value) {
                               if (value?.isEmpty ?? true) return 'Campo obrigatório';
-                              if (value!.replaceAll(RegExp(r'[^\d]'), '').length < 10) {
-                                return 'Telefone inválido';
+                              final digits = value!.replaceAll(RegExp(r'[^\d]'), '');
+                              if (digits.length != 11 || digits[2] != '9') {
+                                return 'Informe um celular válido (DDD + 9 + 8 dígitos). Linhas fixas não são aceitas.';
                               }
                               return null;
                             },
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4, left: 4),
+                            child: Text(
+                              'Apenas celular (não fixo). Ex: (11) 98765-4321. Necessário para ativar recebimentos.',
+                              style: TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
                           ),
                           const SizedBox(height: 15),
 

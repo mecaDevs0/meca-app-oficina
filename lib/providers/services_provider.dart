@@ -6,10 +6,13 @@ class ServicesProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _masterServices = [];
   List<Map<String, dynamic>> _myServices = [];
   bool _isLoading = false;
-  
+  // Lock anti double-tap: IDs master de serviços que estão sendo mutados agora.
+  final Set<String> _mutating = <String>{};
+
   List<Map<String, dynamic>> get masterServices => _masterServices;
   List<Map<String, dynamic>> get myServices => _myServices;
   bool get isLoading => _isLoading;
+  bool isMutating(String serviceId) => _mutating.contains(serviceId);
   
   Future<void> loadMasterServices() async {
     _isLoading = true;
@@ -100,12 +103,23 @@ class ServicesProvider extends ChangeNotifier {
   }
   
   Future<void> addService(String serviceId, {double? price, int? duration}) async {
+    final serviceIdStr = serviceId.toString();
+    if (serviceIdStr.isEmpty) return;
+
+    // Lock anti double-tap: se já está mutando esse serviço, ignora.
+    if (_mutating.contains(serviceIdStr)) {
+      if (kDebugMode) print('⏭️  addService ignorado — já em andamento: $serviceIdStr');
+      return;
+    }
+    _mutating.add(serviceIdStr);
+
     // Backup para rollback em caso de falha
     final previousList = List<Map<String, dynamic>>.from(_myServices);
 
-    // Atualização otimista: adicionar na lista local e notificar para checkbox refletir na hora
+    // Atualização otimista: adicionar na lista local e notificar.
+    _myServices.removeWhere((s) => s['service_id']?.toString() == serviceIdStr);
     _myServices.add({
-      'service_id': serviceId,
+      'service_id': serviceIdStr,
       'price': price,
       'duration': duration,
     });
@@ -121,48 +135,56 @@ class ServicesProvider extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        print('➕ Adicionando serviço: serviceId=$serviceId, price=$price, duration=$duration');
+        print('➕ Adicionando serviço: serviceId=$serviceIdStr, price=$price, duration=$duration');
       }
 
-      // Adicionar serviço ao workshop
       final result = await _apiService.addServiceToWorkshop(
         workshopId,
-        serviceId,
+        serviceIdStr,
         price: price,
         duration: duration,
       );
 
       if (result['success']) {
-        if (kDebugMode) print('✅ Serviço adicionado com sucesso, recarregando lista...');
-        // Recarregar serviços da API para sincronizar IDs reais
-        await loadMyServices();
+        if (kDebugMode) print('✅ Serviço adicionado com sucesso, merge local');
+        // Merge local com o row real retornado pelo POST, sem precisar fazer
+        // GET /services de novo (que poderia sobrescrever outras mutações
+        // pendentes ou trazer dados fora de ordem).
+        final row = result['data'];
+        if (row is Map) {
+          _myServices.removeWhere((s) => s['service_id']?.toString() == serviceIdStr);
+          _myServices.add(Map<String, dynamic>.from(row));
+        }
         notifyListeners();
       } else {
         if (kDebugMode) print('❌ Erro ao adicionar serviço: ${result['error']}');
-        // Rollback otimista
         _myServices = previousList;
         notifyListeners();
         throw Exception(result['error'] ?? 'Erro ao adicionar serviço');
       }
     } catch (e) {
       if (kDebugMode) print('❌ Exceção ao adicionar serviço: $e');
-      // Rollback otimista
-      if (!_myServices.any((s) => s['service_id'] == serviceId && s.length > 3)) {
-        _myServices = previousList;
-      }
+      _myServices = previousList;
       notifyListeners();
       rethrow;
+    } finally {
+      _mutating.remove(serviceIdStr);
+      notifyListeners();
     }
   }
-  
+
   Future<void> removeService(String serviceId) async {
     final serviceIdStr = serviceId.toString();
     if (serviceIdStr.isEmpty) return;
 
-    // Backup para rollback em caso de falha
+    if (_mutating.contains(serviceIdStr)) {
+      if (kDebugMode) print('⏭️  removeService ignorado — já em andamento: $serviceIdStr');
+      return;
+    }
+    _mutating.add(serviceIdStr);
+
     final previousList = List<Map<String, dynamic>>.from(_myServices);
 
-    // Atualização otimista: remove da lista e notifica para o checkbox refletir na hora
     _myServices.removeWhere((ws) {
       final sid = ws['service_id']?.toString();
       final id = ws['id']?.toString();
@@ -179,15 +201,14 @@ class ServicesProvider extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        print('➖ Removendo serviço: serviceId=$serviceId');
+        print('➖ Removendo serviço: serviceId=$serviceIdStr');
       }
 
       final result = await _apiService.removeServiceFromWorkshop(workshopId, serviceIdStr);
 
       if (result['success']) {
         if (kDebugMode) print('✅ Serviço removido com sucesso');
-        // Manter estado otimista; não chamar loadMyServices() aqui para evitar
-        // resposta atrasada/cache sobrescrevendo e checkbox voltar a aparecer
+        // Mantém estado otimista — não recarrega.
       } else {
         if (kDebugMode) print('❌ Erro ao remover serviço: ${result['error']}');
         _myServices = previousList;
@@ -196,6 +217,9 @@ class ServicesProvider extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ Exceção ao remover serviço: $e');
       _myServices = previousList;
+      notifyListeners();
+    } finally {
+      _mutating.remove(serviceIdStr);
       notifyListeners();
     }
   }

@@ -12,6 +12,7 @@ import '../../utils/page_transitions.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../config/agenda_config_screen.dart';
 import '../config/services_config_screen.dart';
+import '../profile/profile_screen.dart';
 
 /// Banner âmbar exibido quando oficina não tem conta de recebimento Asaas configurada.
 class AsaasPendingBanner extends StatelessWidget {
@@ -79,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Variáveis para controle de configuração
   bool _isAgendaInvalid = false;
   bool _isServiceInvalid = false;
+  bool _isLogoMissing = false;
   bool _missingAsaasWallet = false;
   bool _isAsaasOnboarded = false;
   bool _asaasNeedsVerification = false;
@@ -158,22 +160,34 @@ class _HomeScreenState extends State<HomeScreen> {
         final bankCode = (workshop['bank_code'] ?? '').toString().trim();
         final pixKey = (workshop['pix_key'] ?? '').toString().trim();
         final asaasStatus = (workshop['asaas_status'] ?? '').toString().trim().toUpperCase();
+        final logoUrl = (workshop['logo_url'] ?? workshop['logo'] ?? '').toString().trim();
         setState(() {
           _isAsaasOnboarded = walletId.isNotEmpty;
           _missingAsaasWallet = walletId.isEmpty;
           _asaasNeedsVerification = walletId.isNotEmpty && asaasStatus != 'APPROVED' && asaasStatus != 'ACTIVE';
+          _isLogoMissing = logoUrl.isEmpty;
         });
       }
 
       bool hasSchedule = false;
       try {
-        if (scheduleResponse['success'] && scheduleResponse['data'] != null) {
-          final scheduleData = scheduleResponse['data'];
-          if (scheduleData is Map) {
-            hasSchedule = scheduleData.entries.any((entry) {
-              final dayData = entry.value;
-              return dayData is Map && dayData['is_open'] == true;
-            });
+        if (scheduleResponse['success']) {
+          // Preferir o flag `configured` do backend (source of truth).
+          // Fallback: heurística antiga para compat com API sem o flag.
+          if (scheduleResponse.containsKey('configured')) {
+            hasSchedule = scheduleResponse['configured'] == true;
+          } else if (scheduleResponse['data'] is Map) {
+            final raw = scheduleResponse['data'];
+            // backend novo pode aninhar: { data: { data: {...}, configured: bool } }
+            if (raw['configured'] is bool) {
+              hasSchedule = raw['configured'] == true;
+            } else {
+              final Map scheduleData = raw is Map ? raw : {};
+              hasSchedule = scheduleData.entries.any((entry) {
+                final dayData = entry.value;
+                return dayData is Map && dayData['is_open'] == true;
+              });
+            }
           }
         }
       } catch (e) {
@@ -327,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 24),
 
                             // Configuração necessária (Agenda e Serviços)
-                            if (_isAgendaInvalid || _isServiceInvalid) ...[
+                            if (_isAgendaInvalid || _isServiceInvalid || _isLogoMissing) ...[
                               const SizedBox(height: 20),
                               _buildConfigNeededSection(isDark),
                               const SizedBox(height: 24),
@@ -728,6 +742,24 @@ class _HomeScreenState extends State<HomeScreen> {
               if (result == true) {
                 _loadData();
               }
+            },
+            isDark: isDark,
+          ),
+        if (_isServiceInvalid && _isLogoMissing) const SizedBox(height: 12),
+        // 3. Logo (opcional, mas recomendado)
+        if (_isLogoMissing)
+          _buildConfigCard(
+            title: 'Adicionar logo da oficina',
+            description: 'Uma logo ajuda os clientes a reconhecerem sua oficina',
+            icon: Icons.image_outlined,
+            iconColor: const Color(0xFF00C977),
+            bgColor: isDark ? const Color(0xFF0D3B2A) : const Color(0xFFE8FFF3),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                PageTransitions.slideFromRight(const ProfileScreen()),
+              );
+              if (mounted) _loadData();
             },
             isDark: isDark,
           ),

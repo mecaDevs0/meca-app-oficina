@@ -1609,7 +1609,11 @@ class ApiService {
       final response = await _dio.get('/workshop/$workshopId/schedule');
       final data = response.data;
       if (data == null) return {'success': false, 'error': 'Resposta inválida da API'};
-      return {'success': true, 'data': data['data'] ?? data};
+      return {
+        'success': true,
+        'data': data['data'] ?? data,
+        'configured': data['configured'] == true,
+      };
     } on DioException catch (e) {
       return {
         'success': false,
@@ -1702,7 +1706,7 @@ class ApiService {
         'bank_city', 'bank_state', 'bank_complement',
         'accepts_installment', 'max_installments',
         // Asaas onboarding fields
-        'birth_date', 'company_type', 'income_value',
+        'birth_date', 'company_type', 'income_value', 'mobile_phone',
       ];
       for (final field in passthroughFields) {
         if (bankingData[field] != null) {
@@ -1730,6 +1734,29 @@ class ApiService {
         result['asaas'] = asaasResult;
       }
       return result;
+    } on DioException catch (e) {
+      // Propagar errorCode/field/message estruturados do backend (400/409).
+      final responseData = e.response?.data;
+      String message = '';
+      String? errorCode;
+      String? field;
+      if (responseData is Map) {
+        message = (responseData['message'] ?? responseData['error'] ?? '').toString();
+        errorCode = responseData['errorCode']?.toString();
+        field = responseData['field']?.toString();
+      } else if (responseData is String && responseData.isNotEmpty) {
+        message = responseData;
+      }
+      if (message.isEmpty) {
+        message = 'HTTP ${e.response?.statusCode ?? ''}: ${e.message ?? e.type.name}';
+      }
+      return {
+        'success': false,
+        'error': message,
+        'errorCode': errorCode,
+        'field': field,
+        'statusCode': e.response?.statusCode,
+      };
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -1921,6 +1948,7 @@ class ApiService {
     String? birthDate,
     String? companyType,
     int? incomeValue,
+    String? mobilePhone,
   }) async {
     final bankingData = {
       'bank_code': bankCode ?? bankName,
@@ -1944,6 +1972,7 @@ class ApiService {
       if (birthDate != null && birthDate.isNotEmpty) 'birth_date': birthDate,
       if (companyType != null && companyType.isNotEmpty) 'company_type': companyType,
       if (incomeValue != null && incomeValue > 0) 'income_value': incomeValue,
+      if (mobilePhone != null && mobilePhone.isNotEmpty) 'mobile_phone': mobilePhone,
     };
     try {
       await loadToken();

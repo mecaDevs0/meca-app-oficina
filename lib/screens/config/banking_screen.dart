@@ -38,6 +38,7 @@ class _BankingScreenState extends State<BankingScreen> {
 
   // Seção Asaas colapsável
   bool _asaasExpanded = false;
+  bool _mobilePhoneHasError = false;
 
   // ── Estado Asaas ──────────────────────────────
   String? _asaasStatus;
@@ -47,6 +48,8 @@ class _BankingScreenState extends State<BankingScreen> {
 
   final ApiService _apiService = ApiService();
   final _formKey = GlobalKey<FormState>();
+  final _mobilePhoneFocusNode = FocusNode();
+  final _asaasSectionKey = GlobalKey();
 
   // ── Seção 1: Dados Bancários ──────────────────
   BankData? _selectedBank;
@@ -73,6 +76,17 @@ class _BankingScreenState extends State<BankingScreen> {
   DateTime? _birthDate;
   String _selectedCompanyType = 'MEI';
   final _incomeController = TextEditingController();
+  final _mobilePhoneController = TextEditingController();
+
+  String _formatMobile(String digits) {
+    if (digits.length != 11) return digits;
+    return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+  }
+
+  bool _isValidMobile(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    return digits.length == 11 && digits[2] == '9';
+  }
 
   static const List<String> _companyTypes = [
     'MEI',
@@ -116,6 +130,7 @@ class _BankingScreenState extends State<BankingScreen> {
       _cityController,
       _stateController,
       _incomeController,
+      _mobilePhoneController,
     ]) {
       c.addListener(_markDirty);
     }
@@ -137,9 +152,11 @@ class _BankingScreenState extends State<BankingScreen> {
       _cityController,
       _stateController,
       _incomeController,
+      _mobilePhoneController,
     ]) {
       c.dispose();
     }
+    _mobilePhoneFocusNode.dispose();
     _pollingTimer?.cancel();
     super.dispose();
   }
@@ -241,6 +258,16 @@ class _BankingScreenState extends State<BankingScreen> {
         final w = profileResp['data']?['workshop'] ??
             profileResp['data'] as Map<String, dynamic>?;
         if (w != null) {
+          // Prefill celular se o phone cadastrado for um celular válido.
+          // Se for fixo, campo fica vazio e expandimos a seção Asaas para o usuário preencher.
+          final rawPhone = (w['phone'] ?? '').toString();
+          final phoneDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
+          if (phoneDigits.length == 11 && phoneDigits[2] == '9') {
+            _mobilePhoneController.text = _formatMobile(phoneDigits);
+          } else if (phoneDigits.isNotEmpty) {
+            // Telefone cadastrado é fixo — expandir seção Asaas para correção
+            _asaasExpanded = true;
+          }
           _acceptsInstallment = w['accepts_installment'] ?? true;
           final raw = w['max_installments'];
           if (raw != null) {
@@ -261,6 +288,11 @@ class _BankingScreenState extends State<BankingScreen> {
 
       // Resetar flag de mudanças após carregamento
       _safeSetState(() => _hasUnsavedChanges = false);
+
+      // Se o celular está vazio/inválido, marcar campo com erro visual
+      if (!_isValidMobile(_mobilePhoneController.text)) {
+        _mobilePhoneHasError = true;
+      }
     } catch (_) {
       // Falha silenciosa — campos ficam em branco
     } finally {
@@ -282,8 +314,19 @@ class _BankingScreenState extends State<BankingScreen> {
       return;
     }
 
+    // Validação local de celular antes de enviar pra API.
+    if (!_isValidMobile(_mobilePhoneController.text)) {
+      await _showValidationErrorDialog(
+        errorCode: 'INVALID_MOBILE_PHONE',
+        message: 'Informe um celular válido (DDD + 9 + 8 dígitos).',
+        field: 'mobile_phone',
+      );
+      return;
+    }
+
     _safeSetState(() => _isSaving = true);
     try {
+      final mobileDigits = _mobilePhoneController.text.replaceAll(RegExp(r'\D'), '');
       // 1) Dados bancários
       final bankResp = await _apiService.updateBankAccount(
         bankName: _selectedBank!.name,
@@ -309,12 +352,15 @@ class _BankingScreenState extends State<BankingScreen> {
             : null,
         companyType: _selectedCompanyType,
         incomeValue: int.tryParse(_incomeController.text.replaceAll(RegExp(r'[^0-9]'), '')),
+        mobilePhone: mobileDigits,
       );
 
       if (bankResp['success'] != true) {
-        _showSnackbar(
-          'Erro ao salvar dados bancários: ${bankResp['error'] ?? 'tente novamente.'}',
-          isError: true,
+        // Dialog rico baseado em errorCode estruturado do backend.
+        await _showValidationErrorDialog(
+          errorCode: bankResp['errorCode']?.toString(),
+          message: (bankResp['error'] ?? 'Tente novamente.').toString(),
+          field: bankResp['field']?.toString(),
         );
         return;
       }
@@ -378,10 +424,133 @@ class _BankingScreenState extends State<BankingScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      _showSnackbar('Erro inesperado: $e', isError: true);
+      await _showValidationErrorDialog(
+        errorCode: null,
+        message: 'Erro inesperado: $e',
+      );
     } finally {
       _safeSetState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _showValidationErrorDialog({
+    String? errorCode,
+    required String message,
+    String? field,
+  }) async {
+    String title;
+    String body;
+    String actionLabel;
+    IconData icon;
+    Color accent;
+
+    switch (errorCode) {
+      case 'INVALID_MOBILE_PHONE':
+        title = 'Celular inválido';
+        body = 'O número informado não é um celular válido.\n\n'
+            'O Asaas (nosso parceiro de pagamentos) aceita apenas celulares com DDD + 9 + 8 dígitos. '
+            'Linhas fixas não são aceitas.\n\n'
+            'Exemplo correto: (11) 98765-4321';
+        actionLabel = 'Corrigir celular';
+        icon = Icons.phone_android;
+        accent = Colors.orange.shade700;
+        break;
+      case 'ASAAS_EMAIL_IN_USE_OTHER_WORKSHOP':
+        title = 'E-mail já cadastrado';
+        body = 'Este e-mail já está vinculado a outra conta de recebimento no Asaas.\n\n'
+            'Isso pode acontecer se você já cadastrou a oficina antes com outro usuário, '
+            'ou se o e-mail está sendo usado por outra conta.\n\n'
+            'Entre em contato com o suporte MECA para resolver.';
+        actionLabel = 'Entendi';
+        icon = Icons.mark_email_read_outlined;
+        accent = Colors.red.shade700;
+        break;
+      case 'ASAAS_ONBOARDING_FAILED':
+        title = 'Falha ao ativar recebimentos';
+        body = 'Não foi possível ativar a conta de recebimentos agora.\n\n'
+            'Detalhes: $message\n\n'
+            'Revise os dados e tente novamente. Se persistir, contate o suporte.';
+        actionLabel = 'Revisar dados';
+        icon = Icons.error_outline;
+        accent = Colors.red.shade700;
+        break;
+      default:
+        title = 'Erro ao salvar';
+        body = message;
+        actionLabel = 'Entendi';
+        icon = Icons.warning_amber_rounded;
+        accent = Colors.red.shade700;
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: accent),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                body,
+                style: const TextStyle(fontSize: 14, height: 1.45),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    // Se é erro de celular, expandir seção Asaas e focar no campo
+                    if (errorCode == 'INVALID_MOBILE_PHONE') {
+                      _safeSetState(() => _asaasExpanded = true);
+                      Future.delayed(const Duration(milliseconds: 350), () {
+                        if (mounted) {
+                          final keyCtx = _asaasSectionKey.currentContext;
+                          if (keyCtx != null) {
+                            Scrollable.ensureVisible(keyCtx, duration: const Duration(milliseconds: 300));
+                          }
+                          _mobilePhoneFocusNode.requestFocus();
+                        }
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ── ViaCEP ────────────────────────────────────
@@ -766,6 +935,7 @@ class _BankingScreenState extends State<BankingScreen> {
 
                           // ── Seção 4: Configurações Asaas ──────────
                           _buildCollapsibleCard(
+                            key: _asaasSectionKey,
                             isDark: isDark,
                             icon: Icons.tune_rounded,
                             title: 'Configurações Asaas',
@@ -785,6 +955,72 @@ class _BankingScreenState extends State<BankingScreen> {
                                 label: 'Faturamento Mensal Estimado (R\$)',
                                 hint: 'Ex.: 15000.00',
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              ),
+                              const SizedBox(height: 16),
+                              // Banner de alerta quando celular é inválido
+                              if (_mobilePhoneHasError)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade900.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.orange.shade700, width: 1.5),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 22),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'O número cadastrado é fixo ou inválido. Informe um celular válido abaixo para ativar recebimentos.',
+                                          style: TextStyle(fontSize: 13, color: Colors.orange.shade300, height: 1.3),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              _buildInputField(
+                                isDark: isDark,
+                                controller: _mobilePhoneController,
+                                focusNode: _mobilePhoneFocusNode,
+                                label: 'Celular do Responsável',
+                                hint: '(11) 98765-4321',
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(11),
+                                ],
+                                onChanged: (value) {
+                                  final digits = value.replaceAll(RegExp(r'\D'), '');
+                                  if (digits.length == 11) {
+                                    final formatted = _formatMobile(digits);
+                                    if (formatted != value) {
+                                      _mobilePhoneController.value = TextEditingValue(
+                                        text: formatted,
+                                        selection: TextSelection.collapsed(offset: formatted.length),
+                                      );
+                                    }
+                                  }
+                                  // Limpar o banner de erro quando o usuário digitar um celular válido
+                                  final newValid = _isValidMobile(value);
+                                  if (newValid && _mobilePhoneHasError) {
+                                    _safeSetState(() => _mobilePhoneHasError = false);
+                                  }
+                                  _markDirty();
+                                },
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return 'Campo obrigatório — necessário para recebimentos';
+                                  if (!_isValidMobile(v)) {
+                                    return 'Celular inválido — use DDD + 9 + 8 dígitos';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Somente celular (11 dígitos). Linhas fixas não são aceitas pelo Asaas.',
+                                style: TextStyle(fontSize: 12, color: secondaryColor),
                               ),
                             ],
                           ),
@@ -1201,6 +1437,7 @@ class _BankingScreenState extends State<BankingScreen> {
   }
 
   Widget _buildCollapsibleCard({
+    Key? key,
     required bool isDark,
     required IconData icon,
     required String title,
@@ -1214,6 +1451,7 @@ class _BankingScreenState extends State<BankingScreen> {
     final secondaryColor = ThemeService.getSecondaryTextColor(isDark);
 
     return Container(
+      key: key,
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -1872,6 +2110,8 @@ class _BankingScreenState extends State<BankingScreen> {
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool readOnly = false,
     List<TextInputFormatter>? inputFormatters,
+    void Function(String)? onChanged,
+    FocusNode? focusNode,
   }) {
     final inputColor = ThemeService.getInputColor(isDark);
     final borderColor = ThemeService.getBorderColor(isDark);
@@ -1885,11 +2125,13 @@ class _BankingScreenState extends State<BankingScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           validator: validator,
           readOnly: readOnly,
           textCapitalization: textCapitalization,
           inputFormatters: inputFormatters,
+          onChanged: onChanged,
           style: TextStyle(color: textColor, fontSize: 15),
           decoration: InputDecoration(
             hintText: hint,

@@ -47,10 +47,11 @@ class BankService {
     String? birthDate,
     String? companyType,
     int? incomeValue,
+    String? mobilePhone,
   }) async {
     try {
       await loadToken();
-      
+
       final bankData = {
         'bank_name': bankName,
         'bank_code': bankName,
@@ -68,9 +69,12 @@ class BankService {
       if (incomeValue != null && incomeValue > 0) {
         bankData['income_value'] = incomeValue;
       }
+      if (mobilePhone != null && mobilePhone.isNotEmpty) {
+        bankData['mobile_phone'] = mobilePhone;
+      }
 
       final response = await _dio.put('/workshop/$workshopId/banking', data: bankData);
-      
+
       if (response.statusCode == 200) {
         return {'success': true, 'data': response.data};
       } else {
@@ -79,15 +83,25 @@ class BankService {
     } on DioException catch (e) {
       final responseData = e.response?.data;
       String serverMessage = '';
+      String? errorCode;
+      String? field;
       if (responseData is Map) {
-        serverMessage = (responseData['error'] ?? responseData['message'] ?? '').toString();
+        serverMessage = (responseData['message'] ?? responseData['error'] ?? '').toString();
+        errorCode = responseData['errorCode']?.toString();
+        field = responseData['field']?.toString();
       } else if (responseData is String && responseData.isNotEmpty) {
         serverMessage = responseData;
       }
       final detail = serverMessage.isNotEmpty
           ? serverMessage
           : 'HTTP ${e.response?.statusCode ?? ''}: ${e.message ?? e.type.name}';
-      return {'success': false, 'error': detail};
+      return {
+        'success': false,
+        'error': detail,
+        'errorCode': errorCode,
+        'field': field,
+        'statusCode': e.response?.statusCode,
+      };
     } catch (e) {
       return {'success': false, 'error': 'Erro inesperado: ${e.toString()}'};
     }
