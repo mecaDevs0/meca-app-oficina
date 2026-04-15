@@ -435,6 +435,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             height: 1.4,
                           ),
                         ),
+
+                        // Customer info for cancellation notifications
+                        if (type == 'booking_cancelled' && notification['data'] is Map) ...[
+                          Builder(builder: (ctx) {
+                            final data = Map<String, dynamic>.from(notification['data'] as Map);
+                            final custPhone = data['customer_phone']?.toString();
+                            if (custPhone == null || custPhone.isEmpty) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.phone_outlined, size: 13, color: tertiaryColor),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    custPhone,
+                                    style: TextStyle(fontSize: 12, color: tertiaryColor),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                         const SizedBox(height: 8),
 
                         // Footer row: priority badge left, timestamp right

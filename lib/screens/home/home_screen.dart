@@ -311,6 +311,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Header com logo
+                            _buildHeader(isDark, constraints.maxWidth),
+
+                            const SizedBox(height: 20),
+
                             if (_missingAsaasWallet) ...[
                               AsaasPendingBanner(
                                 isDark: isDark,
@@ -325,10 +330,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               _buildVerificationBanner(isDark),
                               const SizedBox(height: 20),
                             ],
-                            // Header com logo
-                            _buildHeader(isDark, constraints.maxWidth),
-                            
-                            const SizedBox(height: 24),
                             
                             // Componente de 3 colunas (estatísticas)
                             _buildStatsCard(isDark),
