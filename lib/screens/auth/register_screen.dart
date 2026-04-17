@@ -1140,13 +1140,13 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
     super.initState();
     _nome = TextEditingController(text: widget.initialNome.isNotEmpty ? widget.initialNome : '');
     _email = TextEditingController(text: widget.email);
-    _telefone = TextEditingController(text: widget.telefone);
+    _telefone = TextEditingController(text: _formatPhone(widget.telefone));
     _logradouro = TextEditingController(text: widget.logradouro);
     _numero = TextEditingController(text: widget.numero);
     _bairro = TextEditingController(text: widget.bairro);
     _cidade = TextEditingController(text: widget.cidade);
     _estado = TextEditingController(text: widget.estado);
-    _cep = TextEditingController(text: widget.cep);
+    _cep = TextEditingController(text: _formatCep(widget.cep));
     _ownerName = TextEditingController(text: widget.ownerName);
   }
 
@@ -1165,27 +1165,47 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
     super.dispose();
   }
 
+  static String _formatPhone(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    }
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+    }
+    return raw;
+  }
+
+  static String _formatCep(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 8) {
+      return '${digits.substring(0, 5)}-${digits.substring(5)}';
+    }
+    return raw;
+  }
+
   void _confirm() {
     final data = <String, String>{
       'nome': _nome.text.isNotEmpty ? _nome.text : widget.razaoSocial,
       'email': _email.text,
-      'telefone': _telefone.text,
+      'telefone': _telefone.text.replaceAll(RegExp(r'\D'), ''),
       'logradouro': _logradouro.text,
       'numero': _numero.text,
       'bairro': _bairro.text,
       'cidade': _cidade.text,
       'estado': _estado.text,
-      'cep': _cep.text,
+      'cep': _cep.text.replaceAll(RegExp(r'\D'), ''),
       'ownerName': _ownerName.text,
     };
     Navigator.of(context).pop(data);
   }
 
-  Widget _field(String label, TextEditingController controller, bool isDark, {String? hint}) {
+  Widget _field(String label, TextEditingController controller, bool isDark, {String? hint, TextInputType? keyboardType}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
+        keyboardType: keyboardType,
         style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
           labelText: label,
@@ -1268,8 +1288,8 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Confira e ajuste se necessario',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                        'Confira e ajuste se necessário',
+                        style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[800], fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -1313,7 +1333,7 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                     _field('Nome da oficina', _nome, isDark, hint: widget.razaoSocial),
                     _field('Responsavel', _ownerName, isDark),
                     _field('Email', _email, isDark),
-                    _field('Telefone', _telefone, isDark),
+                    _field('Telefone', _telefone, isDark, keyboardType: TextInputType.phone),
                     _field('Logradouro', _logradouro, isDark),
                     Row(
                       children: [
@@ -1329,7 +1349,7 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                         Expanded(flex: 1, child: _field('UF', _estado, isDark)),
                       ],
                     ),
-                    _field('CEP', _cep, isDark),
+                    _field('CEP', _cep, isDark, keyboardType: TextInputType.number),
                     const SizedBox(height: 8),
                   ],
                 ),
@@ -1350,14 +1370,17 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                         side: BorderSide(color: Colors.grey[600]!),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => Navigator.of(context).pop(null),
-                      child: Text(
-                        'Preencher manual',
-                        style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Manual',
+                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                        ),
                       ),
                     ),
                   ),
@@ -1368,12 +1391,15 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00C977),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
                       onPressed: _confirm,
-                      child: const Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      ),
                     ),
                   ),
                 ],

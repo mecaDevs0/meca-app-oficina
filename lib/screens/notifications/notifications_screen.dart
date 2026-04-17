@@ -440,18 +440,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (type == 'booking_cancelled' && notification['data'] is Map) ...[
                           Builder(builder: (ctx) {
                             final data = Map<String, dynamic>.from(notification['data'] as Map);
+                            final custName = data['customer_name']?.toString();
                             final custPhone = data['customer_phone']?.toString();
-                            if (custPhone == null || custPhone.isEmpty) return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(
+                            final plate = data['vehicle_plate']?.toString();
+                            final model = data['vehicle_model']?.toString();
+                            final brand = data['vehicle_brand']?.toString();
+                            final service = data['service_name']?.toString();
+                            final date = data['appointment_date']?.toString();
+                            final amount = data['total_amount'];
+
+                            final vehicleStr = [brand, model].where((s) => s != null && s.isNotEmpty).join(' ');
+                            final hasData = custName != null || plate != null || service != null;
+                            if (!hasData) return const SizedBox.shrink();
+
+                            return Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.15)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.phone_outlined, size: 13, color: tertiaryColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    custPhone,
-                                    style: TextStyle(fontSize: 12, color: tertiaryColor),
-                                  ),
+                                  if (custName != null && custName.isNotEmpty)
+                                    _cancelInfoRow(Icons.person_outline, custName, tertiaryColor),
+                                  if (custPhone != null && custPhone.isNotEmpty)
+                                    _cancelInfoRow(Icons.phone_outlined, custPhone, tertiaryColor),
+                                  if (plate != null && plate.isNotEmpty)
+                                    _cancelInfoRow(Icons.directions_car_outlined, '$plate${vehicleStr.isNotEmpty ? ' · $vehicleStr' : ''}', tertiaryColor),
+                                  if (service != null && service.isNotEmpty)
+                                    _cancelInfoRow(Icons.build_outlined, service, tertiaryColor),
+                                  if (date != null && date.isNotEmpty)
+                                    _cancelInfoRow(Icons.calendar_today_outlined, _formatDate(date), tertiaryColor),
+                                  if (amount != null && amount.toString().isNotEmpty && amount.toString() != '0')
+                                    _cancelInfoRow(Icons.attach_money, 'R\$ ${double.tryParse(amount.toString())?.toStringAsFixed(2) ?? amount}', tertiaryColor),
                                 ],
                               ),
                             );
@@ -791,5 +815,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     }
     return <String, dynamic>{};
+  }
+
+  Widget _cancelInfoRow(IconData icon, String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }

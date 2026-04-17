@@ -12,7 +12,7 @@ import '../../utils/page_transitions.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../config/agenda_config_screen.dart';
 import '../config/services_config_screen.dart';
-import '../profile/profile_screen.dart';
+import '../core/core_screen.dart';
 
 /// Banner âmbar exibido quando oficina não tem conta de recebimento Asaas configurada.
 class AsaasPendingBanner extends StatelessWidget {
@@ -27,33 +27,68 @@ class AsaasPendingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDark ? const Color(0xFF3D2E1A).withOpacity(0.9) : const Color(0xFFFFF8E7);
-    final textColor = isDark ? Colors.white : const Color(0xFF5D4E37);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+        gradient: LinearGradient(
+          colors: isDark
+              ? [const Color(0xFF0D3B2A), const Color(0xFF1A2E1A)]
+              : [const Color(0xFFE8FFF3), const Color(0xFFF0FFF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00C977).withValues(alpha: 0.3)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.account_balance_wallet_outlined, color: Colors.orange, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Ative seus recebimentos! Preencha dados bancários e data de nascimento para começar a receber pagamentos.',
-              style: TextStyle(color: textColor, fontSize: 13),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_wallet, color: Color(0xFF00C977), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Ative seus recebimentos!',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Preencha dados bancários e data de nascimento para começar a receber pagamentos.',
+            style: TextStyle(
+              color: isDark ? Colors.grey[300] : Colors.grey[700],
+              fontSize: 13,
             ),
           ),
-          TextButton(
-            onPressed: onConfigure,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              foregroundColor: Colors.orange[700],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onConfigure,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C977),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('Configurar agora', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             ),
-            child: const Text('Configurar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -281,6 +316,29 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+
+    // Background sync: refresh Asaas status from API (force) so home banners stay current
+    _syncAsaasStatusInBackground();
+  }
+
+  Future<void> _syncAsaasStatusInBackground() async {
+    try {
+      final workshopId = _workshopData?['id']?.toString();
+      final walletId = (_workshopData?['asaas_wallet_id'] ?? '').toString().trim();
+      if (workshopId == null || walletId.isEmpty) return;
+
+      final response = await _apiService.getAsaasStatus(workshopId, force: true);
+      if (!mounted || response['success'] != true) return;
+
+      final newStatus = (response['data']?['asaas_status'] ?? '').toString().trim().toUpperCase();
+      if (newStatus.isEmpty) return;
+
+      setState(() {
+        _asaasNeedsVerification = newStatus != 'APPROVED' && newStatus != 'ACTIVE';
+      });
+    } catch (_) {
+      // Silent — don't disrupt home experience
     }
   }
 
@@ -516,44 +574,31 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C977).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(14),
+                    color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
-                    Icons.dashboard_rounded,
+                    Icons.desktop_mac_outlined,
                     color: Color(0xFF00C977),
-                    size: 26,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Painel Web da Oficina',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Gerencie agenda, financeiro e servicos pelo computador',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Gerencie sua oficina pelo computador',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -755,12 +800,8 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.image_outlined,
             iconColor: const Color(0xFF00C977),
             bgColor: isDark ? const Color(0xFF0D3B2A) : const Color(0xFFE8FFF3),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                PageTransitions.slideFromRight(const ProfileScreen()),
-              );
-              if (mounted) _loadData();
+            onTap: () {
+              CoreScreen.navigateToTab(context, 3); // Profile tab
             },
             isDark: isDark,
           ),

@@ -2047,10 +2047,11 @@ class ApiService {
   }
 
   /// GET /workshop/:id/asaas/status
-  Future<Map<String, dynamic>> getAsaasStatus(String workshopId) async {
+  Future<Map<String, dynamic>> getAsaasStatus(String workshopId, {bool force = false}) async {
     try {
       await loadToken();
-      final response = await _dio.get('/workshop/$workshopId/asaas/status');
+      final query = force ? {'force': 'true'} : <String, dynamic>{};
+      final response = await _dio.get('/workshop/$workshopId/asaas/status', queryParameters: query);
       return response.data is Map
           ? Map<String, dynamic>.from(response.data as Map)
           : {'success': false};

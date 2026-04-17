@@ -1143,12 +1143,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _isLoadingAsaas = true);
     try {
-      final asaasResponse = await _apiService.getAsaasStatus(workshopId);
+      final asaasResponse = await _apiService.getAsaasStatus(workshopId, force: true);
       if (mounted) {
         setState(() {
           _asaasData = asaasResponse;
         });
-        // Reload full profile to get updated workshop data
+        // Reload full profile to get updated workshop data (now synced with Asaas)
         final response = await _apiService.getProfile();
         if (response['success'] && mounted) {
           setState(() {
@@ -1503,12 +1503,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _formatCepVisual(String? cep) {
+    if (cep == null || cep.isEmpty) return '';
+    final digits = cep.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 8) {
+      return '${digits.substring(0, 5)}-${digits.substring(5)}';
+    }
+    return cep;
+  }
+
   String _formatAddressSummary() {
     // Suportar formato plano da API (address, city, state, cep) e objeto (logradouro, cidade, etc.)
     final raw = _workshopData?['address'];
     final flatCity = _workshopData?['city']?.toString().trim();
     final flatState = _workshopData?['state']?.toString().trim();
-    final flatCep = _workshopData?['cep']?.toString().trim();
+    final flatCep = _formatCepVisual(_workshopData?['cep']?.toString().trim());
     final flatAddressStr = raw is String ? (raw as String).trim() : null;
 
     if (flatAddressStr != null && flatAddressStr.isNotEmpty) {
@@ -1535,13 +1544,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return raw.toString();
       }
 
+      final rawCep = (addressMap['cep'] ?? addressMap['zip'])?.toString() ?? '';
       final components = [
         addressMap['logradouro'] ?? addressMap['street'],
         addressMap['numero'] ?? addressMap['number'],
         addressMap['bairro'] ?? addressMap['district'],
         addressMap['cidade'] ?? addressMap['city'],
         addressMap['estado'] ?? addressMap['state'],
-        addressMap['cep'] ?? addressMap['zip'],
+        _formatCepVisual(rawCep),
       ].whereType<String>().where((element) => element.isNotEmpty).toList();
 
       if (components.isEmpty) {

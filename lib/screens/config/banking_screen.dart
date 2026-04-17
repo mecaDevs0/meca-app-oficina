@@ -738,7 +738,7 @@ class _BankingScreenState extends State<BankingScreen> {
                                 controller: _accountNumberController,
                                 label: 'Número da Conta',
                                 hint: 'Ex.: 12345-6',
-                                keyboardType: TextInputType.text,
+                                keyboardType: TextInputType.number,
                                 validator: (v) =>
                                     (v == null || v.isEmpty) ? 'Número da conta é obrigatório' : null,
                               ),
@@ -1101,7 +1101,7 @@ class _BankingScreenState extends State<BankingScreen> {
     try {
       final workshopId = await _apiService.getWorkshopId();
       if (workshopId == null) return;
-      final response = await _apiService.getAsaasStatus(workshopId);
+      final response = await _apiService.getAsaasStatus(workshopId, force: true);
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'];
         final newStatus = data['asaas_status']?.toString();
@@ -1110,7 +1110,7 @@ class _BankingScreenState extends State<BankingScreen> {
             _asaasStatus = newStatus;
             _asaasError = data['asaas_error']?.toString();
           });
-          if (newStatus == 'APPROVED') {
+          if (newStatus == 'APPROVED' || newStatus == 'ACTIVE') {
             _pollingTimer?.cancel();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1229,7 +1229,7 @@ class _BankingScreenState extends State<BankingScreen> {
     String statusLabel;
     Color statusColor;
     IconData statusIcon;
-    if (_asaasStatus == 'APPROVED') {
+    if (_asaasStatus == 'APPROVED' || _asaasStatus == 'ACTIVE') {
       statusLabel = 'Conta Ativa';
       statusColor = const Color(0xFF00C977);
       statusIcon = Icons.check_circle;
@@ -1340,6 +1340,7 @@ class _BankingScreenState extends State<BankingScreen> {
 
     switch (_asaasStatus) {
       case 'APPROVED':
+      case 'ACTIVE':
         bgColor = const Color(0xFF00C977);
         icon = Icons.check_circle;
         title = 'Conta Asaas Ativa';
@@ -1838,28 +1839,34 @@ class _BankingScreenState extends State<BankingScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
-      child: DropdownButton<String>(
-        value: _selectedCompanyType,
-        isExpanded: true,
-        underline: const SizedBox.shrink(),
-        dropdownColor: const Color(0xFF1A1A1A),
-        style: TextStyle(color: textColor, fontSize: 15),
-        onChanged: (val) {
-          if (val != null) {
-            _safeSetState(() {
-              _selectedCompanyType = val;
-              _hasUnsavedChanges = true;
-            });
-          }
-        },
-        items: _companyTypes
-            .map(
-              (type) => DropdownMenuItem(
-                value: type,
-                child: Text(type),
-              ),
-            )
-            .toList(),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          canvasColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        ),
+        child: DropdownButton<String>(
+          value: _selectedCompanyType,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          iconEnabledColor: textColor.withValues(alpha: 0.6),
+          style: TextStyle(color: textColor, fontSize: 15),
+          onChanged: (val) {
+            if (val != null) {
+              _safeSetState(() {
+                _selectedCompanyType = val;
+                _hasUnsavedChanges = true;
+              });
+            }
+          },
+          items: _companyTypes
+              .map(
+                (type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(type, style: TextStyle(color: textColor)),
+                ),
+              )
+              .toList(),
+        ),
       ),
     );
   }

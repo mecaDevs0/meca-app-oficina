@@ -1090,7 +1090,7 @@ class _IdentityVerificationScreenState
           ),
           const SizedBox(height: 10),
           Text(
-            _asaasStatus == 'APPROVED'
+            (_asaasStatus == 'APPROVED' || _asaasStatus == 'ACTIVE')
                 ? 'Conta aprovada!'
                 : completed == total
                     ? 'Tudo enviado — aguardando análise do Asaas.'

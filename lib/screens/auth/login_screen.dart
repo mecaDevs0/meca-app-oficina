@@ -168,7 +168,6 @@ class _LoginScreenState extends State<LoginScreen> {
               // Form Section - Card branco que ocupa o restante
               Expanded(
                 child: Container(
-                  margin: EdgeInsets.only(top: isSmallScreen ? 16 : 24),
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -176,8 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: isSmallScreen ? 24 : 32,
+                      horizontal: 36,
+                      vertical: isSmallScreen ? 20 : 28,
                     ),
                     child: Form(
                       key: _formKey,

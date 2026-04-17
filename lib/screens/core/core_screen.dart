@@ -12,6 +12,12 @@ import '../schedule/schedule_screen.dart';
 class CoreScreen extends StatefulWidget {
   const CoreScreen({Key? key}) : super(key: key);
 
+  /// Navigate to a specific tab from child screens (e.g., HomeScreen → Profile tab).
+  static void navigateToTab(BuildContext context, int tabIndex) {
+    final state = context.findAncestorStateOfType<_CoreScreenState>();
+    state?._onNavTap(tabIndex);
+  }
+
   @override
   State<CoreScreen> createState() => _CoreScreenState();
 }
