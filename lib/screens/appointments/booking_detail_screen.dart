@@ -138,37 +138,40 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     // SEMPRE usar o status de _bookingDetails (da API) se disponível, senão usar do widget
     final statusFromDetails = (_bookingDetails?['status'] ?? '').toString().toLowerCase().trim();
     final statusFromWidget = (widget.booking['status'] ?? '').toString().toLowerCase().trim();
     final statusFinal = statusFromDetails.isNotEmpty ? statusFromDetails : statusFromWidget;
-    
+
     // CRITICAL: Se service_start_pending = true e não há orçamento, forçar status para aguardando_autorizacao_inicio
     // Isso garante que a UI mostre a mensagem correta mesmo se a API retornar pendente_cliente (compatibilidade)
     final booking = Map<String, dynamic>.from(_bookingDetails ?? widget.booking);
     final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
     final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
                     (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
-    
+
     // Se é início de serviço sem orçamento, forçar status correto
     final correctedStatus = (serviceStartPending && !hasQuote && (statusFinal == 'pendente_cliente' || statusFinal == 'pending_customer'))
         ? 'aguardando_autorizacao_inicio'
         : statusFinal;
-    
+
     // Normalizar status para garantir comparação correta
     final normalizedStatus = correctedStatus == 'confirmed' ? 'confirmado' : 
                             correctedStatus == 'confirmado' ? 'confirmado' :
                             correctedStatus;
-    
+
+    final isAwaitingServiceStart = correctedStatus == 'aguardando_autorizacao_inicio' ||
+        correctedStatus == 'awaiting_service_start' ||
+        (serviceStartPending && !hasQuote);
+    final isAwaitingQuoteApproval = (correctedStatus == 'aguardando_aprovacao_orcamento' ||
+        correctedStatus == 'awaiting_quote_approval') && hasQuote;
+
     // Debug: verificar status
     debugPrint('🔍 [Appointments Detail] Status final: $normalizedStatus (original: $statusFinal, from details: $statusFromDetails, from widget: $statusFromWidget)');
-    
-    // Criar booking com status correto (usar correctedStatus se foi corrigido)
-    final booking = Map<String, dynamic>.from(_bookingDetails ?? widget.booking);
+
     booking['status'] = correctedStatus; // Usar status corrigido se necessário
-    
-    
+
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.grey[50],
       appBar: AppBar(
@@ -230,18 +233,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         // CRITICAL: Verificar se é orçamento OU início de serviço usando novos estados
                         // IMPORTANTE: Verificar service_start_pending PRIMEIRO para evitar mostrar mensagem de orçamento quando é início de serviço
                         // Usar correctedStatus (já foi corrigido acima se necessário)
-                        final serviceStartPending = booking['service_start_pending'] == true || booking['service_start_pending'] == 'true';
-                        final hasQuote = (booking['final_price'] != null && (booking['final_price'] is num ? booking['final_price'] > 0 : false)) ||
-                                        (booking['quote_items'] != null && booking['quote_items'] is List && (booking['quote_items'] as List).isNotEmpty);
-                        
-                        // Usar correctedStatus para verificação (já foi corrigido se service_start_pending = true e não há orçamento)
-                        final isAwaitingServiceStart = correctedStatus == 'aguardando_autorizacao_inicio' || 
-                                                      correctedStatus == 'awaiting_service_start' ||
-                                                      (serviceStartPending && !hasQuote); // Se service_start_pending e não há orçamento, é início de serviço
-                        
-                        final isAwaitingQuoteApproval = (correctedStatus == 'aguardando_aprovacao_orcamento' || 
-                                                        correctedStatus == 'awaiting_quote_approval') && hasQuote; // Só é orçamento se HÁ orçamento E status é de orçamento
-                        
                         // CRITICAL: Se é início de serviço (service_start_pending = true e não há orçamento), mostrar card azul
                         if (isAwaitingServiceStart) ...[
                           const SizedBox(height: 16),
@@ -1293,7 +1284,6 @@ class _ImageFullScreen extends StatelessWidget {
     );
   }
 }
-
 
 
 

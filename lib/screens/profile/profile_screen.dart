@@ -95,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final workshopId = _workshopData?['id']?.toString() ?? '';
       if (workshopId.isNotEmpty) {
         try {
-          final asaasResponse = await _apiService.getAsaasStatus(workshopId);
+          final asaasResponse = await _apiService.getAsaasStatus(workshopId, force: true);
           if (mounted) {
             setState(() => _asaasData = asaasResponse);
           }
