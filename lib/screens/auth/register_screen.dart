@@ -1200,12 +1200,13 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
     Navigator.of(context).pop(data);
   }
 
-  Widget _field(String label, TextEditingController controller, bool isDark, {String? hint, TextInputType? keyboardType}) {
+  Widget _field(String label, TextEditingController controller, bool isDark, {String? hint, TextInputType? keyboardType, List<TextInputFormatter>? inputFormatters}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14),
         decoration: InputDecoration(
           labelText: label,
@@ -1289,7 +1290,7 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                       const SizedBox(height: 2),
                       Text(
                         'Confira e ajuste se necessário',
-                        style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[800], fontWeight: FontWeight.w500),
+                        style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[600], fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -1333,7 +1334,7 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                     _field('Nome da oficina', _nome, isDark, hint: widget.razaoSocial),
                     _field('Responsavel', _ownerName, isDark),
                     _field('Email', _email, isDark),
-                    _field('Telefone', _telefone, isDark, keyboardType: TextInputType.phone),
+                    _field('Telefone', _telefone, isDark, keyboardType: TextInputType.phone, inputFormatters: [PhoneInputFormatter(), LengthLimitingTextInputFormatter(15)]),
                     _field('Logradouro', _logradouro, isDark),
                     Row(
                       children: [
@@ -1349,7 +1350,7 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                         Expanded(flex: 1, child: _field('UF', _estado, isDark)),
                       ],
                     ),
-                    _field('CEP', _cep, isDark, keyboardType: TextInputType.number),
+                    _field('CEP', _cep, isDark, keyboardType: TextInputType.number, inputFormatters: [CepFormatter(), LengthLimitingTextInputFormatter(9)]),
                     const SizedBox(height: 8),
                   ],
                 ),
@@ -1365,40 +1366,51 @@ class _CnpjReviewSheetContentState extends State<_CnpjReviewSheetContent> {
                 color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
                 border: Border(top: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!)),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                        side: BorderSide(color: Colors.grey[600]!),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(null),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'Manual',
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00C977),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
                       ),
                       onPressed: _confirm,
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('Confirmar dados', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      label: const Text(
+                        'Confirmar dados',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF222A27) : const Color(0xFFF2FBF7),
+                        foregroundColor: isDark ? Colors.white : const Color(0xFF0E7A4F),
+                        side: BorderSide(
+                          color: isDark ? const Color(0xFF305C49) : const Color(0xFFCBEFDD),
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(null),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: isDark ? Colors.white70 : const Color(0xFF0E7A4F),
+                      ),
+                      label: Text(
+                        'Preencher manualmente',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white70 : const Color(0xFF0E7A4F),
+                        ),
                       ),
                     ),
                   ),

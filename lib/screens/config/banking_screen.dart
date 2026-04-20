@@ -1832,42 +1832,45 @@ class _BankingScreenState extends State<BankingScreen> {
     final inputColor = ThemeService.getInputColor(isDark);
     final borderColor = ThemeService.getBorderColor(isDark);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: inputColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          canvasColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+    return DropdownButtonFormField<String>(
+      value: _selectedCompanyType,
+      isExpanded: true,
+      dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      iconEnabledColor: textColor.withValues(alpha: 0.6),
+      style: TextStyle(color: textColor, fontSize: 15),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: inputColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
         ),
-        child: DropdownButton<String>(
-          value: _selectedCompanyType,
-          isExpanded: true,
-          underline: const SizedBox.shrink(),
-          dropdownColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-          iconEnabledColor: textColor.withValues(alpha: 0.6),
-          style: TextStyle(color: textColor, fontSize: 15),
-          onChanged: (val) {
-            if (val != null) {
-              _safeSetState(() {
-                _selectedCompanyType = val;
-                _hasUnsavedChanges = true;
-              });
-            }
-          },
-          items: _companyTypes
-              .map(
-                (type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type, style: TextStyle(color: textColor)),
-                ),
-              )
-              .toList(),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
         ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
+      onChanged: (val) {
+        if (val != null) {
+          _safeSetState(() {
+            _selectedCompanyType = val;
+            _hasUnsavedChanges = true;
+          });
+        }
+      },
+      items: _companyTypes
+          .map(
+            (type) => DropdownMenuItem(
+              value: type,
+              child: Text(type, style: TextStyle(color: textColor)),
+            ),
+          )
+          .toList(),
     );
   }
 

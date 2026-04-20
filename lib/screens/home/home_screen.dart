@@ -28,18 +28,18 @@ class AsaasPendingBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [const Color(0xFF0D3B2A), const Color(0xFF1A2E1A)]
-              : [const Color(0xFFE8FFF3), const Color(0xFFF0FFF6)],
+              ? [const Color(0xFF3A2A08), const Color(0xFF241B08)]
+              : [const Color(0xFFFFF6D8), const Color(0xFFFFFBEA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF00C977).withValues(alpha: 0.3)),
+        border: Border.all(color: const Color(0xFFE0A100).withValues(alpha: 0.45)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,17 +49,17 @@ class AsaasPendingBanner extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                  color: const Color(0xFFE0A100).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.account_balance_wallet, color: Color(0xFF00C977), size: 22),
+                child: const Icon(Icons.account_balance_wallet, color: Color(0xFFE0A100), size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Ative seus recebimentos!',
                   style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                    color: isDark ? const Color(0xFFFFF4D6) : const Color(0xFF6B4D00),
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -71,7 +71,7 @@ class AsaasPendingBanner extends StatelessWidget {
           Text(
             'Preencha dados bancários e data de nascimento para começar a receber pagamentos.',
             style: TextStyle(
-              color: isDark ? Colors.grey[300] : Colors.grey[700],
+              color: isDark ? const Color(0xFFF2DFC0) : const Color(0xFF7A5A11),
               fontSize: 13,
             ),
           ),
@@ -81,7 +81,7 @@ class AsaasPendingBanner extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onConfigure,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C977),
+                backgroundColor: const Color(0xFFE0A100),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -374,7 +374,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 20),
 
+                            // Componente de 3 colunas (estatísticas)
+                            _buildStatsCard(isDark),
+
                             if (_missingAsaasWallet) ...[
+                              const SizedBox(height: 16),
                               AsaasPendingBanner(
                                 isDark: isDark,
                                 onConfigure: () async {
@@ -382,15 +386,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   if (mounted) _loadData();
                                 },
                               ),
-                              const SizedBox(height: 20),
                             ],
                             if (_asaasNeedsVerification) ...[
+                              const SizedBox(height: 16),
                               _buildVerificationBanner(isDark),
-                              const SizedBox(height: 20),
                             ],
-                            
-                            // Componente de 3 colunas (estatísticas)
-                            _buildStatsCard(isDark),
 
                             const SizedBox(height: 20),
 
@@ -1441,4 +1441,3 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 }
-
