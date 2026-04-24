@@ -249,6 +249,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.grey[50],
+      bottomNavigationBar: _buildBottomActionBar(booking, isDarkMode, statusFinal, normalizedStatus),
       appBar: AppBar(
         title: const Text(
           'Detalhes do Agendamento',
@@ -417,9 +418,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     // PASSO 15: Card de informações de pagamento (se pago)
                     if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
                       _buildPaymentInfoCard(booking, isDarkMode),
-                    
-                    // Ações
-                    _buildActionsCard(booking, isDarkMode, statusFinal, normalizedStatus),
                     
                     const SizedBox(height: 20),
                   ],
@@ -1648,6 +1646,193 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       ],
     );
   }
+
+  // ── Bottom Action Bar (v3.0) ──────────────────────────────────────────
+
+  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return SizedBox(
+      height: 48,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _getActionButtons(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
+    final isPendingWorkshop = statusFinal == 'pendente_oficina' || statusFinal == 'pending' || normalizedStatus == 'pendente_oficina';
+    final isConfirmed = statusFinal == 'confirmado' || normalizedStatus == 'confirmado';
+    final isEmAndamento = statusFinal == 'em_andamento' || statusFinal == 'in_progress' || normalizedStatus == 'em_andamento' || normalizedStatus == 'in_progress';
+    final isAppointmentDay = _isAppointmentDay(booking);
+    final hasCheckIn = _hasCheckIn(booking);
+    final quoteStatus = booking['quote_status']?.toString();
+    final hasApprovedQuote = quoteStatus == 'approved' || quoteStatus == 'final';
+    final hasSentQuote = quoteStatus == 'sent' || quoteStatus == 'pending' || hasApprovedQuote;
+
+    if (isPendingWorkshop) {
+      return [
+        _actionButton('Aprovar', Icons.check_circle, const Color(0xFF00C977), () async {
+          final bookingId = booking['id']?.toString() ?? '';
+          if (bookingId.isEmpty) return;
+          final result = await _apiService.confirmBooking(bookingId);
+          if (!mounted) return;
+          if (result['success'] == true) {
+            await _loadBookingDetails(forceRefresh: true);
+            _showSnackBar(const SnackBar(content: Text('Agendamento aprovado!'), backgroundColor: Colors.green));
+          } else {
+            _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro ao aprovar.'), backgroundColor: Colors.red));
+          }
+        }),
+        _actionButton('Recusar', Icons.cancel, Colors.red, () => _showRejectDialog(booking)),
+        _actionButton('Sugerir Horário', Icons.schedule, Colors.orange, () => _showSuggestTimeDialog(booking)),
+      ];
+    }
+
+    if (isConfirmed && isAppointmentDay) {
+      if (!hasCheckIn) {
+        return [
+          _actionButton('Check-in do Veículo', Icons.directions_car, const Color(0xFF3B82F6), () async {
+            final bookingId = booking['id']?.toString() ?? '';
+            if (bookingId.isEmpty) return;
+            final result = await _apiService.checkInVehicle(bookingId);
+            if (!mounted) return;
+            if (result['success'] == true) {
+              await _loadBookingDetails(forceRefresh: true);
+              _showSnackBar(const SnackBar(content: Text('Check-in realizado!'), backgroundColor: Colors.green));
+            } else {
+              _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro no check-in.'), backgroundColor: Colors.red));
+            }
+          }),
+        ];
+      } else {
+        return [
+          _actionButton('Iniciar Serviço', Icons.play_arrow, const Color(0xFF00C977), () async {
+            final bookingId = booking['id']?.toString() ?? '';
+            if (bookingId.isEmpty) return;
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: const Text('Iniciar Serviço'),
+                content: const Text('O cliente receberá uma notificação de que o serviço começou.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C977)),
+                    child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+            if (confirm != true) return;
+            final result = await _apiService.startService(bookingId);
+            if (!mounted) return;
+            if (result['success'] == true) {
+              await _loadBookingDetails(forceRefresh: true);
+              _showSnackBar(const SnackBar(content: Text('Serviço iniciado!'), backgroundColor: Colors.green));
+            } else {
+              _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro ao iniciar.'), backgroundColor: Colors.red));
+            }
+          }),
+        ];
+      }
+    }
+
+    if (isEmAndamento) {
+      final quoteLabel = hasSentQuote ? 'Editar Orçamento' : 'Montar Orçamento';
+      final buttons = <Widget>[
+        _actionButton('Evidências', Icons.photo_camera, const Color(0xFF3B82F6), () {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => EvidenceUploadScreen(bookingId: booking['id'] ?? '', booking: booking),
+          ));
+        }),
+        _actionButton(quoteLabel, Icons.edit_note_rounded, Colors.orange, () async {
+          final existingItems = booking['quote_items'] as List<dynamic>?;
+          final existingDiagnostic = booking['diagnostic_value'] as int?;
+          final result = await Navigator.push(context, MaterialPageRoute(
+            builder: (context) => BuildQuoteScreen(
+              bookingId: booking['id'] ?? '',
+              existingItems: existingItems?.map((item) => {
+                'description': item['description'] ?? '',
+                'quantity': item['quantity'] ?? 1,
+                'unit_price': item['unit_price'] ?? 0,
+              }).toList(),
+              existingDiagnosticValue: existingDiagnostic,
+              isEditMode: hasSentQuote,
+            ),
+          ));
+          if (result == true) {
+            await _loadBookingDetails(forceRefresh: true);
+          }
+        }),
+      ];
+      if (hasApprovedQuote) {
+        buttons.add(_actionButton('Finalizar', Icons.check_circle_rounded, const Color(0xFF00C977), () => _showFinishServiceDialog(booking)));
+      }
+      return buttons;
+    }
+
+    return [];
+  }
+
+  Widget _buildBottomActionBar(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
+    final buttons = _getActionButtons(booking, isDarkMode, statusFinal, normalizedStatus);
+    if (buttons.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: buttons.length <= 3
+              ? Row(
+                  children: buttons.map((btn) => Expanded(child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: btn,
+                  ))).toList(),
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: buttons.map((btn) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: btn,
+                    )).toList(),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  // ── Legacy _buildActionsCard (dead code — kept for reference) ───────
 
   Widget _buildActionsCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
     // Verificar se realmente há botões de ação para exibir
