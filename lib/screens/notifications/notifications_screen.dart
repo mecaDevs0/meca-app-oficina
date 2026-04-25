@@ -489,6 +489,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             if (priority == 'high')
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                margin: const EdgeInsets.only(right: 6),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEF4444).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
@@ -499,6 +500,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: Color(0xFFEF4444),
+                                  ),
+                                ),
+                              ),
+                            if (type != null && type != 'system')
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: notifColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _getStatusBadgeText(type),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: notifColor,
                                   ),
                                 ),
                               ),
@@ -570,6 +588,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.info;
       default:
         return Icons.notifications;
+    }
+  }
+
+  String _getStatusBadgeText(String? type) {
+    switch (type) {
+      case 'new_booking': return 'Novo';
+      case 'booking_confirmed': return 'Confirmado';
+      case 'booking_cancelled': return 'Cancelado';
+      case 'payment_received': return 'Pagamento';
+      case 'quote_approved': case 'orcamento_aprovado': return 'Aprovado';
+      case 'quote_rejected': case 'orcamento_rejeitado': return 'Recusado';
+      case 'service_started': return 'Iniciado';
+      case 'service_completed': return 'Finalizado';
+      default: return 'Atualização';
     }
   }
 

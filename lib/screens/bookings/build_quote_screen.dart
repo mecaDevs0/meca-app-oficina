@@ -29,6 +29,8 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   final List<QuoteItem> _items = [];
   final TextEditingController _diagnosticController = TextEditingController();
   final TextEditingController _quoteReasonController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<FocusNode> _descriptionFocusNodes = [];
   bool _isLoading = false;
 
   @override
@@ -41,6 +43,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
         unitPrice: (item['unit_price'] ?? 0) / 100.0,
       )));
     }
+    _descriptionFocusNodes.addAll(List.generate(_items.length, (_) => FocusNode()));
     if (widget.existingDiagnosticValue != null && widget.existingDiagnosticValue! > 0) {
       _diagnosticController.text = (widget.existingDiagnosticValue! / 100.0).toStringAsFixed(2);
     }
@@ -48,6 +51,10 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    for (var node in _descriptionFocusNodes) {
+      node.dispose();
+    }
     _diagnosticController.dispose();
     _quoteReasonController.dispose();
     for (var item in _items) {
@@ -59,8 +66,27 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   }
 
   void _addItem() {
+    final newNode = FocusNode();
+    _descriptionFocusNodes.add(newNode);
+
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _items.add(QuoteItem());
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && _descriptionFocusNodes.length == _items.length) {
+          _descriptionFocusNodes.last.requestFocus();
+        }
+      });
     });
   }
 
@@ -69,7 +95,9 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       _items[index].descriptionController.dispose();
       _items[index].quantityController.dispose();
       _items[index].unitPriceController.dispose();
+      _descriptionFocusNodes[index].dispose();
       _items.removeAt(index);
+      _descriptionFocusNodes.removeAt(index);
     });
   }
 
@@ -243,6 +271,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
         children: [
           Expanded(
             child: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(20),
               children: [
                 // Header informativo
@@ -427,7 +456,21 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                 else
                   ...List.generate(_items.length, (index) {
                     final item = _items[index];
-                    return Container(
+                    return TweenAnimationBuilder<double>(
+                      key: ValueKey('quote_item_$index'),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 12 * (1 - value)),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Container(
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
                         color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
@@ -477,6 +520,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             const SizedBox(height: 16),
                             TextField(
                               controller: item.descriptionController,
+                              focusNode: index < _descriptionFocusNodes.length ? _descriptionFocusNodes[index] : null,
                               decoration: InputDecoration(
                                 labelText: 'Descrição do item',
                                 hintText: 'Ex: Troca de óleo, Alinhamento, Balanceamento...',
@@ -578,7 +622,8 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                           ],
                         ),
                       ),
-                    );
+                    ),
+                  );
                   }),
 
                 const SizedBox(height: 24),

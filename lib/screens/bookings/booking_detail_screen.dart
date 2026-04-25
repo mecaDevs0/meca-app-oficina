@@ -346,17 +346,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       ),
                     ),
                     
+                    // Card informativo sobre situação atual (TOPO)
+                    _buildStatusInfoCard(booking, isDarkMode, normalizedStatus),
+
                     // Informações do cliente
-                    _buildInfoCard(
+                    Builder(builder: (_) {
+                      final customerFullName = [booking['customer_name'], booking['customer_last_name']]
+                          .where((s) => s != null && s.toString().isNotEmpty)
+                          .join(' ')
+                          .trim();
+                      return _buildInfoCard(
                       'Informações do Cliente',
                       [
-                        _buildInfoRow('Nome', booking['customer_name'] ?? 'Não informado', Icons.person),
+                        _buildInfoRow('Nome', customerFullName.isEmpty ? 'Não informado' : customerFullName, Icons.person),
                         _buildInfoRow('Telefone', booking['customer_phone'] ?? 'Não informado', Icons.phone),
                         _buildInfoRow('Email', booking['customer_email'] ?? 'Não informado', Icons.email),
                       ],
                       isDarkMode,
-                    ),
-                    
+                    );
+                    }),
+
                     // Informações do veículo (marca/modelo vindos da API: vehicle_brand, vehicle_model)
                     _buildInfoCard(
                       'Informações do Veículo',
@@ -411,9 +420,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         return const SizedBox.shrink();
                       },
                     ),
-                    
-                    // Card informativo sobre situação atual
-                    _buildStatusInfoCard(booking, isDarkMode, normalizedStatus),
                     
                     // PASSO 15: Card de informações de pagamento (se pago)
                     if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
@@ -816,6 +822,144 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
   }
 
+  Future<TimeOfDay?> _showWheelTimePicker(BuildContext context, {TimeOfDay? initialTime}) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final initial = initialTime ?? TimeOfDay.now();
+    int selectedHour = initial.hour;
+    int selectedMinute = (initial.minute / 5).round() * 5;
+    if (selectedMinute >= 60) selectedMinute = 55;
+
+    final result = await showModalBottomSheet<TimeOfDay>(
+      context: context,
+      backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: SizedBox(
+                height: 320,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Selecione o horário',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: Icon(Icons.close, color: isDarkMode ? Colors.grey : Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 40),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Hora', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: CupertinoPicker(
+                                    scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                                    itemExtent: 40,
+                                    selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
+                                      background: const Color(0xFF00C977).withOpacity(0.12),
+                                    ),
+                                    onSelectedItemChanged: (index) {
+                                      setSheetState(() => selectedHour = index);
+                                    },
+                                    children: List.generate(24, (i) => Center(
+                                      child: Text(
+                                        i.toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDarkMode ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                    )),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(':', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Minuto', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: CupertinoPicker(
+                                    scrollController: FixedExtentScrollController(initialItem: selectedMinute ~/ 5),
+                                    itemExtent: 40,
+                                    selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
+                                      background: const Color(0xFF00C977).withOpacity(0.12),
+                                    ),
+                                    onSelectedItemChanged: (index) {
+                                      setSheetState(() => selectedMinute = index * 5);
+                                    },
+                                    children: List.generate(12, (i) => Center(
+                                      child: Text(
+                                        (i * 5).toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDarkMode ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                    )),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 40),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, TimeOfDay(hour: selectedHour, minute: selectedMinute)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C977),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    return result;
+  }
+
   Future<void> _showSuggestTimeDialog(Map<String, dynamic> booking) async {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDarkMode ? const Color(0xFF2A2A2A) : Colors.white;
@@ -1098,23 +1242,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.schedule, color: Color(0xFF00C977)),
                             onPressed: () async {
-                              final picked = await showTimePicker(
-                                context: context,
-                                initialTime: selectedTime ?? TimeOfDay.now(),
-                                builder: (context, child) {
-                                  return Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: ColorScheme.dark(
-                                        primary: const Color(0xFF00C977),
-                                        onPrimary: Colors.white,
-                                        surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
-                                        onSurface: isDarkMode ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                    child: child!,
-                                  );
-                                },
-                              );
+                              final picked = await _showWheelTimePicker(context, initialTime: selectedTime);
                               if (picked != null) {
                                 setState(() {
                                   selectedTime = picked;
@@ -1154,23 +1282,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           }
                         },
                         onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: selectedTime ?? TimeOfDay.now(),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.dark(
-                                    primary: const Color(0xFF00C977),
-                                    onPrimary: Colors.white,
-                                    surface: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
-                                    onSurface: isDarkMode ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
+                          final picked = await _showWheelTimePicker(context, initialTime: selectedTime);
                           if (picked != null) {
                             setState(() {
                               selectedTime = picked;
