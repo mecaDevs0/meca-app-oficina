@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:meca_app_oficina/services/api_service.dart';
 import 'package:meca_app_oficina/utils/price_utils.dart';
 import 'package:meca_app_oficina/utils/currency_formatter.dart';
+import 'package:meca_app_oficina/widgets/beautiful_error_snackbar.dart';
 
 class BuildQuoteScreen extends StatefulWidget {
   final String bookingId;
@@ -38,14 +39,14 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     super.initState();
     if (widget.existingItems != null && widget.existingItems!.isNotEmpty) {
       _items.addAll(widget.existingItems!.map((item) => QuoteItem(
-        description: item['description'] ?? '',
-        quantity: item['quantity'] ?? 1,
-        unitPrice: (item['unit_price'] ?? 0) / 100.0,
+        description: item['description']?.toString() ?? '',
+        quantity: int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
+        unitPrice: (num.tryParse(item['unit_price']?.toString() ?? '') ?? 0) / 100.0,
       )));
     }
     _descriptionFocusNodes.addAll(List.generate(_items.length, (_) => FocusNode()));
     if (widget.existingDiagnosticValue != null && widget.existingDiagnosticValue! > 0) {
-      _diagnosticController.text = (widget.existingDiagnosticValue! / 100.0).toStringAsFixed(2);
+      _diagnosticController.text = (widget.existingDiagnosticValue! / 100.0).toStringAsFixed(2).replaceAll('.', ',');
     }
   }
 
@@ -123,34 +124,18 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
   Future<void> _sendQuote() async {
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Adicione pelo menos um item ao orçamento'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      BeautifulErrorSnackbar.show(context, 'Adicione pelo menos um item ao orçamento.');
       return;
     }
 
       for (var item in _items) {
         if (item.descriptionController.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Todos os items devem ter uma descrição'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, 'Todos os itens devem ter uma descrição.');
           return;
         }
-        // IMPORTANTE: Usar CurrencyTextInputFormatter para parsear o valor formatado
         final unitPriceCents = CurrencyTextInputFormatter.parseToCents(item.unitPriceController.text) ?? 0;
         if (unitPriceCents <= 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Todos os items devem ter um valor unitário maior que zero'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, 'Todos os itens devem ter um valor unitário maior que zero.');
           return;
         }
       }
@@ -179,13 +164,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
       // IMPORTANTE: Durante edição de orçamento, o motivo é OBRIGATÓRIO
       if (widget.isEditMode && (quoteReason == null || quoteReason.isEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ É obrigatório informar o motivo da mudança do orçamento. Explique claramente por que o orçamento foi alterado.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 5),
-          ),
-        );
+        BeautifulErrorSnackbar.showWarning(context, 'É obrigatório informar o motivo da mudança do orçamento.');
         return;
       }
 
@@ -214,31 +193,20 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
       if (result['success'] == true) {
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.isEditMode
-                ? '✅ Orçamento atualizado! O serviço foi pausado e aguarda aprovação do cliente. O cliente receberá uma notificação.'
-                : '✅ Orçamento enviado com sucesso! O cliente receberá uma notificação.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        if (context.mounted) {
+          BeautifulErrorSnackbar.showSuccess(
+            context,
+            widget.isEditMode
+                ? 'Orçamento atualizado! Aguardando aprovação do cliente.'
+                : 'Orçamento enviado! O cliente foi notificado.',
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Erro ao enviar orçamento'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        BeautifulErrorSnackbar.show(context, result['error'] ?? 'Erro ao enviar orçamento.');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      BeautifulErrorSnackbar.show(context, 'Erro: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

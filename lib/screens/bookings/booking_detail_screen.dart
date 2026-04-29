@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 import '../bookings/build_quote_screen.dart';
 import '../bookings/evidence_upload_screen.dart';
 
@@ -24,11 +25,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   Map<String, dynamic>? _paymentData; // PASSO 15: Dados do pagamento
   bool _loading = true;
 
-  void _showSnackBar(SnackBar snackBar) {
+  void _showToast(String message, {String? title, bool isError = false, bool isWarning = false}) {
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    messenger.showSnackBar(snackBar);
+    if (isError) {
+      BeautifulErrorSnackbar.show(context, message, title: title);
+    } else if (isWarning) {
+      BeautifulErrorSnackbar.showWarning(context, message, title: title);
+    } else {
+      BeautifulErrorSnackbar.showSuccess(context, message, title: title);
+    }
   }
 
   bool _hasCheckIn(Map<String, dynamic> booking) {
@@ -76,15 +81,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     if (!mounted) return;
     if (result['success'] == true) {
       await _loadBookingDetails(forceRefresh: true);
-      _showSnackBar(const SnackBar(
-        content: Text('✅ Check-in realizado! Agora você já pode iniciar o serviço.'),
-        backgroundColor: Colors.green,
-      ));
+      _showToast('Check-in realizado! Agora você já pode iniciar o serviço.');
     } else {
-      _showSnackBar(SnackBar(
-        content: Text(result['error']?.toString() ?? 'Não foi possível fazer o check-in.'),
-        backgroundColor: Colors.red,
-      ));
+      _showToast(result['error']?.toString() ?? 'Não foi possível fazer o check-in.', isError: true);
     }
   }
 
@@ -540,31 +539,238 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   Future<void> _showFinishServiceDialog(Map<String, dynamic> booking) async {
-    // Buscar items existentes do orçamento (se houver)
-    final existingItems = booking['quote_items'] as List<dynamic>?;
-    final existingDiagnostic = booking['diagnostic_value'] as int?;
-    
-    // Navegar para tela de montar orçamento final
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BuildQuoteScreen(
-          bookingId: booking['id'] ?? '',
-          existingItems: existingItems?.map((item) => {
-            'description': item['description'] ?? '',
-            'quantity': item['quantity'] ?? 1,
-            'unit_price': item['unit_price'] ?? 0,
-          }).toList(),
-          existingDiagnosticValue: existingDiagnostic,
-          isEditMode: false,
-          isFinishMode: true, // Modo de finalização
-        ),
-      ),
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final quoteItems = booking['quote_items'] as List<dynamic>? ?? [];
+    final diagnosticCents = num.tryParse(booking['diagnostic_value']?.toString() ?? '') ?? 0;
+    final finalPriceCents = num.tryParse(booking['final_price']?.toString() ?? '') ?? 0;
+    final diagnosticReais = diagnosticCents / 100.0;
+    final finalPriceReais = finalPriceCents / 100.0;
+    final quoteReason = booking['quote_reason']?.toString();
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cardColor = isDarkMode ? const Color(0xFF1A1A1A) : Colors.white;
+        final textColor = isDarkMode ? Colors.white : Colors.black87;
+        final subtextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[600],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C977).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.check_circle_rounded, color: Color(0xFF00C977), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Finalizar Serviço', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: textColor)),
+                            const SizedBox(height: 2),
+                            Text('Confira o orçamento aprovado', style: TextStyle(fontSize: 13, color: subtextColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? const Color(0xFF222222) : const Color(0xFFF8F8F8),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: isDarkMode ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Itens do Orçamento', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: subtextColor)),
+                        const SizedBox(height: 10),
+                        ...quoteItems.map((item) {
+                          final desc = item['description']?.toString() ?? 'Item';
+                          final qty = int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+                          final unitCents = num.tryParse(item['unit_price']?.toString() ?? '') ?? 0;
+                          final totalReais = (unitCents * qty) / 100.0;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 24, height: 24,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00C977).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Center(child: Text('$qty', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF00C977)))),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(child: Text(desc, style: TextStyle(fontSize: 14, color: textColor))),
+                                Text('R\$ ${totalReais.toStringAsFixed(2).replaceAll('.', ',')}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
+                              ],
+                            ),
+                          );
+                        }),
+                        if (diagnosticReais > 0) ...[
+                          const Divider(height: 16),
+                          Row(
+                            children: [
+                              Icon(Icons.search_rounded, size: 16, color: subtextColor),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text('Diagnóstico', style: TextStyle(fontSize: 14, color: textColor))),
+                              Text('R\$ ${diagnosticReais.toStringAsFixed(2).replaceAll('.', ',')}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
+                            ],
+                          ),
+                        ],
+                        if (quoteReason != null && quoteReason.trim().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.message_rounded, size: 14, color: subtextColor),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text(quoteReason.trim(), style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: subtextColor))),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00C977), Color(0xFF00B369)]),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Valor Total', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                        Text('R\$ ${finalPriceReais.toStringAsFixed(2).replaceAll('.', ',')}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_rounded, size: 18, color: Colors.orange),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Após finalizar, o valor não poderá ser alterado. Se precisar mudar, use "Editar Orçamento" antes.',
+                            style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.orange[200] : Colors.orange[800], height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: subtextColor.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text('Cancelar', style: TextStyle(color: subtextColor, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            icon: const Icon(Icons.check_circle_rounded, size: 20),
+                            label: const Text('Finalizar Serviço', style: TextStyle(fontWeight: FontWeight.w700)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00C977),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
-    
-    if (result == true) {
-      // A BuildQuoteScreen já chamou finishService, apenas recarregar detalhes
-      await _loadBookingDetails();
+
+    if (confirmed != true) return;
+
+    final bookingId = booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+
+    final items = quoteItems.map((item) => {
+      'description': item['description']?.toString() ?? 'Item',
+      'quantity': int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
+      'unitPrice': int.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
+    }).toList();
+
+    final result = await _apiService.finishService(
+      bookingId,
+      items: items,
+      diagnosticValueCents: diagnosticCents.toInt(),
+      quoteReason: quoteReason,
+    );
+
+    if (!mounted) return;
+    if (result['success'] == true) {
+      _showToast('Serviço finalizado! O cliente foi notificado para pagamento.');
+      await _loadBookingDetails(forceRefresh: true);
+    } else {
+      _showToast(result['error']?.toString() ?? 'Erro ao finalizar serviço.', isError: true);
     }
   }
 
@@ -777,47 +983,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     try {
       final bookingId = booking['id']?.toString() ?? '';
       if (bookingId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erro: ID do agendamento não encontrado.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast('ID do agendamento não encontrado.', isError: true);
         return;
       }
-      
+
         final apiResult = await _apiService.rejectBooking(
         bookingId,
           result,
       );
-      
+
       if (!mounted) return;
-      
+
         if (apiResult['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Agendamento recusado com sucesso. O cliente foi notificado.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Pop com true para a tela anterior (Home/Schedule) recarregar e remover o item da lista
+        _showToast('Agendamento recusado. O cliente foi notificado.');
         Navigator.of(context).pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(apiResult['error']?.toString() ?? 'Erro ao recusar agendamento.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showToast(apiResult['error']?.toString() ?? 'Erro ao recusar agendamento.', isError: true);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showToast('Erro: ${e.toString()}', isError: true);
       }
     }
   }
@@ -1405,12 +1590,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         try {
           final bookingId = booking['id']?.toString() ?? '';
           if (bookingId.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Erro: ID do agendamento não encontrado.'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            _showToast('ID do agendamento não encontrado.', isError: true);
             return;
           }
           
@@ -1535,21 +1715,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
               ),
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(apiResult['error']?.toString() ?? 'Erro ao sugerir novo horário.'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            _showToast(apiResult['error']?.toString() ?? 'Erro ao sugerir novo horário.', isError: true);
           }
         } catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showToast('Erro: ${e.toString()}', isError: true);
         }
       }
     } finally {
@@ -1769,7 +1939,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
@@ -1777,10 +1947,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 6),
+            Icon(icon, size: 16),
+            const SizedBox(width: 4),
             Flexible(
-              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis, maxLines: 1),
+              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), overflow: TextOverflow.ellipsis, maxLines: 1),
             ),
           ],
         ),
@@ -1795,11 +1965,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     final isAppointmentDay = _isAppointmentDay(booking);
     final hasCheckIn = _hasCheckIn(booking);
     final quoteStatus = booking['quote_status']?.toString();
-    final hasApprovedQuote = quoteStatus == 'approved' || quoteStatus == 'final';
-    final hasSentQuote = quoteStatus == 'sent' || quoteStatus == 'pending' || hasApprovedQuote;
+    final quoteItems = booking['quote_items'] as List?;
+    final hasQuoteItems = quoteItems != null && quoteItems.isNotEmpty;
+    final hasFinalPrice = booking['final_price'] != null && booking['final_price'] != 0;
+    final hasApprovedQuote = (quoteStatus == 'approved' || quoteStatus == 'final') && (hasQuoteItems || hasFinalPrice);
+    final hasSentQuote = (hasQuoteItems || hasFinalPrice) && quoteStatus != null && quoteStatus != 'null';
 
     if (isPendingWorkshop) {
       return [
+        _actionButton('Recusar', Icons.cancel, Colors.red, () => _showRejectDialog(booking)),
+        _actionButton('Reagendar', Icons.schedule, Colors.orange, () => _showSuggestTimeDialog(booking)),
         _actionButton('Aprovar', Icons.check_circle, const Color(0xFF00C977), () async {
           final bookingId = booking['id']?.toString() ?? '';
           if (bookingId.isEmpty) return;
@@ -1807,13 +1982,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           if (!mounted) return;
           if (result['success'] == true) {
             await _loadBookingDetails(forceRefresh: true);
-            _showSnackBar(const SnackBar(content: Text('Agendamento aprovado!'), backgroundColor: Colors.green));
+            _showToast('Agendamento aprovado!');
           } else {
-            _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro ao aprovar.'), backgroundColor: Colors.red));
+            _showToast(result['error']?.toString() ?? 'Erro ao aprovar.', isError: true);
           }
         }),
-        _actionButton('Recusar', Icons.cancel, Colors.red, () => _showRejectDialog(booking)),
-        _actionButton('Sugerir Horário', Icons.schedule, Colors.orange, () => _showSuggestTimeDialog(booking)),
       ];
     }
 
@@ -1827,14 +2000,19 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             if (!mounted) return;
             if (result['success'] == true) {
               await _loadBookingDetails(forceRefresh: true);
-              _showSnackBar(const SnackBar(content: Text('Check-in realizado!'), backgroundColor: Colors.green));
+              _showToast('Check-in realizado!');
             } else {
-              _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro no check-in.'), backgroundColor: Colors.red));
+              _showToast(result['error']?.toString() ?? 'Erro no check-in.', isError: true);
             }
           }),
         ];
       } else {
         return [
+          _actionButton('Evidências', Icons.photo_camera, const Color(0xFF3B82F6), () {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (context) => EvidenceUploadScreen(bookingId: booking['id'] ?? '', booking: booking),
+            ));
+          }),
           _actionButton('Iniciar Serviço', Icons.play_arrow, const Color(0xFF00C977), () async {
             final bookingId = booking['id']?.toString() ?? '';
             if (bookingId.isEmpty) return;
@@ -1859,9 +2037,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             if (!mounted) return;
             if (result['success'] == true) {
               await _loadBookingDetails(forceRefresh: true);
-              _showSnackBar(const SnackBar(content: Text('Serviço iniciado!'), backgroundColor: Colors.green));
+              _showToast('Serviço iniciado!');
             } else {
-              _showSnackBar(SnackBar(content: Text(result['error']?.toString() ?? 'Erro ao iniciar.'), backgroundColor: Colors.red));
+              _showToast(result['error']?.toString() ?? 'Erro ao iniciar.', isError: true);
             }
           }),
         ];
@@ -1869,16 +2047,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }
 
     if (isEmAndamento) {
-      final quoteLabel = hasSentQuote ? 'Editar Orçamento' : 'Montar Orçamento';
-      final buttons = <Widget>[
-        _actionButton('Evidências', Icons.photo_camera, const Color(0xFF3B82F6), () {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (context) => EvidenceUploadScreen(bookingId: booking['id'] ?? '', booking: booking),
-          ));
-        }),
-        _actionButton(quoteLabel, Icons.edit_note_rounded, Colors.orange, () async {
+      final quoteButton = _actionButton(
+        hasSentQuote ? 'Editar Orçamento' : 'Enviar Orçamento',
+        hasSentQuote ? Icons.edit_note_rounded : Icons.request_quote_rounded,
+        Colors.orange,
+        () async {
           final existingItems = booking['quote_items'] as List<dynamic>?;
-          final existingDiagnostic = booking['diagnostic_value'] as int?;
+          final existingDiagnostic = int.tryParse(booking['diagnostic_value']?.toString() ?? '');
           final result = await Navigator.push(context, MaterialPageRoute(
             builder: (context) => BuildQuoteScreen(
               bookingId: booking['id'] ?? '',
@@ -1894,12 +2069,24 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           if (result == true) {
             await _loadBookingDetails(forceRefresh: true);
           }
-        }),
-      ];
+        },
+      );
+
+      final evidenceButton = _actionButton('Evidências', Icons.photo_camera, const Color(0xFF3B82F6), () {
+        Navigator.push(context, MaterialPageRoute(
+          builder: (context) => EvidenceUploadScreen(bookingId: booking['id'] ?? '', booking: booking),
+        ));
+      });
+
       if (hasApprovedQuote) {
-        buttons.add(_actionButton('Finalizar', Icons.check_circle_rounded, const Color(0xFF00C977), () => _showFinishServiceDialog(booking)));
+        return [
+          evidenceButton,
+          quoteButton,
+          _actionButton('Finalizar', Icons.check_circle_rounded, const Color(0xFF00C977), () => _showFinishServiceDialog(booking)),
+        ];
       }
-      return buttons;
+
+      return [evidenceButton, quoteButton];
     }
 
     return [];
@@ -1925,10 +2112,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: buttons.length <= 3
               ? Row(
-                  children: buttons.map((btn) => Expanded(child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: btn,
-                  ))).toList(),
+                  children: List.generate(buttons.length, (i) {
+                    final isLast = i == buttons.length - 1;
+                    return Expanded(
+                      flex: (buttons.length == 3 && isLast) ? 4 : 3,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: buttons[i],
+                      ),
+                    );
+                  }),
                 )
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -2013,43 +2206,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                           try {
                             final bookingId = booking['id']?.toString() ?? '';
                             if (bookingId.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Erro: ID do agendamento não encontrado.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              _showToast('ID do agendamento não encontrado.', isError: true);
                               return;
                             }
-                            
+
                             final result = await _apiService.confirmBooking(bookingId);
-                            
+
                             if (!mounted) return;
-                            
+
                             if (result['success'] == true) {
                               await _loadBookingDetails(forceRefresh: true);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('✅ Agendamento aprovado com sucesso!'),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
+                              _showToast('Agendamento aprovado com sucesso!');
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(result['error']?.toString() ?? 'Erro ao aprovar agendamento.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              _showToast(result['error']?.toString() ?? 'Erro ao aprovar agendamento.', isError: true);
                             }
                           } catch (e) {
                             if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Erro: ${e.toString()}'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                            _showToast('Erro: ${e.toString()}', isError: true);
                           }
                         },
                         icon: const Icon(Icons.check_circle, color: Colors.white, size: 22),
@@ -2642,12 +2815,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                                                                 try {
                                                                   final bookingId = booking['id']?.toString() ?? '';
                                                                   if (bookingId.isEmpty) {
-                                                                    _showSnackBar(
-                                                                      const SnackBar(
-                                                                        content: Text('Erro: ID do agendamento não encontrado.'),
-                                                                        backgroundColor: Colors.red,
-                                                                      ),
-                                                                    );
+                                                                    _showToast('ID do agendamento não encontrado.', isError: true);
                                                                     return;
                                                                   }
 
@@ -2745,29 +2913,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
 
                                                                   if (result['success'] == true) {
                                                                     await _loadBookingDetails(forceRefresh: true);
-                                                                    _showSnackBar(
-                                                                      const SnackBar(
-                                                                        content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
-                                                                        backgroundColor: Colors.green,
-                                                                        duration: Duration(seconds: 3),
-                                                                      ),
-                                                                    );
+                                                                    _showToast('Serviço iniciado! O cliente foi notificado.');
                                                                   } else {
-                                                                    _showSnackBar(
-                                                                      SnackBar(
-                                                                        content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
-                                                                        backgroundColor: Colors.red,
-                                                                      ),
-                                                                    );
+                                                                    _showToast(result['error']?.toString() ?? 'Erro ao iniciar serviço.', isError: true);
                                                                   }
                                                                 } catch (e) {
                                                                   if (!mounted) return;
-                                                                  _showSnackBar(
-                                                                    SnackBar(
-                                                                      content: Text('Erro: ${e.toString()}'),
-                                                                      backgroundColor: Colors.red,
-                                                                    ),
-                                                                  );
+                                                                  _showToast('Erro: ${e.toString()}', isError: true);
                                                                 }
                                                               }
                                                             : null,
@@ -2837,12 +2989,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             try {
                               final bookingId = booking['id']?.toString() ?? '';
                               if (bookingId.isEmpty) {
-                                _showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Erro: ID do agendamento não encontrado.'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                _showToast('ID do agendamento não encontrado.', isError: true);
                                 return;
                               }
 
@@ -2858,28 +3005,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                               
                               if (result['success'] == true) {
                                 await _loadBookingDetails(forceRefresh: true);
-                                _showSnackBar(
-                                  const SnackBar(
-                                    content: Text('✅ Serviço iniciado! O cliente foi notificado.'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
+                                _showToast('Serviço iniciado! O cliente foi notificado.');
                               } else {
-                                _showSnackBar(
-                                  SnackBar(
-                                    content: Text(result['error']?.toString() ?? 'Erro ao iniciar serviço.'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                _showToast(result['error']?.toString() ?? 'Erro ao iniciar serviço.', isError: true);
                               }
                             } catch (e) {
                               if (!mounted) return;
-                              _showSnackBar(
-                                SnackBar(
-                                  content: Text('Erro: ${e.toString()}'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              _showToast('Erro: ${e.toString()}', isError: true);
                             }
                           },
                           icon: const Icon(Icons.play_arrow, color: Colors.white),
@@ -2909,7 +3041,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                 onPressed: () async {
                   // Buscar items existentes do orçamento
                   final existingItems = booking['quote_items'] as List<dynamic>?;
-                  final existingDiagnostic = booking['diagnostic_value'] as int?;
+                  final existingDiagnostic = int.tryParse(booking['diagnostic_value']?.toString() ?? '');
                   
                   final result = await Navigator.push(
                     context,

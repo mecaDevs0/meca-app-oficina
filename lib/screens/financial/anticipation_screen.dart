@@ -20,6 +20,8 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
 
   Map<String, dynamic>? _balance;
   List<Map<String, dynamic>> _anticipations = [];
+  List<Map<String, dynamic>> _payments = [];
+  String? _selectedPaymentId;
   Map<String, dynamic>? _simulation;
   String? _errorMessage;
 
@@ -59,16 +61,19 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
       _isLoading = true;
       _errorMessage = null;
       _simulation = null;
+      _selectedPaymentId = null;
     });
 
     try {
       final results = await Future.wait([
         _apiService.getAsaasBalance(_workshopId!),
         _apiService.listAnticipations(_workshopId!),
+        _apiService.listAsaasPayments(_workshopId!, status: 'CONFIRMED', limit: 50),
       ]);
 
       final balanceRes = results[0];
       final anticipationsRes = results[1];
+      final paymentsRes = results[2];
 
       _safeSetState(() {
         if (balanceRes['success'] == true) {
@@ -86,6 +91,18 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
             _anticipations = [];
           }
         }
+        if (paymentsRes['success'] == true) {
+          final raw = paymentsRes['data'];
+          if (raw is List) {
+            _payments = raw.map((e) => (e as Map).cast<String, dynamic>()).toList();
+          } else if (raw is Map && raw['data'] is List) {
+            _payments = (raw['data'] as List)
+                .map((e) => (e as Map).cast<String, dynamic>())
+                .toList();
+          } else {
+            _payments = [];
+          }
+        }
       });
     } catch (e) {
       _safeSetState(() => _errorMessage = 'Erro ao carregar dados: ${e.toString()}');
@@ -96,6 +113,10 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
 
   Future<void> _simulate() async {
     if (_workshopId == null) return;
+    if (_selectedPaymentId == null || _selectedPaymentId!.isEmpty) {
+      _safeSetState(() => _errorMessage = 'Selecione uma cobrança para antecipar.');
+      return;
+    }
     _safeSetState(() {
       _isSimulating = true;
       _simulation = null;
@@ -103,7 +124,9 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
     });
 
     try {
-      final res = await _apiService.simulateAnticipation(_workshopId!, {});
+      final res = await _apiService.simulateAnticipation(_workshopId!, {
+        'payment': _selectedPaymentId,
+      });
       if (!mounted) return;
       if (res['success'] == true) {
         _safeSetState(() {
@@ -120,7 +143,7 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
   }
 
   Future<void> _confirm() async {
-    if (_workshopId == null || _simulation == null) return;
+    if (_workshopId == null || _simulation == null || _selectedPaymentId == null) return;
 
     final ok = await _showConfirmDialog();
     if (!ok || !mounted) return;
@@ -131,10 +154,15 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
     });
 
     try {
-      final res = await _apiService.createAnticipation(_workshopId!, {});
+      final res = await _apiService.createAnticipation(_workshopId!, {
+        'payment': _selectedPaymentId,
+      });
       if (!mounted) return;
       if (res['success'] == true) {
-        _safeSetState(() => _simulation = null);
+        _safeSetState(() {
+          _simulation = null;
+          _selectedPaymentId = null;
+        });
         _showSuccessSnack('Antecipação solicitada com sucesso.');
         await _loadData();
       } else {
@@ -498,49 +526,246 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Simule para ver os valores e taxas antes de confirmar.',
+          'Selecione uma cobranca confirmada e simule os valores.',
           style: TextStyle(
             fontSize: 14,
             color: secondaryTextColor,
           ),
         ),
         const SizedBox(height: 16),
-        if (_simulation != null)
-          _buildSimulationResult(
+        if (_payments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.info_outline, size: 32, color: secondaryTextColor),
+                const SizedBox(height: 8),
+                Text(
+                  'Nenhuma cobranca disponivel para antecipacao.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: secondaryTextColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cobranças confirmadas aparecerão aqui.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: secondaryTextColor.withOpacity(0.7)),
+                ),
+              ],
+            ),
+          ),
+        if (_payments.isNotEmpty) ...[
+          _buildPaymentSelector(
             cardColor: cardColor,
             borderColor: borderColor,
             textColor: textColor,
             secondaryTextColor: secondaryTextColor,
           ),
-        if (_simulation == null)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isSimulating ? null : _simulate,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C977),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              icon: _isSimulating
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.calculate_outlined),
-              label: Text(
-                _isSimulating ? 'Simulando...' : 'Simular antecipacao',
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700),
+          const SizedBox(height: 16),
+          if (_simulation != null)
+            _buildSimulationResult(
+              cardColor: cardColor,
+              borderColor: borderColor,
+              textColor: textColor,
+              secondaryTextColor: secondaryTextColor,
+            ),
+          if (_simulation == null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_isSimulating || _selectedPaymentId == null) ? null : _simulate,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C977),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFF00C977).withOpacity(0.4),
+                  disabledForegroundColor: Colors.white.withOpacity(0.6),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                icon: _isSimulating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.calculate_outlined),
+                label: Text(
+                  _isSimulating ? 'Simulando...' : 'Simular antecipacao',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700),
+                ),
               ),
             ),
-          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildPaymentSelector({
+    required Color cardColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color secondaryTextColor,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.receipt_long, size: 18, color: secondaryTextColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Selecione a cobranca',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ..._payments.map((payment) {
+            final payId = (payment['id'] ?? '').toString();
+            final isSelected = _selectedPaymentId == payId;
+            final value = payment['value'] ?? payment['netValue'];
+            final customer = payment['customerName'] ?? payment['customer'] ?? '';
+            final dueDate = _formatDateShort(payment['dueDate'] ?? payment['paymentDate']);
+            final status = (payment['status'] ?? '').toString();
+
+            return InkWell(
+              onTap: () {
+                _safeSetState(() {
+                  _selectedPaymentId = isSelected ? null : payId;
+                  _simulation = null;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF00C977).withOpacity(0.08)
+                      : Colors.transparent,
+                  border: Border(
+                    top: BorderSide(
+                      color: secondaryTextColor.withOpacity(0.1),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSelected
+                            ? const Color(0xFF00C977)
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF00C977)
+                              : secondaryTextColor.withOpacity(0.4),
+                          width: 2,
+                        ),
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check, size: 14, color: Colors.white)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatCurrency(value),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            customer.isNotEmpty
+                                ? '$customer • $dueDate'
+                                : dueDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: secondaryTextColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildPaymentStatusBadge(status),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentStatusBadge(String status) {
+    Color bg;
+    Color fg;
+    String label;
+
+    switch (status.toUpperCase()) {
+      case 'CONFIRMED':
+      case 'RECEIVED':
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF15803D);
+        label = 'Confirmado';
+        break;
+      case 'PENDING':
+        bg = const Color(0xFFFFF7ED);
+        fg = const Color(0xFFB45309);
+        label = 'Pendente';
+        break;
+      case 'OVERDUE':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFB91C1C);
+        label = 'Vencida';
+        break;
+      default:
+        bg = const Color(0xFFEFF6FF);
+        fg = const Color(0xFF1D4ED8);
+        label = status;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
+      ),
     );
   }
 
@@ -924,6 +1149,16 @@ class _AnticipationScreenState extends State<AnticipationScreen> {
     try {
       final dt = value is DateTime ? value : DateTime.parse(value.toString());
       return DateFormat('dd/MM/yyyy HH:mm', 'pt_BR').format(dt.toLocal());
+    } catch (_) {
+      return value.toString();
+    }
+  }
+
+  String _formatDateShort(dynamic value) {
+    if (value == null) return '';
+    try {
+      final dt = value is DateTime ? value : DateTime.parse(value.toString());
+      return DateFormat('dd/MM/yyyy').format(dt.toLocal());
     } catch (_) {
       return value.toString();
     }

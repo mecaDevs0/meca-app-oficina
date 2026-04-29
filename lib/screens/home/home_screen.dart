@@ -8,6 +8,7 @@ import '../../config/app_config.dart';
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 import '../../utils/page_transitions.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../config/agenda_config_screen.dart';
@@ -553,24 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           onTap: () {
             Clipboard.setData(const ClipboardData(text: 'https://dashboard.mecabr.com'));
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Color(0xFF00C977), size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Link copiado!',
-                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-                backgroundColor: const Color(0xFF1A1A1A),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            BeautifulErrorSnackbar.showSuccess(context, 'Link copiado!');
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(

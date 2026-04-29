@@ -1452,6 +1452,25 @@ class ApiService {
   // ASAAS - ANTECIPAÇÃO DE RECEBÍVEIS
   // ============================================
 
+  Future<Map<String, dynamic>> listAsaasPayments(String workshopId, {String? status, int limit = 50}) async {
+    try {
+      await loadToken();
+      final queryParams = <String, dynamic>{'limit': limit};
+      if (status != null) queryParams['status'] = status;
+      final response = await _dio.get(
+        '/workshop/$workshopId/asaas/payments',
+        queryParameters: queryParams,
+      );
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro ao listar cobranças'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
   Future<Map<String, dynamic>> getAsaasBalance(String workshopId) async {
     try {
       await loadToken();
