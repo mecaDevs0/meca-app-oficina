@@ -1668,7 +1668,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       _buildFaqItem(
                         title: 'Conta nao atualizada',
-                        body: 'Puxe a tela para baixo para atualizar os dados. Se o problema persistir, entre em contato com suporte@mecabr.com.',
+                        body: 'Puxe a tela para baixo para atualizar os dados. Se o problema persistir, entre em contato com contato@mecabr.com.',
                         isDark: isDark,
                       ),
                     ],

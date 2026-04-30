@@ -145,7 +145,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
-                                        'Para adiantar recebimentos, entre em contato com suporte@mecabr.com',
+                                        'Para adiantar recebimentos, entre em contato com contato@mecabr.com',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
