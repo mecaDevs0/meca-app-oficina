@@ -340,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final workshopName = _workshopData?['name'] ?? 'Oficina MECA';
     final workshopEmail = _workshopData?['email'] ?? 'oficina@mecabr.com';
     final workshopPhone = _workshopData?['phone'] ?? 'Sem telefone cadastrado';
-    final cnpj = _workshopData?['cnpj'] ?? 'CNPJ indisponível';
+    final cnpj = Formatters.formatCnpj(_workshopData?['cnpj'] ?? '');
     final status = (_workshopData?['status'] ?? 'pending').toString();
     final address = _formatAddressSummary();
 
