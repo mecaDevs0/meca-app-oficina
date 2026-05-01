@@ -849,14 +849,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     
     return InkWell(
       onTap: () async {
-        await Navigator.push(
+        final navResult = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => BookingDetailScreen(booking: booking),
           ),
         );
-        // Sempre recarregar ao voltar — o user pode ter aprovado, orçado ou alterado status
-        if (mounted) _loadBookings(forceRefresh: true);
+        if (mounted) {
+          await _loadBookings(forceRefresh: true);
+          if (navResult == 'approved' && mounted) {
+            _tabController.index = 1;
+            _safeSetState(() {});
+          }
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -1168,8 +1173,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     try {
       final result = await _apiService.confirmBooking(booking['id']);
       if (result['success']) {
-        // Atualização otimista: usar resposta da mutação como fonte da verdade,
-        // evitando replicação lag quando refetch retorna dados antigos.
         final id = booking['id']?.toString();
         if (id != null && id.isNotEmpty) {
           _safeSetState(() {
@@ -1179,106 +1182,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
             _confirmedBookings.insert(0, updated);
           });
         }
-        // Mostrar modal informativo após aprovar
         if (mounted) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: const Color(0xFF00C977),
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Agendamento Aprovado!',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'O agendamento foi aprovado com sucesso e foi movido para a aba "Confirmados".',
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00C977).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF00C977).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          color: const Color(0xFF00C977),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'Próximo passo: Abra este agendamento novamente na aba "Confirmados" para enviar o orçamento ao cliente.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    // Estado já atualizado (otimista). Sync em background após delay para consistência.
-                    Future.delayed(const Duration(milliseconds: 1500), () {
-                      if (mounted) _loadBookings(forceRefresh: true);
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C977),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Entendi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
+          _tabController.index = 1;
+          _safeSetState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Agendamento aprovado! Movido para Confirmados.'),
+              backgroundColor: Color(0xFF00C977),
+              duration: Duration(seconds: 3),
             ),
           );
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) _loadBookings(forceRefresh: true);
+          });
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

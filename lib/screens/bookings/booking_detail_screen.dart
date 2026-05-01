@@ -538,6 +538,43 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     );
   }
 
+  Widget _buildDialogStep(String number, String text, IconData icon, bool isDarkMode) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: const Color(0xFF00C977).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF00C977),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.grey[300] : Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _showFinishServiceDialog(Map<String, dynamic> booking) async {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final quoteItems = booking['quote_items'] as List<dynamic>? ?? [];
@@ -1981,8 +2018,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           final result = await _apiService.confirmBooking(bookingId);
           if (!mounted) return;
           if (result['success'] == true) {
-            await _loadBookingDetails(forceRefresh: true);
-            _showToast('Agendamento aprovado!');
+            Navigator.pop(context, 'approved');
           } else {
             _showToast(result['error']?.toString() ?? 'Erro ao aprovar.', isError: true);
           }
@@ -2016,12 +2052,62 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           _actionButton('Iniciar Serviço', Icons.play_arrow, const Color(0xFF00C977), () async {
             final bookingId = booking['id']?.toString() ?? '';
             if (bookingId.isEmpty) return;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             final confirm = await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: const Text('Iniciar Serviço'),
-                content: const Text('O cliente receberá uma notificação de que o serviço começou.'),
+                title: Row(
+                  children: [
+                    const Icon(Icons.play_circle_outline, color: Color(0xFF00C977), size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Iniciar Serviço',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ao iniciar o serviço:',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildDialogStep(
+                      '1',
+                      'O cliente será notificado de que o serviço começou',
+                      Icons.notifications_active,
+                      isDark,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDialogStep(
+                      '2',
+                      'Você poderá montar o orçamento detalhado com peças e mão de obra',
+                      Icons.build_circle,
+                      isDark,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDialogStep(
+                      '3',
+                      'O cliente aprovará o orçamento e realizará o pagamento pelo app',
+                      Icons.payments,
+                      isDark,
+                    ),
+                  ],
+                ),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
                   ElevatedButton(
@@ -2215,8 +2301,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             if (!mounted) return;
 
                             if (result['success'] == true) {
-                              await _loadBookingDetails(forceRefresh: true);
-                              _showToast('Agendamento aprovado com sucesso!');
+                              Navigator.pop(context, 'approved');
                             } else {
                               _showToast(result['error']?.toString() ?? 'Erro ao aprovar agendamento.', isError: true);
                             }

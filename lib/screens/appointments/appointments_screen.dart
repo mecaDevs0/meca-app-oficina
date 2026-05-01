@@ -206,9 +206,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
             '/booking-detail',
             arguments: booking,
           );
-          // Recarregar lista quando voltar para garantir que o status está atualizado
-          if (result == true || mounted) {
+          if (mounted) {
             await _loadBookings(forceRefresh: true);
+            if (result == 'approved' && mounted) {
+              _tabController.index = 1;
+              setState(() {});
+            }
           }
         },
         borderRadius: BorderRadius.circular(12),

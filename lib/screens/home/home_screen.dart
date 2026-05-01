@@ -1112,7 +1112,7 @@ class _HomeScreenState extends State<HomeScreen> {
           '/booking-detail',
           arguments: booking,
         );
-        if (result == true && mounted) {
+        if ((result == true || result == 'approved') && mounted) {
           _loadData();
         }
       },
