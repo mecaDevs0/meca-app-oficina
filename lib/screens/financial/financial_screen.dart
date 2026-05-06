@@ -519,8 +519,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
         'color': const Color(0xFF8B5CF6),
       },
       {
-        'title': 'Valores a receber',
-        'value': _formatCurrency(totals['values_to_receive'] ?? totals['pending_gross'], fallback: 'R\$ 0,00'),
+        'title': 'A receber',
+        'value': _buildPendingReceivable(totals),
         'icon': Icons.account_balance_wallet,
         'color': const Color(0xFFF97316),
       },
@@ -821,6 +821,17 @@ class _FinancialScreenState extends State<FinancialScreen> {
         ],
       ),
     );
+  }
+
+  String _buildPendingReceivable(Map<String, dynamic> totals) {
+    final valuesToReceive = _toDouble(totals['values_to_receive']);
+    final pendingGross = _toDouble(totals['pending_gross']);
+    final net = _toDouble(totals['net']);
+
+    final pending = (valuesToReceive ?? 0) + (pendingGross ?? 0);
+    if (pending > 0) return _currencyFormat.format(pending);
+    if (net != null && net > 0) return _currencyFormat.format(net);
+    return 'R\$ 0,00';
   }
 
   double? _toDouble(dynamic value) {

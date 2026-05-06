@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/evidence_service.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 
 class EvidenceUploadScreen extends StatefulWidget {
   const EvidenceUploadScreen({
@@ -86,23 +87,13 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao selecionar imagem: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      BeautifulErrorSnackbar.show(context, 'Erro ao selecionar imagem: $e');
     }
   }
 
   Future<void> _uploadEvidence() async {
     if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecione uma imagem antes de enviar.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      BeautifulErrorSnackbar.showWarning(context, 'Selecione uma imagem antes de enviar.');
       return;
     }
 
@@ -112,19 +103,14 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
     });
 
     final result = await _evidenceService.uploadBookingEvidence(
-          widget.bookingId,
+      widget.bookingId,
       _selectedFile!,
     );
 
     if (!mounted) return;
 
     if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Evidência enviada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      BeautifulErrorSnackbar.showSuccess(context, 'Evidência enviada com sucesso!');
       setState(() {
         _selectedFile = null;
       });
@@ -133,12 +119,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
       setState(() {
         _errorMessage = result['error']?.toString() ?? 'Falha ao enviar a evidência.';
       });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(_errorMessage ?? 'Falha ao enviar a evidência.'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      BeautifulErrorSnackbar.show(context, _errorMessage ?? 'Falha ao enviar a evidência.');
     }
 
     if (mounted) {

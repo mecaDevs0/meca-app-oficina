@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,6 +8,7 @@ import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
+import '../../utils/date_formatter.dart';
 import '../../utils/page_transitions.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../config/agenda_config_screen.dart';
@@ -106,7 +106,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
-  bool _showUpcoming = true; // Controla qual aba está selecionada
+  // 0 = Em Andamento, 1 = Próximos, 2 = Histórico
+  int _selectedTab = 0;
+  List<Map<String, dynamic>> _inProgressBookings = [];
   List<Map<String, dynamic>> _upcomingBookings = [];
   List<Map<String, dynamic>> _historyBookings = [];
   Map<String, dynamic>? _workshopData;
@@ -261,25 +263,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 status == 'pending_oficina';
           }).length;
 
-          // Calcular serviços em andamento (Ativos)
-          final activeBookings = bookings.where((b) {
+          final inProgress = bookings.where((b) {
             final status = (b['status'] ?? '').toString().toLowerCase();
             return status == 'em_andamento' ||
                 status == 'in_progress' ||
-                status == 'started' ||
-                status == 'confirmado' ||
-                status == 'confirmed';
-          }).toList();
+                status == 'started';
+          }).toList()
+            ..sort(
+              (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
+            );
 
           final upcoming = bookings.where((b) {
             final status = (b['status'] ?? '').toString().toLowerCase();
             return status == 'pending' ||
                 status == 'pendente_oficina' ||
                 status == 'confirmed' ||
-                status == 'confirmado' ||
-                status == 'started' ||
-                status == 'in_progress' ||
-                status == 'em_andamento';
+                status == 'confirmado';
           }).toList()
             ..sort(
               (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
@@ -290,16 +289,18 @@ class _HomeScreenState extends State<HomeScreen> {
             return status == 'completed' ||
                 status == 'finished' ||
                 status == 'concluido' ||
-                status == 'cancelled';
+                status == 'concluído' ||
+                status == 'pago';
           }).toList()
             ..sort(
               (a, b) => (b['sort_timestamp'] ?? 0).compareTo(a['sort_timestamp'] ?? 0),
             );
 
           setState(() {
+            _inProgressBookings = inProgress;
             _upcomingBookings = upcoming;
             _historyBookings = history;
-            _activeBookingsCount = activeBookings.length;
+            _activeBookingsCount = inProgress.length;
           });
           if (mounted) {
             final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
@@ -634,13 +635,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Coluna 1: Próximos
+            // Coluna 1: Em Andamento
             Expanded(
               child: _buildStatColumn(
-                icon: Icons.calendar_today_outlined,
-                value: '${_upcomingBookings.length}',
-                label: 'Próximos',
-                color: const Color(0xFF00C977),
+                icon: Icons.build_circle_outlined,
+                value: '$_activeBookingsCount',
+                label: 'Em Andamento',
+                color: const Color(0xFF3B82F6),
                 isDark: isDark,
               ),
             ),
@@ -655,7 +656,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.history_outlined,
                 value: '${_historyBookings.length}',
                 label: 'Histórico',
-                color: isDark ? Colors.grey[500]! : Colors.grey[500]!,
+                color: const Color(0xFFF59E0B),
                 isDark: isDark,
               ),
             ),
@@ -664,13 +665,13 @@ class _HomeScreenState extends State<HomeScreen> {
               thickness: 1,
               color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08),
             ),
-            // Coluna 3: Ativos (serviços em andamento)
+            // Coluna 3: Próximos (confirmados)
             Expanded(
               child: _buildStatColumn(
-                icon: Icons.play_circle_outline,
-                value: '$_activeBookingsCount',
-                label: 'Ativos',
-                color: const Color(0xFF3B82F6),
+                icon: Icons.calendar_today_outlined,
+                value: '${_upcomingBookings.length}',
+                label: 'Próximos',
+                color: const Color(0xFF00C977),
                 isDark: isDark,
               ),
             ),
@@ -858,6 +859,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAppointmentsSection(bool isDark) {
+    final tabs = [
+      (label: 'Em Andamento', icon: Icons.build_circle_outlined, count: _inProgressBookings.length),
+      (label: 'Próximos', icon: Icons.calendar_today_outlined, count: _upcomingBookings.length),
+    ];
+
+    List<Map<String, dynamic>> activeList() {
+      if (_selectedTab == 0) return _inProgressBookings;
+      return _upcomingBookings;
+    }
+
+    String emptyMessage() {
+      if (_selectedTab == 0) return 'Nenhum serviço em andamento';
+      return 'Nenhum agendamento próximo';
+    }
+
+    String emptySubtitle() {
+      if (_selectedTab == 0) return 'Serviços iniciados aparecerão aqui';
+      return 'Seus próximos agendamentos confirmados aparecerão aqui';
+    }
+
+    IconData emptyIcon() {
+      if (_selectedTab == 0) return Icons.play_circle_outline;
+      return Icons.calendar_today_outlined;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -870,45 +896,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Segmented control para Próximos/Histórico
         Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1A1A1A) : Colors.grey[200],
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
-            children: [
-              Expanded(
+            children: List.generate(tabs.length, (i) {
+              final tab = tabs[i];
+              return Expanded(
                 child: _buildSegmentButton(
-                  label: 'Próximos (${_upcomingBookings.length})',
-                  icon: Icons.calendar_today_outlined,
-                  isSelected: _showUpcoming,
+                  label: '${tab.label} (${tab.count})',
+                  icon: tab.icon,
+                  isSelected: _selectedTab == i,
                   isDark: isDark,
-                  onTap: () {
-                    setState(() {
-                      _showUpcoming = true;
-                    });
-                  },
+                  onTap: () => setState(() => _selectedTab = i),
                 ),
-              ),
-              Expanded(
-                child: _buildSegmentButton(
-                  label: 'Histórico (${_historyBookings.length})',
-                  icon: Icons.history_outlined,
-                  isSelected: !_showUpcoming,
-                  isDark: isDark,
-                  onTap: () {
-                    setState(() {
-                      _showUpcoming = false;
-                    });
-                  },
-                ),
-              ),
-            ],
+              );
+            }),
           ),
         ),
         const SizedBox(height: 16),
-        // Lista de agendamentos (próximos ou histórico) com animação
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (child, animation) {
@@ -926,9 +934,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
-          child: _showUpcoming && _upcomingBookings.isEmpty
+          child: activeList().isEmpty
               ? Container(
-                  key: const ValueKey('empty-upcoming'),
+                  key: ValueKey('empty-$_selectedTab'),
                   width: double.infinity,
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
@@ -938,13 +946,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     children: [
                       Icon(
-                        Icons.calendar_today_outlined,
+                        emptyIcon(),
                         size: 48,
                         color: isDark ? Colors.grey[600] : Colors.grey[400],
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Nenhum agendamento próximo',
+                        emptyMessage(),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -953,7 +961,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Seus agendamentos aparecerão aqui',
+                        emptySubtitle(),
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
                           color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -962,50 +971,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 )
-              : !_showUpcoming && _historyBookings.isEmpty
-                  ? Container(
-                      key: const ValueKey('empty-history'),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(40),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.history_outlined,
-                            size: 48,
-                            color: isDark ? Colors.grey[600] : Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Nenhum histórico',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Seus agendamentos concluídos aparecerão aqui',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Column(
-                      key: ValueKey(_showUpcoming ? 'upcoming-list' : 'history-list'),
-                      children: [
-                        ...(_showUpcoming ? _upcomingBookings : _historyBookings)
-                            .take(5)
-                            .map((booking) => _buildBookingCard(booking, isDark)),
-                      ],
-                    ),
+              : Column(
+                  key: ValueKey('list-$_selectedTab'),
+                  children: activeList()
+                      .take(5)
+                      .map((booking) => _buildBookingCard(booking, isDark))
+                      .toList(),
+                ),
         ),
       ],
     );
@@ -1072,10 +1044,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? (booking['customer_uploads'] as List).length
         : 0;
     final appointment = _parseDate(booking['appointment_date'] ?? booking['scheduled_date']);
-    final dateLabel =
-        appointment != null ? DateFormat('dd/MM/yyyy').format(appointment) : 'Data não definida';
-    final timeLabel =
-        appointment != null ? DateFormat('HH:mm').format(appointment) : '--:--';
+    final humanDate = appointment != null ? humanizeBookingDate(appointment) : 'Data não definida';
     final initials = customerName.trim().isNotEmpty
         ? customerName.trim().substring(0, 1).toUpperCase()
         : 'C';
@@ -1204,14 +1173,10 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildIconChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: dateLabel,
-                  isDark: isDark,
-                ),
-                _buildIconChip(
                   icon: Icons.access_time_outlined,
-                  label: '$timeLabel h',
+                  label: humanDate,
                   isDark: isDark,
+                  highlight: true,
                 ),
                 _buildStatusChip(booking['status'], isDark),
               ],
@@ -1262,32 +1227,38 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required String label,
     required bool isDark,
+    bool highlight = false,
   }) {
+    final iconColor = highlight
+        ? const Color(0xFF00C977)
+        : (isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
+        color: highlight
+            ? const Color(0xFF00C977).withOpacity(isDark ? 0.15 : 0.10)
+            : (isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6)),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
-          width: 0.6,
+          color: highlight
+              ? const Color(0xFF00C977).withOpacity(0.35)
+              : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
+          width: highlight ? 1 : 0.6,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
-          ),
+          Icon(icon, size: 16, color: iconColor),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : const Color(0xFF1F2937),
+              color: highlight
+                  ? (isDark ? const Color(0xFF00C977) : const Color(0xFF007A49))
+                  : (isDark ? Colors.white : const Color(0xFF1F2937)),
             ),
           ),
         ],
@@ -1321,7 +1292,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
-    if (value is DateTime) return value.toLocal();
+    if (value is DateTime) return value;
     if (value is int) {
       try {
         return DateTime.fromMillisecondsSinceEpoch(value, isUtc: false);
@@ -1333,13 +1304,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final trimmed = value.trim();
       if (trimmed.isEmpty) return null;
       try {
-        return DateTime.parse(trimmed).toLocal();
+        return DateTime.parse(trimmed);
       } catch (_) {
-        try {
-          return DateTime.parse('${trimmed}Z').toLocal();
-        } catch (_) {
-          return null;
-        }
+        return null;
       }
     }
     return null;

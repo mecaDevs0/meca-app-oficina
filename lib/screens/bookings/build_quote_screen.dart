@@ -759,10 +759,6 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: widget.isEditMode ? Colors.orange : Colors.purple, width: 2),
                           ),
-                          helperText: widget.isEditMode
-                              ? '⚠️ Explique claramente o motivo da mudança. O cliente precisa entender por que o valor foi alterado.'
-                              : 'Descreva o problema identificado, as peças necessárias e o motivo dos valores.',
-                          helperMaxLines: 2,
                         ),
                         onChanged: (_) => setState(() {}),
                       ),

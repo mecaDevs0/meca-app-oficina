@@ -34,6 +34,9 @@ class ApiService {
         }
         return handler.next(options);
       },
+      onResponse: (response, handler) {
+        return handler.next(response);
+      },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
           saveToken('');
@@ -1093,11 +1096,19 @@ class ApiService {
         return null;
       }
       try {
-        return DateTime.parse(trimmed).toLocal();
+        final parsed = DateTime.parse(trimmed);
+        // API envia horários locais (BRT) com Z espúrio (TIMESTAMP sem TZ no Postgres).
+        // Preservar valores brutos como local, sem converter UTC→local.
+        if (parsed.isUtc) {
+          return DateTime(parsed.year, parsed.month, parsed.day,
+              parsed.hour, parsed.minute, parsed.second, parsed.millisecond);
+        }
+        return parsed;
       } catch (_) {
-        // Tentar adicionar 'Z' se faltar timezone
         try {
-          return DateTime.parse('${trimmed}Z').toLocal();
+          final parsed = DateTime.parse('${trimmed}Z');
+          return DateTime(parsed.year, parsed.month, parsed.day,
+              parsed.hour, parsed.minute, parsed.second, parsed.millisecond);
         } catch (_) {
           return null;
         }

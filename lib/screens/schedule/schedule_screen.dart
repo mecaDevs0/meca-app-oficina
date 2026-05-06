@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +7,7 @@ import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
 import '../../utils/form_styles.dart';
+import '../../utils/date_formatter.dart';
 import '../../core/app_colors.dart';
 import 'package:intl/intl.dart';
 
@@ -394,7 +396,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         if (appointmentDate != null) {
           final date = DateTime.parse(appointmentDate);
           final bookingDate = DateTime(date.year, date.month, date.day);
-          
+
           if (bookingDate.isBefore(today)) {
             pastBookings.add(booking);
           } else {
@@ -674,7 +676,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     final rawDate = item['inspection_date'] ?? item['created_at'];
     if (rawDate != null) {
       try {
-        final parsed = DateTime.parse(rawDate.toString()).toLocal();
+        final parsed = DateTime.parse(rawDate.toString());
         final prefix = item['inspection_date'] != null ? '' : 'Solicitado em ';
         dateStr = '$prefix${DateFormat('dd/MM/yyyy').format(parsed)}';
       } catch (_) {}
@@ -977,17 +979,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           // Date and time
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.access_time,
                 size: 16,
-                color: ThemeService.getSecondaryTextColor(isDark),
+                color: Color(0xFF00C977),
               ),
               const SizedBox(width: 8),
               Text(
                 _formatDateTime(booking['appointment_date']),
                 style: TextStyle(
                   fontSize: 14,
-                  color: ThemeService.getSecondaryTextColor(isDark),
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               const Spacer(),
@@ -1160,10 +1163,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
 
   String _formatDateTime(String? dateTime) {
     if (dateTime == null) return 'Data não informada';
-    
     try {
       final date = DateTime.parse(dateTime);
-      return '${date.day}/${date.month}/${date.year} às ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return humanizeBookingDate(date);
     } catch (e) {
       return dateTime;
     }
@@ -1548,10 +1550,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       ),
     );
     if (pickedDate == null || !mounted) return;
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: const TimeOfDay(hour: 9, minute: 0),
-    );
+    final pickedTime = await _showWheelTimePicker(context, initialTime: const TimeOfDay(hour: 9, minute: 0));
     if (pickedTime == null || !mounted) return;
     final newDateTime = DateTime(
       pickedDate.year, pickedDate.month, pickedDate.day,
@@ -1588,6 +1587,144 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         );
       }
     }
+  }
+
+  Future<TimeOfDay?> _showWheelTimePicker(BuildContext context, {TimeOfDay? initialTime}) async {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final initial = initialTime ?? TimeOfDay.now();
+    int selectedHour = initial.hour;
+    int selectedMinute = (initial.minute / 5).round() * 5;
+    if (selectedMinute >= 60) selectedMinute = 55;
+
+    final result = await showModalBottomSheet<TimeOfDay>(
+      context: context,
+      backgroundColor: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: SizedBox(
+                height: 320,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Selecione o horário',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            icon: Icon(Icons.close, color: isDarkMode ? Colors.grey : Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 40),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Hora', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: CupertinoPicker(
+                                    scrollController: FixedExtentScrollController(initialItem: selectedHour),
+                                    itemExtent: 40,
+                                    selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
+                                      background: const Color(0xFF00C977).withOpacity(0.12),
+                                    ),
+                                    onSelectedItemChanged: (index) {
+                                      setSheetState(() => selectedHour = index);
+                                    },
+                                    children: List.generate(24, (i) => Center(
+                                      child: Text(
+                                        i.toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDarkMode ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                    )),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(':', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text('Minuto', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: CupertinoPicker(
+                                    scrollController: FixedExtentScrollController(initialItem: selectedMinute ~/ 5),
+                                    itemExtent: 40,
+                                    selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
+                                      background: const Color(0xFF00C977).withOpacity(0.12),
+                                    ),
+                                    onSelectedItemChanged: (index) {
+                                      setSheetState(() => selectedMinute = index * 5);
+                                    },
+                                    children: List.generate(12, (i) => Center(
+                                      child: Text(
+                                        (i * 5).toString().padLeft(2, '0'),
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDarkMode ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
+                                    )),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 40),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, TimeOfDay(hour: selectedHour, minute: selectedMinute)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C977),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Confirmar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    return result;
   }
 
   Future<void> _suggestNewTime(Map<String, dynamic> booking) async {
@@ -1834,7 +1971,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       ),
                       const SizedBox(height: 20),
                       
-                      // Campo de horário editável
                       Text(
                         'Horário',
                         style: TextStyle(
@@ -1844,82 +1980,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                         ),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: timeController,
-                        readOnly: false,
-                        enabled: true,
-                        keyboardType: TextInputType.datetime,
-                        style: FormStyles.inputTextStyle(context),
-                        cursorColor: AppColors.primaryColor,
-                        decoration: FormStyles.decorate(
-                          context,
-                          InputDecoration(
-                            labelText: 'Horário (HH:MM)',
-                            hintText: 'Ex: 14:30',
-                            prefixIcon: const Icon(Icons.access_time, color: AppColors.primaryColor),
-                            suffixIcon: IconButton(
-                              icon: const Icon(Icons.schedule, color: AppColors.primaryColor),
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedTime ?? TimeOfDay.now(),
-                                  builder: (context, child) {
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: ColorScheme.dark(
-                                          primary: const Color(0xFF00C977),
-                                          onPrimary: Colors.white,
-                                          surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                                          onSurface: isDark ? Colors.white : Colors.black,
-                                        ),
-                                      ),
-                                      child: child!,
-                                    );
-                                  },
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    selectedTime = picked;
-                                    timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          // Tentar parsear o horário digitado manualmente
-                          final parts = value.split(':');
-                          if (parts.length == 2) {
-                            try {
-                              final hour = int.parse(parts[0]);
-                              final minute = int.parse(parts[1]);
-                              if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-                                setState(() => selectedTime = TimeOfDay(hour: hour, minute: minute));
-                              }
-                            } catch (e) {
-                              // Ignorar erros de parsing
-                            }
-                          }
-                        },
+                      GestureDetector(
                         onTap: () async {
-                          final picked = await showTimePicker(
-                            context: context,
-                            initialTime: selectedTime ?? TimeOfDay.now(),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.dark(
-                                    primary: const Color(0xFF00C977),
-                                    onPrimary: Colors.white,
-                                    surface: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                                    onSurface: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
+                          final picked = await _showWheelTimePicker(context, initialTime: selectedTime);
                           if (picked != null) {
                             setState(() {
                               selectedTime = picked;
@@ -1927,6 +1990,43 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                             });
                           }
                         },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF252525) : const Color(0xFFF7F7F7),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedTime != null
+                                  ? AppColors.primaryColor
+                                  : (isDark ? Colors.white10 : Colors.black.withOpacity(0.06)),
+                              width: selectedTime != null ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.access_time_rounded, color: AppColors.primaryColor, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                timeController.text.isNotEmpty ? timeController.text : 'Selecionar horário',
+                                style: TextStyle(
+                                  color: timeController.text.isNotEmpty ? textColor : secondaryTextColor,
+                                  fontSize: 15,
+                                  fontWeight: timeController.text.isNotEmpty ? FontWeight.w600 : FontWeight.w400,
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(Icons.keyboard_arrow_down_rounded, color: secondaryTextColor, size: 22),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
                       
