@@ -71,18 +71,15 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       for (var opt in item.options) {
         opt.descriptionController.dispose();
         opt.unitPriceController.dispose();
+        opt.descriptionFocusNode.dispose();
       }
     }
     super.dispose();
   }
 
-  final List<GlobalKey> _itemKeys = [];
-
   void _addItem() {
     final newNode = FocusNode();
-    final newKey = GlobalKey();
     _descriptionFocusNodes.add(newNode);
-    _itemKeys.add(newKey);
 
     FocusScope.of(context).unfocus();
 
@@ -91,19 +88,8 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ctx = _itemKeys.last.currentContext;
-      if (ctx != null) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        ).then((_) {
-          if (mounted && _descriptionFocusNodes.length == _items.length) {
-            _descriptionFocusNodes.last.requestFocus();
-          }
-        });
-      }
+      if (!mounted || _descriptionFocusNodes.length != _items.length) return;
+      _descriptionFocusNodes.last.requestFocus();
     });
   }
 
@@ -115,9 +101,9 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       for (var opt in _items[index].options) {
         opt.descriptionController.dispose();
         opt.unitPriceController.dispose();
+        opt.descriptionFocusNode.dispose();
       }
       _descriptionFocusNodes[index].dispose();
-      if (index < _itemKeys.length) _itemKeys.removeAt(index);
       _items.removeAt(index);
       _descriptionFocusNodes.removeAt(index);
     });
@@ -455,10 +441,9 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                   )
                 else
                   ...List.generate(_items.length, (index) {
-                    while (_itemKeys.length <= index) _itemKeys.add(GlobalKey());
                     final item = _items[index];
                     return TweenAnimationBuilder<double>(
-                      key: _itemKeys[index],
+                      key: ValueKey('quote_item_$index'),
                       tween: Tween(begin: 0.0, end: 1.0),
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
@@ -708,6 +693,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                             onPressed: () => setState(() {
                                               opt.descriptionController.dispose();
                                               opt.unitPriceController.dispose();
+                                              opt.descriptionFocusNode.dispose();
                                               item.options.removeAt(optIdx);
                                             }),
                                           ),
@@ -715,6 +701,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                       ),
                                       TextField(
                                         controller: opt.descriptionController,
+                                        focusNode: opt.descriptionFocusNode,
                                         decoration: InputDecoration(
                                           labelText: 'Descrição da opção',
                                           isDense: true,
@@ -743,8 +730,14 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             if (!item.isRequired)
                               TextButton.icon(
                                 onPressed: () {
+                                  FocusScope.of(context).unfocus();
+                                  final newOption = QuoteItemOption(isDefault: item.options.isEmpty);
                                   setState(() {
-                                    item.options.add(QuoteItemOption(isDefault: item.options.isEmpty));
+                                    item.options.add(newOption);
+                                  });
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    newOption.descriptionFocusNode.requestFocus();
                                   });
                                 },
                                 icon: const Icon(Icons.add_circle_outline, size: 18, color: Color(0xFF00C977)),
@@ -1081,10 +1074,12 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 class QuoteItemOption {
   final TextEditingController descriptionController;
   final TextEditingController unitPriceController;
+  final FocusNode descriptionFocusNode;
   bool isDefault;
 
   QuoteItemOption({String? description, double? unitPrice, this.isDefault = false})
       : descriptionController = TextEditingController(text: description ?? ''),
+        descriptionFocusNode = FocusNode(),
         unitPriceController = TextEditingController(
           text: unitPrice != null && unitPrice > 0
             ? 'R\$ ${unitPrice.toStringAsFixed(2).replaceAll('.', ',')}'
