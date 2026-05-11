@@ -372,10 +372,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                         _buildInfoRow('Marca', _vehicleDisplayValue(booking['vehicle_brand']), Icons.directions_car),
                         _buildInfoRow('Modelo', _vehicleDisplayValue(booking['vehicle_model']), Icons.directions_car),
                         _buildInfoRow('Placa', _vehicleDisplayValue(booking['vehicle_plate']), Icons.confirmation_number),
+                        if (booking['vehicle_mileage_km'] != null)
+                          _buildInfoRow('Km', '${_formatMileage(booking['vehicle_mileage_km'])} km', Icons.speed),
                       ],
                       isDarkMode,
                     ),
                     
+                    // Dados para NF do cliente
+                    _buildBillingDataSection(booking, isDarkMode),
+
                     // Informações do agendamento
                     _buildInfoCard(
                       'Informações do Agendamento',
@@ -420,6 +425,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       },
                     ),
                     
+                    // Resposta do cliente ao orçamento interativo
+                    _buildQuoteResponseSection(booking, isDarkMode),
+
                     // PASSO 15: Card de informações de pagamento (se pago)
                     if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
                       _buildPaymentInfoCard(booking, isDarkMode),
@@ -472,9 +480,343 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     return s.isEmpty ? 'Não informado' : s;
   }
 
+  String _formatMileage(dynamic value) {
+    if (value == null) return '0';
+    final n = int.tryParse(value.toString()) ?? 0;
+    return n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+  }
+
+  Widget _buildBillingDataSection(Map<String, dynamic> booking, bool isDarkMode) {
+    final billing = booking['customer_billing'] as Map<String, dynamic>?;
+    if (billing == null || billing.isEmpty) return const SizedBox.shrink();
+
+    final cpf = billing['cpf']?.toString() ?? '';
+    final phone = billing['phone']?.toString() ?? '';
+    final cep = billing['cep']?.toString() ?? '';
+    final number = billing['address_number']?.toString() ?? '';
+    final email = billing['email']?.toString() ?? '';
+
+    if (cpf.isEmpty && phone.isEmpty && cep.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text('Cliente ainda não completou dados fiscais', style: TextStyle(color: Colors.orange, fontSize: 13))),
+          ],
+        ),
+      );
+    }
+
+    String formatCpf(String cpf) {
+      final d = cpf.replaceAll(RegExp(r'\D'), '');
+      if (d.length == 11) return '${d.substring(0,3)}.${d.substring(3,6)}.${d.substring(6,9)}-${d.substring(9)}';
+      return cpf;
+    }
+    String formatPhone(String phone) {
+      final d = phone.replaceAll(RegExp(r'\D'), '');
+      if (d.length == 11) return '(${d.substring(0,2)}) ${d.substring(2,7)}-${d.substring(7)}';
+      if (d.length == 10) return '(${d.substring(0,2)}) ${d.substring(2,6)}-${d.substring(6)}';
+      return phone;
+    }
+    String formatCep(String cep) {
+      final d = cep.replaceAll(RegExp(r'\D'), '');
+      if (d.length == 8) return '${d.substring(0,5)}-${d.substring(5)}';
+      return cep;
+    }
+
+    return _buildInfoCard(
+      'Dados para NF',
+      [
+        if (cpf.isNotEmpty) _buildInfoRow('CPF', formatCpf(cpf), Icons.badge),
+        if (phone.isNotEmpty) _buildInfoRow('Celular', formatPhone(phone), Icons.phone),
+        if (cep.isNotEmpty) _buildInfoRow('CEP', formatCep(cep), Icons.location_on),
+        if (number.isNotEmpty) _buildInfoRow('Número', number, Icons.home),
+        if (email.isNotEmpty) _buildInfoRow('E-mail', email, Icons.email),
+      ],
+      isDarkMode,
+    );
+  }
+
+  Widget _buildQuoteResponseSection(Map<String, dynamic> booking, bool isDarkMode) {
+    final quoteResponse = booking['quote_response'] as Map<String, dynamic>?;
+    if (quoteResponse == null) return const SizedBox.shrink();
+
+    final rawItems = quoteResponse['items'] as List<dynamic>? ?? [];
+    final totalApproved = (num.tryParse(quoteResponse['total_approved']?.toString() ?? '') ?? 0) / 100.0;
+    final quoteItems = booking['quote_items'] as List<dynamic>? ?? [];
+    // Filter out orphaned items whose quote_item_id no longer exists in current quote_items
+    final items = rawItems.where((ri) {
+      final qItemId = ri['quote_item_id']?.toString() ?? '';
+      return quoteItems.any((q) => q['id']?.toString() == qItemId);
+    }).toList();
+    final hasValidItems = items.isNotEmpty;
+    final diagnosticCents = num.tryParse(booking['diagnostic_value']?.toString() ?? '') ?? 0;
+    final diagnosticValue = diagnosticCents / 100.0;
+    final originalTotal = quoteItems.fold<double>(0.0, (sum, item) {
+      final qty = int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
+      final unitCents = num.tryParse(item['unit_price']?.toString() ?? '') ?? 0;
+      return sum + (unitCents * qty) / 100.0;
+    }) + diagnosticValue;
+
+    final selectedCount = items.where((ri) => ri['selected'] == true).length;
+    final totalCount = items.length;
+    final allSelected = hasValidItems ? selectedCount == totalCount : true;
+
+    const priorityLabels = {5: 'Essencial', 4: 'Muito importante', 3: 'Importante', 2: 'Recomendado', 1: 'Opcional'};
+    const priorityColors = {5: Color(0xFFFF3B30), 4: Color(0xFFFF9500), 3: Color(0xFFFFCC00), 2: Color(0xFF007AFF), 1: Color(0xFF8E8E93)};
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: allSelected ? const Color(0xFF00C977).withOpacity(0.1) : const Color(0xFFFF9500).withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  allSelected ? Icons.check_circle_rounded : Icons.tune_rounded,
+                  color: allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500),
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Resposta do Cliente',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        allSelected
+                            ? 'Orçamento aprovado integralmente'
+                            : '$selectedCount de $totalCount itens aprovados',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Items list
+          if (hasValidItems) Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(
+              children: items.map<Widget>((ri) {
+                final selected = ri['selected'] == true;
+                final qItemId = ri['quote_item_id']?.toString() ?? '';
+                final qItem = quoteItems.firstWhere(
+                  (q) => q['id']?.toString() == qItemId,
+                );
+                final desc = qItem['description']?.toString() ?? 'Item';
+                final priority = int.tryParse(qItem['priority']?.toString() ?? '') ?? 3;
+                final pLabel = priorityLabels[priority] ?? 'Importante';
+                final pColor = priorityColors[priority] ?? const Color(0xFFFFCC00);
+                final qty = int.tryParse(qItem['quantity']?.toString() ?? '') ?? 1;
+                final unitCents = num.tryParse(qItem['unit_price']?.toString() ?? '') ?? 0;
+                final itemPrice = (unitCents * qty) / 100.0;
+
+                // Check if an alternative option was chosen
+                final selectedOptId = ri['selected_option_id']?.toString();
+                String? chosenOptionDesc;
+                double? chosenOptionPrice;
+                if (selectedOptId != null && selectedOptId.isNotEmpty) {
+                  final options = qItem['options'] as List<dynamic>? ?? [];
+                  final chosenOpt = options.firstWhere(
+                    (o) => o['id']?.toString() == selectedOptId,
+                    orElse: () => null,
+                  );
+                  if (chosenOpt != null) {
+                    chosenOptionDesc = chosenOpt['description']?.toString();
+                    final optCents = num.tryParse(chosenOpt['unit_price']?.toString() ?? '') ?? 0;
+                    chosenOptionPrice = (optCents * qty) / 100.0;
+                  }
+                }
+
+                final displayPrice = chosenOptionPrice ?? itemPrice;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? (isDarkMode ? const Color(0xFF1A2E1A) : const Color(0xFFF0FFF0))
+                        : (isDarkMode ? const Color(0xFF2E1A1A) : const Color(0xFFFFF0F0)),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF00C977).withOpacity(0.3)
+                          : Colors.red.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            selected ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                            color: selected ? const Color(0xFF00C977) : Colors.red[400],
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              desc,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                decoration: selected ? null : TextDecoration.lineThrough,
+                                color: selected
+                                    ? (isDarkMode ? Colors.white : Colors.black87)
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'R\$ ${displayPrice.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              decoration: selected ? null : TextDecoration.lineThrough,
+                              color: selected
+                                  ? (isDarkMode ? Colors.white : Colors.black87)
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: pColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              pLabel,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pColor),
+                            ),
+                          ),
+                          if (qty > 1) ...[
+                            const SizedBox(width: 8),
+                            Text('Qtd: $qty', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          ],
+                          if (chosenOptionDesc != null) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Opção: $chosenOptionDesc',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          // Diagnostic
+          if (hasValidItems && diagnosticValue > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF1A1A2E) : const Color(0xFFF0F0FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF007AFF).withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded, color: const Color(0xFF007AFF), size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(child: Text('Diagnóstico', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
+                    Text('R\$ ${diagnosticValue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          // Total
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C977).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF00C977).withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                if (originalTotal != totalApproved)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Orçamento original: R\$ ${originalTotal.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[500], decoration: TextDecoration.lineThrough),
+                    ),
+                  ),
+                Text(
+                  'Total aprovado: R\$ ${totalApproved.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF00C977)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoRow(String label, String value, IconData icon) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -2138,16 +2480,54 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         hasSentQuote ? Icons.edit_note_rounded : Icons.request_quote_rounded,
         Colors.orange,
         () async {
-          final existingItems = booking['quote_items'] as List<dynamic>?;
+          final allItems = booking['quote_items'] as List<dynamic>?;
           final existingDiagnostic = int.tryParse(booking['diagnostic_value']?.toString() ?? '');
+          final quoteResponse = booking['quote_response'] as Map<String, dynamic>?;
+          final responseItems = (quoteResponse?['items'] as List<dynamic>?) ?? [];
+
+          // Build a map of customer selections: itemId -> {selected, selected_option_id}
+          final selectionsMap = <String, Map<String, dynamic>>{};
+          for (final ri in responseItems) {
+            final id = ri['quote_item_id']?.toString() ?? '';
+            if (id.isNotEmpty) selectionsMap[id] = ri;
+          }
+
+          final existingItems = allItems?.where((item) {
+            if (selectionsMap.isEmpty) return true;
+            final sel = selectionsMap[item['id']?.toString()];
+            return sel == null || sel['selected'] == true;
+          }).map((item) {
+            final sel = selectionsMap[item['id']?.toString()];
+            final chosenOptId = sel?['selected_option_id']?.toString();
+            var unitPrice = item['unit_price'] ?? 0;
+            var description = item['description'] ?? '';
+            final options = (item['options'] as List<dynamic>?) ?? [];
+
+            // If customer chose an alternative, use its price
+            if (chosenOptId != null && chosenOptId.isNotEmpty && options.isNotEmpty) {
+              final chosenOpt = options.firstWhere(
+                (o) => o['id']?.toString() == chosenOptId,
+                orElse: () => null,
+              );
+              if (chosenOpt != null) {
+                unitPrice = chosenOpt['unit_price'] ?? unitPrice;
+                description = '${item['description']} (${chosenOpt['description']})';
+              }
+            }
+
+            return {
+              'description': description,
+              'quantity': item['quantity'] ?? 1,
+              'unit_price': unitPrice,
+              'priority': item['priority'] ?? 3,
+              'options': options,
+            };
+          }).toList();
+
           final result = await Navigator.push(context, MaterialPageRoute(
             builder: (context) => BuildQuoteScreen(
               bookingId: booking['id'] ?? '',
-              existingItems: existingItems?.map((item) => {
-                'description': item['description'] ?? '',
-                'quantity': item['quantity'] ?? 1,
-                'unit_price': item['unit_price'] ?? 0,
-              }).toList(),
+              existingItems: existingItems,
               existingDiagnosticValue: existingDiagnostic,
               isEditMode: hasSentQuote,
             ),
@@ -3124,22 +3504,56 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       width: double.infinity,
                       child: OutlinedButton.icon(
                 onPressed: () async {
-                  // Buscar items existentes do orçamento
-                  final existingItems = booking['quote_items'] as List<dynamic>?;
+                  final allItems = booking['quote_items'] as List<dynamic>?;
                   final existingDiagnostic = int.tryParse(booking['diagnostic_value']?.toString() ?? '');
-                  
+                  final qResponse = booking['quote_response'] as Map<String, dynamic>?;
+                  final rItems = (qResponse?['items'] as List<dynamic>?) ?? [];
+
+                  final selMap = <String, Map<String, dynamic>>{};
+                  for (final ri in rItems) {
+                    final id = ri['quote_item_id']?.toString() ?? '';
+                    if (id.isNotEmpty) selMap[id] = ri;
+                  }
+
+                  final existingItems = allItems?.where((item) {
+                    if (selMap.isEmpty) return true;
+                    final sel = selMap[item['id']?.toString()];
+                    return sel == null || sel['selected'] == true;
+                  }).map((item) {
+                    final sel = selMap[item['id']?.toString()];
+                    final chosenOptId = sel?['selected_option_id']?.toString();
+                    var unitPrice = item['unit_price'] ?? 0;
+                    var description = item['description'] ?? '';
+                    final options = (item['options'] as List<dynamic>?) ?? [];
+
+                    if (chosenOptId != null && chosenOptId.isNotEmpty && options.isNotEmpty) {
+                      final chosenOpt = options.firstWhere(
+                        (o) => o['id']?.toString() == chosenOptId,
+                        orElse: () => null,
+                      );
+                      if (chosenOpt != null) {
+                        unitPrice = chosenOpt['unit_price'] ?? unitPrice;
+                        description = '${item['description']} (${chosenOpt['description']})';
+                      }
+                    }
+
+                    return {
+                      'description': description,
+                      'quantity': item['quantity'] ?? 1,
+                      'unit_price': unitPrice,
+                      'priority': item['priority'] ?? 3,
+                      'options': options,
+                    };
+                  }).toList();
+
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => BuildQuoteScreen(
                         bookingId: booking['id'] ?? '',
-                        existingItems: existingItems?.map((item) => {
-                          'description': item['description'] ?? '',
-                          'quantity': item['quantity'] ?? 1,
-                          'unit_price': item['unit_price'] ?? 0,
-                        }).toList(),
+                        existingItems: existingItems,
                         existingDiagnosticValue: existingDiagnostic,
-                        isEditMode: true, // Modo de edição
+                        isEditMode: true,
                       ),
                     ),
                   );
