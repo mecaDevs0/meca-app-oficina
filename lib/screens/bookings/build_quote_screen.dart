@@ -88,8 +88,16 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _descriptionFocusNodes.length != _items.length) return;
-      _descriptionFocusNodes.last.requestFocus();
+      if (!mounted) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      ).then((_) {
+        if (mounted && _descriptionFocusNodes.length == _items.length) {
+          _descriptionFocusNodes.last.requestFocus();
+        }
+      });
     });
   }
 
@@ -737,7 +745,18 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                   });
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     if (!mounted) return;
-                                    newOption.descriptionFocusNode.requestFocus();
+                                    final ctx = newOption.descriptionFocusNode.context;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeOutCubic,
+                                      ).then((_) {
+                                        if (mounted) newOption.descriptionFocusNode.requestFocus();
+                                      });
+                                    } else {
+                                      newOption.descriptionFocusNode.requestFocus();
+                                    }
                                   });
                                 },
                                 icon: const Icon(Icons.add_circle_outline, size: 18, color: Color(0xFF00C977)),
