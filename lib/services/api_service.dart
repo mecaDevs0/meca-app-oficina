@@ -949,6 +949,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> releaseVehicle(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.put('/bookings/$bookingId/release-vehicle', data: {});
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ============================================
   // SERVICES - DADOS REAIS DA API EC2 AWS
   // ============================================

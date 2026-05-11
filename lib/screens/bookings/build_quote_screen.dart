@@ -42,6 +42,12 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
         description: item['description']?.toString() ?? '',
         quantity: int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
         unitPrice: (num.tryParse(item['unit_price']?.toString() ?? '') ?? 0) / 100.0,
+        priority: int.tryParse(item['priority']?.toString() ?? '') ?? 3,
+        options: (item['options'] as List<dynamic>?)?.map((opt) => QuoteItemOption(
+          description: opt['description']?.toString(),
+          unitPrice: (num.tryParse(opt['unit_price']?.toString() ?? '') ?? 0) / 100.0,
+          isDefault: opt['is_default'] == true,
+        )).toList(),
       )));
     }
     _descriptionFocusNodes.addAll(List.generate(_items.length, (_) => FocusNode()));
@@ -62,13 +68,21 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       item.descriptionController.dispose();
       item.quantityController.dispose();
       item.unitPriceController.dispose();
+      for (var opt in item.options) {
+        opt.descriptionController.dispose();
+        opt.unitPriceController.dispose();
+      }
     }
     super.dispose();
   }
 
+  final List<GlobalKey> _itemKeys = [];
+
   void _addItem() {
     final newNode = FocusNode();
+    final newKey = GlobalKey();
     _descriptionFocusNodes.add(newNode);
+    _itemKeys.add(newKey);
 
     FocusScope.of(context).unfocus();
 
@@ -77,17 +91,19 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutCubic,
-      );
-
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && _descriptionFocusNodes.length == _items.length) {
-          _descriptionFocusNodes.last.requestFocus();
-        }
-      });
+      final ctx = _itemKeys.last.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        ).then((_) {
+          if (mounted && _descriptionFocusNodes.length == _items.length) {
+            _descriptionFocusNodes.last.requestFocus();
+          }
+        });
+      }
     });
   }
 
@@ -96,7 +112,12 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       _items[index].descriptionController.dispose();
       _items[index].quantityController.dispose();
       _items[index].unitPriceController.dispose();
+      for (var opt in _items[index].options) {
+        opt.descriptionController.dispose();
+        opt.unitPriceController.dispose();
+      }
       _descriptionFocusNodes[index].dispose();
+      if (index < _itemKeys.length) _itemKeys.removeAt(index);
       _items.removeAt(index);
       _descriptionFocusNodes.removeAt(index);
     });
@@ -145,13 +166,24 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     try {
       final itemsPayload = _items.map((item) {
         final quantity = int.tryParse(item.quantityController.text) ?? 1;
-        // IMPORTANTE: Usar CurrencyTextInputFormatter para parsear o valor formatado
         final unitPriceCents = CurrencyTextInputFormatter.parseToCents(item.unitPriceController.text) ?? 0;
-        return {
+        final Map<String, dynamic> payload = {
           'description': item.descriptionController.text.trim(),
           'quantity': quantity,
           'unitPrice': unitPriceCents,
+          'priority': item.priority,
         };
+        if (item.options.isNotEmpty) {
+          payload['options'] = item.options.map((opt) {
+            final optPriceCents = CurrencyTextInputFormatter.parseToCents(opt.unitPriceController.text) ?? 0;
+            return {
+              'description': opt.descriptionController.text.trim(),
+              'unit_price': optPriceCents,
+              'is_default': opt.isDefault,
+            };
+          }).toList();
+        }
+        return payload;
       }).toList();
 
       // IMPORTANTE: Usar CurrencyTextInputFormatter para parsear o valor formatado
@@ -423,9 +455,10 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                   )
                 else
                   ...List.generate(_items.length, (index) {
+                    while (_itemKeys.length <= index) _itemKeys.add(GlobalKey());
                     final item = _items[index];
                     return TweenAnimationBuilder<double>(
-                      key: ValueKey('quote_item_$index'),
+                      key: _itemKeys[index],
                       tween: Tween(begin: 0.0, end: 1.0),
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
@@ -502,6 +535,56 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                 ),
                               ),
                               onChanged: (_) => setState(() {}),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: item.priority,
+                                    decoration: InputDecoration(
+                                      labelText: 'Prioridade',
+                                      prefixIcon: const Icon(Icons.flag, color: Color(0xFF00C977)),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(color: Color(0xFF00C977), width: 2),
+                                      ),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(value: 1, child: Text('1 - Opcional')),
+                                      DropdownMenuItem(value: 2, child: Text('2 - Recomendado')),
+                                      DropdownMenuItem(value: 3, child: Text('3 - Importante')),
+                                      DropdownMenuItem(value: 4, child: Text('4 - Muito importante')),
+                                      DropdownMenuItem(value: 5, child: Text('5 - Essencial')),
+                                    ],
+                                    onChanged: (v) {
+                                      setState(() {
+                                        item.priority = v ?? 3;
+                                        if (item.isRequired && item.options.isNotEmpty) {
+                                          for (final o in item.options) {
+                                            o.descriptionController.dispose();
+                                            o.unitPriceController.dispose();
+                                          }
+                                          item.options.clear();
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                                if (item.isRequired) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                    ),
+                                    child: const Text('Obrigatório', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 16),
                             Row(
@@ -587,6 +670,86 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                 );
                               },
                             ),
+                            const SizedBox(height: 12),
+                            if (!item.isRequired && item.options.isNotEmpty) ...[
+                              const Divider(),
+                              const SizedBox(height: 8),
+                              Text('Opções alternativas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+                              const SizedBox(height: 8),
+                              ...List.generate(item.options.length, (optIdx) {
+                                final opt = item.options[optIdx];
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? const Color(0xFF222222) : Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: opt.isDefault ? const Color(0xFF00C977) : Colors.grey.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Radio<int>(
+                                            value: optIdx,
+                                            groupValue: item.options.indexWhere((o) => o.isDefault),
+                                            activeColor: const Color(0xFF00C977),
+                                            onChanged: (v) {
+                                              setState(() {
+                                                for (var o in item.options) o.isDefault = false;
+                                                opt.isDefault = true;
+                                              });
+                                            },
+                                          ),
+                                          const Text('Padrão', style: TextStyle(fontSize: 12)),
+                                          const Spacer(),
+                                          IconButton(
+                                            icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                                            onPressed: () => setState(() {
+                                              opt.descriptionController.dispose();
+                                              opt.unitPriceController.dispose();
+                                              item.options.removeAt(optIdx);
+                                            }),
+                                          ),
+                                        ],
+                                      ),
+                                      TextField(
+                                        controller: opt.descriptionController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Descrição da opção',
+                                          isDense: true,
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onChanged: (_) => setState(() {}),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextField(
+                                        controller: opt.unitPriceController,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [CurrencyTextInputFormatter()],
+                                        decoration: InputDecoration(
+                                          labelText: 'Valor',
+                                          isDense: true,
+                                          hintText: 'R\$ 0,00',
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onChanged: (_) => setState(() {}),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                            if (!item.isRequired)
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    item.options.add(QuoteItemOption(isDefault: item.options.isEmpty));
+                                  });
+                                },
+                                icon: const Icon(Icons.add_circle_outline, size: 18, color: Color(0xFF00C977)),
+                                label: const Text('Adicionar opção', style: TextStyle(color: Color(0xFF00C977), fontSize: 13)),
+                              ),
                           ],
                         ),
                       ),
@@ -915,21 +1078,41 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
   }
 }
 
+class QuoteItemOption {
+  final TextEditingController descriptionController;
+  final TextEditingController unitPriceController;
+  bool isDefault;
+
+  QuoteItemOption({String? description, double? unitPrice, this.isDefault = false})
+      : descriptionController = TextEditingController(text: description ?? ''),
+        unitPriceController = TextEditingController(
+          text: unitPrice != null && unitPrice > 0
+            ? 'R\$ ${unitPrice.toStringAsFixed(2).replaceAll('.', ',')}'
+            : 'R\$ 0,00'
+        );
+}
+
 class QuoteItem {
   final TextEditingController descriptionController;
   final TextEditingController quantityController;
   final TextEditingController unitPriceController;
+  int priority;
+  List<QuoteItemOption> options;
+
+  bool get isRequired => priority == 5;
 
   QuoteItem({
     String? description,
     int? quantity,
     double? unitPrice,
+    this.priority = 3,
+    List<QuoteItemOption>? options,
   })  : descriptionController = TextEditingController(text: description ?? ''),
         quantityController = TextEditingController(text: (quantity ?? 1).toString()),
-        // IMPORTANTE: Formatar valor inicial como moeda (R$ X,XX)
         unitPriceController = TextEditingController(
-          text: unitPrice != null && unitPrice > 0 
+          text: unitPrice != null && unitPrice > 0
             ? 'R\$ ${unitPrice.toStringAsFixed(2).replaceAll('.', ',')}'
             : 'R\$ 0,00'
-        );
+        ),
+        options = options ?? [];
 }

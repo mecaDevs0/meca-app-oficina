@@ -2122,8 +2122,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       phrase = 'Serviço em andamento. Use "Editar orçamento" se precisar alterar o valor.';
     } else if (statusFinal == 'finalizado_aguardando_pagamento' || statusFinal == 'finalizado') {
       phrase = 'Serviço finalizado. Aguardando pagamento do cliente.';
-    } else if (statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') {
-      phrase = 'Pagamento confirmado. Serviço concluído.';
+    } else if (statusFinal == 'pago' || statusFinal == 'paid') {
+      phrase = 'Pagamento confirmado! Libere o veículo para que o cliente seja notificado.';
+    } else if (statusFinal == 'completed') {
+      phrase = 'Veículo liberado. Serviço concluído.';
     } else if (statusFinal == 'aguardando_aprovacao_finalizacao' || statusFinal == 'awaiting_finalization_approval') {
       phrase = 'Aguarde o cliente aprovar a finalização.';
     }
@@ -2553,6 +2555,48 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       }
 
       return [evidenceButton, quoteButton];
+    }
+
+    if (statusFinal == 'pago' || statusFinal == 'paid') {
+      return [
+        _actionButton('Liberar Veículo', Icons.directions_car_filled, const Color(0xFF00C977), () async {
+          final bookingId = booking['id']?.toString() ?? '';
+          if (bookingId.isEmpty) return;
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text('Liberar Veículo', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w700)),
+              content: Text(
+                'Tem certeza que deseja liberar o veículo? O cliente será notificado que pode buscá-lo.',
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.white54 : Colors.black45)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C977)),
+                  child: const Text('Liberar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          );
+          if (confirm != true) return;
+          final result = await _apiService.releaseVehicle(bookingId);
+          if (!mounted) return;
+          if (result['success'] == true) {
+            await _loadBookingDetails(forceRefresh: true);
+            _showToast('Veículo liberado! O cliente foi notificado.');
+          } else {
+            _showToast(result['error']?.toString() ?? 'Erro ao liberar veículo.', isError: true);
+          }
+        }),
+      ];
     }
 
     return [];
