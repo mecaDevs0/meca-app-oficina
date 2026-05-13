@@ -2124,24 +2124,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       },
     );
 
-    // Dispose dos controllers apenas após o modal fechar completamente
-    try {
-      if (result != null && result['date'] != null) {
-        try {
-          final apiResult = await _apiService.suggestNewTime(
-            booking['id'].toString(),
-            result['date'] as String,
-            (result['reason'] as String?) ?? '',
-          );
+    if (result != null && result['date'] != null) {
+      try {
+        final apiResult = await _apiService.suggestNewTime(
+          booking['id'].toString(),
+          result['date'] as String,
+          (result['reason'] as String?) ?? '',
+        );
 
-          if (!mounted) return;
+        if (!mounted) return;
 
-          if (apiResult['success']) {
-            // Mostrar modal informativo
-            await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
+        if (apiResult['success']) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -2258,21 +2255,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               ),
             );
           }
-        } catch (e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: $e'),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
-        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
       }
-    } finally {
-      // Dispose dos controllers apenas após processar o resultado
-      reasonController.dispose();
-      dateController.dispose();
-      timeController.dispose();
     }
   }
 }

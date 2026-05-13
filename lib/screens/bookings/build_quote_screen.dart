@@ -43,6 +43,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
         quantity: int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
         unitPrice: (num.tryParse(item['unit_price']?.toString() ?? '') ?? 0) / 100.0,
         priority: int.tryParse(item['priority']?.toString() ?? '') ?? 3,
+        originalItemId: item['id']?.toString(),
         options: (item['options'] as List<dynamic>?)?.map((opt) => QuoteItemOption(
           description: opt['description']?.toString(),
           unitPrice: (num.tryParse(opt['unit_price']?.toString() ?? '') ?? 0) / 100.0,
@@ -88,16 +89,15 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      ).then((_) {
-        if (mounted && _descriptionFocusNodes.length == _items.length) {
-          _descriptionFocusNodes.last.requestFocus();
-        }
-      });
+      if (!mounted || _descriptionFocusNodes.length != _items.length) return;
+      _descriptionFocusNodes.last.requestFocus();
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -167,6 +167,9 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
           'unitPrice': unitPriceCents,
           'priority': item.priority,
         };
+        if (item.originalItemId != null) {
+          payload['originalItemId'] = item.originalItemId;
+        }
         if (item.options.isNotEmpty) {
           payload['options'] = item.options.map((opt) {
             final optPriceCents = CurrencyTextInputFormatter.parseToCents(opt.unitPriceController.text) ?? 0;
@@ -451,7 +454,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                   ...List.generate(_items.length, (index) {
                     final item = _items[index];
                     return TweenAnimationBuilder<double>(
-                      key: ValueKey('quote_item_$index'),
+                      key: ObjectKey(item),
                       tween: Tween(begin: 0.0, end: 1.0),
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
@@ -745,18 +748,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                                   });
                                   WidgetsBinding.instance.addPostFrameCallback((_) {
                                     if (!mounted) return;
-                                    final ctx = newOption.descriptionFocusNode.context;
-                                    if (ctx != null) {
-                                      Scrollable.ensureVisible(
-                                        ctx,
-                                        duration: const Duration(milliseconds: 300),
-                                        curve: Curves.easeOutCubic,
-                                      ).then((_) {
-                                        if (mounted) newOption.descriptionFocusNode.requestFocus();
-                                      });
-                                    } else {
-                                      newOption.descriptionFocusNode.requestFocus();
-                                    }
+                                    newOption.descriptionFocusNode.requestFocus();
                                   });
                                 },
                                 icon: const Icon(Icons.add_circle_outline, size: 18, color: Color(0xFF00C977)),
@@ -1112,6 +1104,7 @@ class QuoteItem {
   final TextEditingController unitPriceController;
   int priority;
   List<QuoteItemOption> options;
+  final String? originalItemId;
 
   bool get isRequired => priority == 5;
 
@@ -1121,6 +1114,7 @@ class QuoteItem {
     double? unitPrice,
     this.priority = 3,
     List<QuoteItemOption>? options,
+    this.originalItemId,
   })  : descriptionController = TextEditingController(text: description ?? ''),
         quantityController = TextEditingController(text: (quantity ?? 1).toString()),
         unitPriceController = TextEditingController(

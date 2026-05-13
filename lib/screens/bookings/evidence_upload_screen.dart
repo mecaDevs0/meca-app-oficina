@@ -23,7 +23,8 @@ class EvidenceUploadScreen extends StatefulWidget {
 class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
   final EvidenceService _evidenceService = EvidenceService();
   final ImagePicker _picker = ImagePicker();
-  
+  final TextEditingController _commentController = TextEditingController();
+
   bool _isLoading = true;
   bool _isUploading = false;
   String? _errorMessage;
@@ -34,6 +35,12 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
   void initState() {
     super.initState();
     _loadEvidences();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEvidences() async {
@@ -105,6 +112,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
     final result = await _evidenceService.uploadBookingEvidence(
       widget.bookingId,
       _selectedFile!,
+      comment: _commentController.text,
     );
 
     if (!mounted) return;
@@ -113,6 +121,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
       BeautifulErrorSnackbar.showSuccess(context, 'Evidência enviada com sucesso!');
       setState(() {
         _selectedFile = null;
+        _commentController.clear();
       });
       await _loadEvidences();
     } else {
@@ -469,6 +478,18 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _commentController,
+            maxLines: 2,
+            maxLength: 500,
+            decoration: InputDecoration(
+              labelText: 'Comentário (opcional)',
+              hintText: 'Descreva o que esta imagem mostra...',
+              prefixIcon: const Icon(Icons.comment, color: Color(0xFF00C977)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -511,7 +532,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
 
   String? _resolveEvidenceDescription(dynamic item) {
     if (item is Map) {
-      return item['description']?.toString();
+      return item['comment']?.toString() ?? item['description']?.toString();
     }
     return null;
   }

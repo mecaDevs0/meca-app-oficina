@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -232,10 +233,33 @@ class _FinancialScreenState extends State<FinancialScreen> {
                         ),
                       ),
                     ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: _buildAsaasSeal(themeService.isDarkMode),
+                      ),
+                    ),
                     const SliverToBoxAdapter(child: SizedBox(height: 32)),
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildAsaasSeal(bool isDark) {
+    final sealUrl = isDark
+        ? 'https://baas.asaas.com/selos/Servicos_financeiros_Asaas-Reduzida-Negativo-Branco.svg?id=2a6ee772-f63f-424d-9d0e-1a3811b0f64c'
+        : 'https://baas.asaas.com/selos/Servicos_financeiros_Asaas-Reduzida-Positivo.svg?id=2a6ee772-f63f-424d-9d0e-1a3811b0f64c';
+    return Center(
+      child: Opacity(
+        opacity: 0.5,
+        child: SvgPicture.network(
+          sealUrl,
+          height: 32,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => const SizedBox.shrink(),
+        ),
       ),
     );
   }

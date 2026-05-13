@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -23,6 +24,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _bookingDetails;
   Map<String, dynamic>? _paymentData; // PASSO 15: Dados do pagamento
+  Map<String, dynamic>? _invoiceData;
+  bool _loadingInvoice = false;
+  bool _generatingInvoice = false;
+  bool _needsFiscalConfig = false;
   bool _loading = true;
 
   void _showToast(String message, {String? title, bool isError = false, bool isWarning = false}) {
@@ -126,6 +131,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           setState(() {
             _bookingDetails = data;
           });
+          _loadInvoiceData();
         } else {
           setState(() {
             _bookingDetails = widget.booking;
@@ -143,6 +149,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadInvoiceData() async {
+    final bookingId = (_bookingDetails ?? widget.booking)['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+    final booking = _bookingDetails ?? widget.booking;
+    final statusFinal = (booking['status'] ?? '').toString().toLowerCase();
+    if (statusFinal != 'pago' && statusFinal != 'paid' && statusFinal != 'completed') return;
+    setState(() => _loadingInvoice = true);
+    try {
+      final result = await _apiService.getInvoice(bookingId);
+      if (result['success'] == true && mounted) {
+        setState(() => _invoiceData = result['data'] as Map<String, dynamic>?);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingInvoice = false);
   }
 
   /// Verifica se é o dia do agendamento (considera apenas a data, não a hora)
@@ -348,6 +370,83 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     // Card informativo sobre situação atual (TOPO)
                     _buildStatusInfoCard(booking, isDarkMode, normalizedStatus),
 
+                    // ── Conteúdo acionável (prioridade alta) ──
+
+                    // Observações do cliente (contexto rápido para a oficina)
+                    if (booking['customer_notes'] != null && booking['customer_notes'].toString().isNotEmpty)
+                      _buildInfoCard(
+                        'Observações do Cliente',
+                        [
+                          _buildInfoRow('', booking['customer_notes'].toString(), Icons.note),
+                        ],
+                        isDarkMode,
+                      ),
+
+                    // Imagens enviadas pelo cliente
+                    Builder(
+                      builder: (context) {
+                        final hasUploads = _hasCustomerUploads(booking);
+                        if (hasUploads) {
+                          return _buildCustomerUploadsCard(booking, isDarkMode);
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+
+                    // Resposta do cliente ao orçamento interativo
+                    _buildQuoteResponseSection(booking, isDarkMode),
+
+                    // Informações de pagamento (se pago)
+                    if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
+                      _buildPaymentInfoCard(booking, isDarkMode),
+
+                    // NF (Nota Fiscal) status and actions
+                    if (statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed')
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildInvoiceCard(booking, isDarkMode),
+                      ),
+
+                    // Dados para NF do cliente
+                    _buildBillingDataSection(booking, isDarkMode),
+
+                    // ── Informações de referência (prioridade baixa) ──
+
+                    // Informações do agendamento
+                    _buildInfoCard(
+                      'Informações do Agendamento',
+                      [
+                        _buildInfoRow('Data', _formatDate(booking['appointment_date']), Icons.calendar_today),
+                        if (booking['schedule_type'] == 'time_window' &&
+                            booking['time_window_start'] != null &&
+                            booking['time_window_end'] != null) ...[
+                          _buildInfoRow(
+                            'Janela de Horário',
+                            '${_formatTime(booking['time_window_start'])} até ${_formatTime(booking['time_window_end'])}',
+                            Icons.schedule
+                          ),
+                        ] else ...[
+                          _buildInfoRow('Hora', _formatTime(booking['appointment_date']), Icons.access_time),
+                        ],
+                        if (booking['estimated_price'] != null)
+                          _buildInfoRow('Valor Estimado', 'R\$ ${(booking['estimated_price'] / 100).toStringAsFixed(2)}', Icons.attach_money),
+                      ],
+                      isDarkMode,
+                    ),
+
+                    // Informações do veículo
+                    _buildInfoCard(
+                      'Informações do Veículo',
+                      [
+                        _buildInfoRow('Marca', _vehicleDisplayValue(booking['vehicle_brand']), Icons.directions_car),
+                        _buildInfoRow('Modelo', _vehicleDisplayValue(booking['vehicle_model']), Icons.directions_car),
+                        _buildInfoRow('Placa', _vehicleDisplayValue(booking['vehicle_plate']), Icons.confirmation_number),
+                        if (booking['vehicle_mileage_km'] != null)
+                          _buildInfoRow('Km', '${_formatMileage(booking['vehicle_mileage_km'])} km', Icons.speed),
+                      ],
+                      isDarkMode,
+                    ),
+
                     // Informações do cliente
                     Builder(builder: (_) {
                       final customerFullName = [booking['customer_name'], booking['customer_last_name']]
@@ -365,73 +464,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     );
                     }),
 
-                    // Informações do veículo (marca/modelo vindos da API: vehicle_brand, vehicle_model)
-                    _buildInfoCard(
-                      'Informações do Veículo',
-                      [
-                        _buildInfoRow('Marca', _vehicleDisplayValue(booking['vehicle_brand']), Icons.directions_car),
-                        _buildInfoRow('Modelo', _vehicleDisplayValue(booking['vehicle_model']), Icons.directions_car),
-                        _buildInfoRow('Placa', _vehicleDisplayValue(booking['vehicle_plate']), Icons.confirmation_number),
-                        if (booking['vehicle_mileage_km'] != null)
-                          _buildInfoRow('Km', '${_formatMileage(booking['vehicle_mileage_km'])} km', Icons.speed),
-                      ],
-                      isDarkMode,
-                    ),
-                    
-                    // Dados para NF do cliente
-                    _buildBillingDataSection(booking, isDarkMode),
-
-                    // Informações do agendamento
-                    _buildInfoCard(
-                      'Informações do Agendamento',
-                      [
-                        _buildInfoRow('Data', _formatDate(booking['appointment_date']), Icons.calendar_today),
-                        // Exibir horário fixo ou janela de horário
-                        if (booking['schedule_type'] == 'time_window' && 
-                            booking['time_window_start'] != null && 
-                            booking['time_window_end'] != null) ...[
-                          _buildInfoRow(
-                            'Janela de Horário', 
-                            '${_formatTime(booking['time_window_start'])} até ${_formatTime(booking['time_window_end'])}', 
-                            Icons.schedule
-                          ),
-                        ] else ...[
-                          _buildInfoRow('Hora', _formatTime(booking['appointment_date']), Icons.access_time),
-                        ],
-                        if (booking['estimated_price'] != null)
-                          _buildInfoRow('Valor Estimado', 'R\$ ${(booking['estimated_price'] / 100).toStringAsFixed(2)}', Icons.attach_money),
-                      ],
-                      isDarkMode,
-                    ),
-                    
-                    // Observações
-                    if (booking['customer_notes'] != null && booking['customer_notes'].toString().isNotEmpty)
-                      _buildInfoCard(
-                        'Observações do Cliente',
-                        [
-                          _buildInfoRow('', booking['customer_notes'].toString(), Icons.note),
-                        ],
-                        isDarkMode,
-                      ),
-                    
-                    // Imagens enviadas pelo cliente
-                    Builder(
-                      builder: (context) {
-                        final hasUploads = _hasCustomerUploads(booking);
-                        if (hasUploads) {
-                          return _buildCustomerUploadsCard(booking, isDarkMode);
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                    
-                    // Resposta do cliente ao orçamento interativo
-                    _buildQuoteResponseSection(booking, isDarkMode),
-
-                    // PASSO 15: Card de informações de pagamento (se pago)
-                    if ((statusFinal == 'pago' || statusFinal == 'paid' || statusFinal == 'completed') && _paymentData != null)
-                      _buildPaymentInfoCard(booking, isDarkMode),
-                    
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -486,6 +518,281 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     return n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
   }
 
+  Widget _buildInvoiceCard(Map<String, dynamic> booking, bool isDarkMode) {
+    final statusFinal = (booking['status'] ?? '').toString().toLowerCase();
+    if (statusFinal != 'pago' && statusFinal != 'paid' && statusFinal != 'completed') {
+      return const SizedBox.shrink();
+    }
+
+    final cardColor = isDarkMode ? const Color(0xFF1A1A1A) : Colors.white;
+    final borderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[200]!;
+    final subtextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+
+    final hasInvoice = _invoiceData != null && _invoiceData!['available'] == true;
+    final invoiceStatus = hasInvoice ? (_invoiceData!['status']?.toString() ?? 'PENDING') : null;
+    final invoiceUrl = hasInvoice ? _invoiceData!['url']?.toString() : null;
+
+    const statusLabels = {
+      'SCHEDULED': 'Agendada',
+      'SYNCHRONIZED': 'Sincronizada',
+      'AUTHORIZED': 'Autorizada',
+      'CANCELED': 'Cancelada',
+      'ERROR': 'Erro',
+      'PENDING': 'Pendente',
+    };
+
+    const statusColors = {
+      'AUTHORIZED': Color(0xFF00C977),
+      'SCHEDULED': Colors.amber,
+      'SYNCHRONIZED': Colors.blue,
+      'PENDING': Colors.amber,
+      'ERROR': Colors.red,
+      'CANCELED': Colors.red,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.receipt_long, color: Color(0xFF00C977), size: 22),
+              const SizedBox(width: 8),
+              Text('Nota Fiscal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: isDarkMode ? Colors.white : Colors.black87)),
+              const Spacer(),
+              if (hasInvoice && invoiceStatus != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (statusColors[invoiceStatus] ?? Colors.grey).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    statusLabels[invoiceStatus] ?? invoiceStatus!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: statusColors[invoiceStatus] ?? Colors.grey,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loadingInvoice)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(12),
+              child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00C977))),
+            ))
+          else if (hasInvoice && invoiceStatus == 'AUTHORIZED') ...[
+            Text(invoiceUrl != null ? 'NF emitida com sucesso.' : 'NF emitida. PDF ainda não disponível.', style: TextStyle(color: subtextColor, fontSize: 13)),
+            const SizedBox(height: 12),
+            if (invoiceUrl != null)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: invoiceUrl));
+                    _showToast('Link da NF copiado!');
+                  },
+                  icon: const Icon(Icons.picture_as_pdf, size: 18),
+                  label: const Text('Copiar link da NF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C977),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+          ] else if (hasInvoice && (invoiceStatus == 'SCHEDULED' || invoiceStatus == 'SYNCHRONIZED' || invoiceStatus == 'PENDING')) ...[
+            Text('NF em processamento. A emissão pode levar até 15 minutos.', style: TextStyle(color: subtextColor, fontSize: 13)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loadingInvoice ? null : () => _loadInvoiceData(),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Atualizar status'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.amber,
+                  side: const BorderSide(color: Colors.amber),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ] else if (hasInvoice && invoiceStatus == 'ERROR') ...[
+            Text('Erro ao emitir NF. Tente gerar novamente.', style: TextStyle(color: Colors.red[300], fontSize: 13)),
+            const SizedBox(height: 8),
+            _buildGenerateNfButton(),
+          ] else ...[
+            Text('NF ainda não foi gerada para este agendamento.', style: TextStyle(color: subtextColor, fontSize: 13)),
+            const SizedBox(height: 8),
+            _buildGenerateNfButton(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenerateNfButton() {
+    return Column(
+      children: [
+        if (_needsFiscalConfig) _buildFiscalConfigGuide(),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: (_generatingInvoice || _needsFiscalConfig) ? null : () async {
+              final bookingId = (_bookingDetails ?? widget.booking)['id']?.toString() ?? '';
+              if (bookingId.isEmpty) return;
+              setState(() {
+                _generatingInvoice = true;
+                _needsFiscalConfig = false;
+              });
+              final result = await _apiService.generateInvoice(bookingId);
+              if (!mounted) return;
+              setState(() => _generatingInvoice = false);
+              if (result['success'] == true) {
+                _showToast('NF gerada com sucesso! Processando emissão...');
+                _loadInvoiceData();
+              } else {
+                final errorMsg = result['error']?.toString() ?? '';
+                if (errorMsg.contains('fiscal') || errorMsg.contains('informações fiscais')) {
+                  setState(() => _needsFiscalConfig = true);
+                } else {
+                  _showToast(errorMsg.isNotEmpty ? errorMsg : 'Erro ao gerar NF', isError: true);
+                }
+              }
+            },
+            icon: _generatingInvoice
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.receipt_long, size: 18),
+            label: Text(_generatingInvoice ? 'Gerando...' : 'Gerar Nota Fiscal'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _needsFiscalConfig ? Colors.grey : const Color(0xFF00C977),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFiscalConfigGuide() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.settings_suggest, color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Configuração necessária',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Para emitir NF, configure seus dados fiscais no painel Asaas:',
+            style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700]),
+          ),
+          const SizedBox(height: 10),
+          _buildStepRow('1', 'Acesse o painel Asaas da sua oficina', isDark),
+          _buildStepRow('2', 'Vá em Notas Fiscais → Configurações', isDark),
+          _buildStepRow('3', 'Informe os dados do seu município', isDark),
+          _buildStepRow('4', 'Configure o código de serviço (ex: 14.01 — Manutenção de veículos)', isDark),
+          _buildStepRow('5', 'Defina as alíquotas de impostos (ISS, etc.)', isDark),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(const ClipboardData(text: 'https://www.asaas.com/login'));
+                    _showToast('Link do Asaas copiado!');
+                  },
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('Copiar link do Asaas'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.amber,
+                    side: const BorderSide(color: Colors.amber),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton(
+                  onPressed: () => setState(() => _needsFiscalConfig = false),
+                  icon: Icon(Icons.close, size: 18, color: isDark ? Colors.grey[500] : Colors.grey[600]),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepRow(String number, String text, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(right: 8, top: 1),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Center(
+              child: Text(number, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.amber)),
+            ),
+          ),
+          Expanded(
+            child: Text(text, style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.grey[700])),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBillingDataSection(Map<String, dynamic> booking, bool isDarkMode) {
     final billing = booking['customer_billing'] as Map<String, dynamic>?;
     if (billing == null || billing.isEmpty) return const SizedBox.shrink();
@@ -532,16 +839,54 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       return cep;
     }
 
-    return _buildInfoCard(
-      'Dados para NF',
-      [
-        if (cpf.isNotEmpty) _buildInfoRow('CPF', formatCpf(cpf), Icons.badge),
-        if (phone.isNotEmpty) _buildInfoRow('Celular', formatPhone(phone), Icons.phone),
-        if (cep.isNotEmpty) _buildInfoRow('CEP', formatCep(cep), Icons.location_on),
-        if (number.isNotEmpty) _buildInfoRow('Número', number, Icons.home),
-        if (email.isNotEmpty) _buildInfoRow('E-mail', email, Icons.email),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoCard(
+          'Dados para NF',
+          [
+            if (cpf.isNotEmpty) _buildInfoRow('CPF', formatCpf(cpf), Icons.badge),
+            if (phone.isNotEmpty) _buildInfoRow('Celular', formatPhone(phone), Icons.phone),
+            if (cep.isNotEmpty) _buildInfoRow('CEP', formatCep(cep), Icons.location_on),
+            if (number.isNotEmpty) _buildInfoRow('Número', number, Icons.home),
+            if (email.isNotEmpty) _buildInfoRow('E-mail', email, Icons.email),
+          ],
+          isDarkMode,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  final parts = <String>[];
+                  final customerName = booking['customer_name']?.toString() ?? '';
+                  final customerLastName = booking['customer_last_name']?.toString() ?? '';
+                  final fullName = '$customerName $customerLastName'.trim();
+                  if (fullName.isNotEmpty) parts.add('Nome: $fullName');
+                  if (cpf.isNotEmpty) parts.add('CPF: ${formatCpf(cpf)}');
+                  if (phone.isNotEmpty) parts.add('Celular: ${formatPhone(phone)}');
+                  if (cep.isNotEmpty) parts.add('CEP: ${formatCep(cep)}');
+                  if (number.isNotEmpty) parts.add('Número: $number');
+                  if (email.isNotEmpty) parts.add('E-mail: $email');
+                  Clipboard.setData(ClipboardData(text: parts.join('\n')));
+                  _showToast('Dados copiados para a área de transferência!');
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copiar dados para NF'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF00C977),
+                  side: const BorderSide(color: Color(0xFF00C977)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
-      isDarkMode,
     );
   }
 
@@ -552,6 +897,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     final rawItems = quoteResponse['items'] as List<dynamic>? ?? [];
     final totalApproved = (num.tryParse(quoteResponse['total_approved']?.toString() ?? '') ?? 0) / 100.0;
     final quoteItems = booking['quote_items'] as List<dynamic>? ?? [];
+    final quoteStatus = (booking['quote_status']?.toString() ?? '').toLowerCase();
+    final isPendingEdit = quoteStatus == 'pending';
     // Filter out orphaned items whose quote_item_id no longer exists in current quote_items
     final items = rawItems.where((ri) {
       final qItemId = ri['quote_item_id']?.toString() ?? '';
@@ -567,6 +914,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     }) + diagnosticValue;
 
     final selectedCount = items.where((ri) => ri['selected'] == true).length;
+    final pendingCount = isPendingEdit ? items.where((ri) => ri['selected'] != true).length : 0;
     final totalCount = items.length;
     final allSelected = hasValidItems ? selectedCount == totalCount : true;
 
@@ -601,8 +949,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             child: Row(
               children: [
                 Icon(
-                  allSelected ? Icons.check_circle_rounded : Icons.tune_rounded,
-                  color: allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500),
+                  isPendingEdit ? Icons.edit_note_rounded : (allSelected ? Icons.check_circle_rounded : Icons.tune_rounded),
+                  color: isPendingEdit ? const Color(0xFFFF9500) : (allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500)),
                   size: 22,
                 ),
                 const SizedBox(width: 10),
@@ -611,7 +959,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Resposta do Cliente',
+                        isPendingEdit ? 'Orçamento Editado' : 'Resposta do Cliente',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -620,12 +968,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        allSelected
-                            ? 'Orçamento aprovado integralmente'
-                            : '$selectedCount de $totalCount itens aprovados',
+                        isPendingEdit
+                            ? (pendingCount > 0
+                                ? '$selectedCount aprovado${selectedCount != 1 ? 's' : ''}, $pendingCount novo${pendingCount != 1 ? 's' : ''} pendente${pendingCount != 1 ? 's' : ''}'
+                                : 'Aguardando aprovação do cliente')
+                            : (allSelected
+                                ? 'Orçamento aprovado integralmente'
+                                : '$selectedCount de $totalCount itens aprovados'),
                         style: TextStyle(
                           fontSize: 13,
-                          color: allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500),
+                          color: isPendingEdit ? const Color(0xFFFF9500) : (allSelected ? const Color(0xFF00C977) : const Color(0xFFFF9500)),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -671,6 +1023,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                 }
 
                 final displayPrice = chosenOptionPrice ?? itemPrice;
+                final isPendingItem = isPendingEdit && !selected;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -678,12 +1031,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   decoration: BoxDecoration(
                     color: selected
                         ? (isDarkMode ? const Color(0xFF1A2E1A) : const Color(0xFFF0FFF0))
-                        : (isDarkMode ? const Color(0xFF2E1A1A) : const Color(0xFFFFF0F0)),
+                        : isPendingItem
+                            ? (isDarkMode ? const Color(0xFF2E2A1A) : const Color(0xFFFFF8E1))
+                            : (isDarkMode ? const Color(0xFF2E1A1A) : const Color(0xFFFFF0F0)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: selected
                           ? const Color(0xFF00C977).withOpacity(0.3)
-                          : Colors.red.withOpacity(0.2),
+                          : isPendingItem
+                              ? const Color(0xFFFF9500).withOpacity(0.3)
+                              : Colors.red.withOpacity(0.2),
                     ),
                   ),
                   child: Column(
@@ -692,8 +1049,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                       Row(
                         children: [
                           Icon(
-                            selected ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                            color: selected ? const Color(0xFF00C977) : Colors.red[400],
+                            selected ? Icons.check_circle_rounded : (isPendingItem ? Icons.schedule_rounded : Icons.cancel_rounded),
+                            color: selected ? const Color(0xFF00C977) : (isPendingItem ? const Color(0xFFFF9500) : Colors.red[400]),
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -703,8 +1060,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                decoration: selected ? null : TextDecoration.lineThrough,
-                                color: selected
+                                decoration: (selected || isPendingItem) ? null : TextDecoration.lineThrough,
+                                color: (selected || isPendingItem)
                                     ? (isDarkMode ? Colors.white : Colors.black87)
                                     : Colors.grey,
                               ),
@@ -716,8 +1073,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              decoration: selected ? null : TextDecoration.lineThrough,
-                              color: selected
+                              decoration: (selected || isPendingItem) ? null : TextDecoration.lineThrough,
+                              color: (selected || isPendingItem)
                                   ? (isDarkMode ? Colors.white : Colors.black87)
                                   : Colors.grey,
                             ),
@@ -738,6 +1095,20 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: pColor),
                             ),
                           ),
+                          if (isPendingItem) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF9500).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Novo',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFFF9500)),
+                              ),
+                            ),
+                          ],
                           if (qty > 1) ...[
                             const SizedBox(width: 8),
                             Text('Qtd: $qty', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
@@ -788,13 +1159,21 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             margin: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF00C977).withOpacity(0.1),
+              color: (isPendingEdit ? const Color(0xFFFF9500) : const Color(0xFF00C977)).withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF00C977).withOpacity(0.3)),
+              border: Border.all(color: (isPendingEdit ? const Color(0xFFFF9500) : const Color(0xFF00C977)).withOpacity(0.3)),
             ),
             child: Column(
               children: [
-                if (originalTotal != totalApproved)
+                if (isPendingEdit)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Novo orçamento: R\$ ${originalTotal.toStringAsFixed(2)}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    ),
+                  )
+                else if (originalTotal != totalApproved)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
@@ -803,8 +1182,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     ),
                   ),
                 Text(
-                  'Total aprovado: R\$ ${totalApproved.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF00C977)),
+                  isPendingEdit
+                      ? 'Aprovado anteriormente: R\$ ${totalApproved.toStringAsFixed(2)}'
+                      : 'Total aprovado: R\$ ${totalApproved.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isPendingEdit ? const Color(0xFFFF9500) : const Color(0xFF00C977),
+                  ),
                 ),
               ],
             ),
@@ -2518,6 +2903,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             }
 
             return {
+              'id': item['id'],
               'description': description,
               'quantity': item['quantity'] ?? 1,
               'unit_price': unitPrice,
@@ -4073,3 +4459,4 @@ class _ImageFullScreen extends StatelessWidget {
     );
   }
 }
+

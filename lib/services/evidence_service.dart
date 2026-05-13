@@ -42,18 +42,18 @@ class EvidenceService {
   // Upload de evidências para agendamento
   Future<Map<String, dynamic>> uploadBookingEvidence(
     String bookingId,
-    File file,
-  ) async {
+    File file, {
+    String? comment,
+  }) async {
     try {
       await loadToken();
-      
+
       final formData = FormData.fromMap({
-        // IMPORTANTE: Backend aceita 'image' (padrão) e também 'evidence' (compatibilidade).
-        // Usar 'image' aqui para garantir compatibilidade máxima.
         'image': await MultipartFile.fromFile(
           file.path,
           filename: file.path.split('/').last,
         ),
+        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
       });
 
       final response = await _dio.post(

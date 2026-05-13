@@ -959,6 +959,29 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getInvoice(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/bookings/$bookingId/invoice');
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> generateInvoice(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.post('/bookings/$bookingId/generate-invoice', data: {});
+      return {'success': true, 'data': response.data['data'] ?? response.data};
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ?? e.message ?? 'Erro ao gerar NF';
+      return {'success': false, 'error': msg};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // ============================================
   // SERVICES - DADOS REAIS DA API EC2 AWS
   // ============================================
