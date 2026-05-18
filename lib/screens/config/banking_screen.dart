@@ -697,7 +697,7 @@ class _BankingScreenState extends State<BankingScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Configure seus dados bancários para receber pagamentos. A MECA arca com 100% das taxas do gateway.',
+                            'Configure seus dados bancários para receber pagamentos. As tarifas financeiras do gateway são subsidiadas pela MECA.',
                             style: TextStyle(
                               fontSize: 14,
                               color: secondaryColor,
@@ -2040,7 +2040,7 @@ class _BankingScreenState extends State<BankingScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'A MECA arca com 100% das taxas do gateway. Você recebe o valor do serviço já líquido.',
+                  'As tarifas financeiras do gateway são subsidiadas pela MECA. Você recebe o valor do serviço já líquido.',
                   style: TextStyle(
                     fontSize: 12,
                     color: secondaryColor,

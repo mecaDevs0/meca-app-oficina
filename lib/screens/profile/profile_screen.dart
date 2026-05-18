@@ -976,7 +976,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'A MECA arca com 100% das taxas do gateway de pagamento.',
+                'A MECA subsidia integralmente as tarifas financeiras do gateway para a oficina.',
                 style: TextStyle(fontSize: 12, color: secondaryText),
                 textAlign: TextAlign.center,
               ),
@@ -1652,18 +1652,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildFaqItem(
-                        title: 'Taxas do gateway',
-                        body: 'As taxas do gateway de pagamento (PIX e cartao) sao arcadas integralmente pela MECA. Voce nao e descontado.',
+                        title: 'Tarifas financeiras',
+                        body: 'As tarifas financeiras (PIX e cartao) sao definidas pela instituicao financeira parceira e subsidiadas integralmente pela MECA. Voce nao e descontado.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
-                        title: 'Taxa MECA (12%)',
-                        body: 'O MECA cobra 12% em cada pagamento (split automatico). A MECA arca com 100% das taxas do gateway; voce recebe 88% do valor pago pelo cliente.',
+                        title: 'Taxa de intermediacao MECA (12%)',
+                        body: 'A MECA cobra uma taxa de intermediacao de 12% por servico (split automatico). As tarifas financeiras do gateway sao subsidiadas pela MECA; voce recebe 88% do valor pago pelo cliente.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
                         title: 'Como funciona o split',
-                        body: 'O cliente paga no MECA e o gateway faz o repasse automaticamente: 12% vai para o MECA e 88% vai para sua conta bancaria.',
+                        body: 'O cliente paga pelo app e a instituicao financeira parceira faz o repasse automaticamente: 12% referente a taxa de intermediacao da MECA e 88% para sua conta bancaria.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(

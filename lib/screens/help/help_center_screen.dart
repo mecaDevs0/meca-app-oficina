@@ -22,11 +22,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
         _FaqItem(
           'Taxas de pagamento',
-          'As taxas variam por meio de pagamento: PIX (R\$ 1,99), Cartão à vista (2,99% + R\$ 0,49), Cartão parcelado (3,49% a 4,29% + R\$ 0,49). O MECA arca com 100% dessas taxas.',
+          'As tarifas financeiras (PIX, cartão) são definidas e cobradas pela instituição financeira parceira. A MECA subsidia integralmente essas tarifas para a oficina — você não é descontado.',
         ),
         _FaqItem(
           'O que é a taxa MECA?',
-          'O MECA cobra 12% em cada pagamento (split automático). O MECA arca com 100% das taxas do gateway; você opera normalmente e recebe 88% do valor. Não há desconto de taxas para a oficina.',
+          'A MECA cobra uma taxa de intermediação de 12% por serviço (split automático). As tarifas financeiras do gateway são subsidiadas pela MECA; você opera normalmente e recebe 88% do valor pago pelo cliente.',
         ),
         _FaqItem(
           'Conta em análise ou com erro',

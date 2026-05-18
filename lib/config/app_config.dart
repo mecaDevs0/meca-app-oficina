@@ -36,7 +36,7 @@ class AppConfig {
   // PLATAFORMA MECA
   // ========================================
 
-  /// Taxa da plataforma MECA (12%). O MECA arca com 100% das taxas do gateway; a oficina não é descontada.
+  /// Taxa de intermediação da plataforma MECA (12%). Tarifas financeiras do gateway são subsidiadas pela MECA.
   static const double mecaPlatformFee = 0.12; // 12%
   
   // ========================================
