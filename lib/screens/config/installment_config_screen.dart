@@ -347,7 +347,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                     ),
                                     const SizedBox(height: 20),
                                     Text(
-                                      'O MECA cuida do parcelamento. Você recebe o valor do serviço (descontada a taxa).',
+                                      'O parcelamento é gerenciado pela Asaas Gestão Financeira S.A. Você recebe o valor do serviço (descontada a taxa de intermediação).',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: muted,
@@ -402,7 +402,7 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Taxa de intermediação de $mecaFeePercent% por serviço. Juros do parcelamento são definidos pela instituição financeira parceira.',
+                                'Taxa de intermediação de $mecaFeePercent% por serviço. Juros do parcelamento são definidos pela Asaas Gestão Financeira S.A.',
                                 style: TextStyle(fontSize: 13, color: muted, height: 1.4),
                               ),
                             ),

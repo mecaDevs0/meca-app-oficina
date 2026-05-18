@@ -684,7 +684,7 @@ class _PreCompraDetailOfinaScreenState extends State<PreCompraDetailOfinaScreen>
                       ),
                     ),
                     Text(
-                      'O repasse foi enviado pelo gateway de pagamento',
+                      'O repasse foi enviado pela Asaas Gestão Financeira S.A.',
                       style: TextStyle(
                         fontSize: 12,
                         color: ThemeService.getSecondaryTextColor(_isDark),

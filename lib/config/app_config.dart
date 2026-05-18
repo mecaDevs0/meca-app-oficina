@@ -36,7 +36,7 @@ class AppConfig {
   // PLATAFORMA MECA
   // ========================================
 
-  /// Taxa de intermediação da plataforma MECA (12%). Tarifas financeiras do gateway são subsidiadas pela MECA.
+  /// Taxa de intermediação da plataforma MECA (12%). Tarifas financeiras são cobradas pela Asaas Gestão Financeira S.A. e subsidiadas pela MECA.
   static const double mecaPlatformFee = 0.12; // 12%
   
   // ========================================

@@ -759,7 +759,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
             children: [
               _buildAmountDetail('Taxa MECA', mecaFeeAmount, secondaryTextColor, textColor),
               const SizedBox(width: 12),
-              _buildAmountDetail('Taxa Gateway', gatewayFeeAmount, secondaryTextColor, textColor),
+              _buildAmountDetail('Tarifa financeira', gatewayFeeAmount, secondaryTextColor, textColor),
               const SizedBox(width: 12),
               _buildAmountDetail('Líquido', netAmount, secondaryTextColor, textColor,
                   highlight: true),

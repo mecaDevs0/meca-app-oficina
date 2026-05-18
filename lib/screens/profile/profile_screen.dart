@@ -976,7 +976,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'A MECA subsidia integralmente as tarifas financeiras do gateway para a oficina.',
+                'As tarifas financeiras são cobradas pela Asaas Gestão Financeira S.A. e subsidiadas integralmente pela MECA.',
                 style: TextStyle(fontSize: 12, color: secondaryText),
                 textAlign: TextAlign.center,
               ),
@@ -1653,17 +1653,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       _buildFaqItem(
                         title: 'Tarifas financeiras',
-                        body: 'As tarifas financeiras (PIX e cartao) sao definidas pela instituicao financeira parceira e subsidiadas integralmente pela MECA. Voce nao e descontado.',
+                        body: 'As tarifas financeiras (PIX e cartao) sao definidas e cobradas pela Asaas Gestao Financeira S.A. e subsidiadas integralmente pela MECA. Voce nao e descontado.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
                         title: 'Taxa de intermediacao MECA (12%)',
-                        body: 'A MECA cobra uma taxa de intermediacao de 12% por servico (split automatico). As tarifas financeiras do gateway sao subsidiadas pela MECA; voce recebe 88% do valor pago pelo cliente.',
+                        body: 'A MECA cobra uma taxa de intermediacao de 12% por servico (split automatico). As tarifas financeiras sao cobradas pela Asaas Gestao Financeira S.A. e subsidiadas pela MECA; voce recebe 88% do valor pago pelo cliente.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(
                         title: 'Como funciona o split',
-                        body: 'O cliente paga pelo app e a instituicao financeira parceira faz o repasse automaticamente: 12% referente a taxa de intermediacao da MECA e 88% para sua conta bancaria.',
+                        body: 'O cliente paga pelo app e a Asaas Gestao Financeira S.A. faz o repasse automaticamente: 12% referente a taxa de intermediacao da MECA e 88% para sua conta bancaria.',
                         isDark: isDark,
                       ),
                       _buildFaqItem(

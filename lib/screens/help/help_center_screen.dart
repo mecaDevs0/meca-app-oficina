@@ -22,11 +22,11 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         ),
         _FaqItem(
           'Taxas de pagamento',
-          'As tarifas financeiras (PIX, cartão) são definidas e cobradas pela instituição financeira parceira. A MECA subsidia integralmente essas tarifas para a oficina — você não é descontado.',
+          'As tarifas financeiras (PIX, cartão) são definidas e cobradas pela Asaas Gestão Financeira S.A. A MECA subsidia integralmente essas tarifas para a oficina — você não é descontado.',
         ),
         _FaqItem(
           'O que é a taxa MECA?',
-          'A MECA cobra uma taxa de intermediação de 12% por serviço (split automático). As tarifas financeiras do gateway são subsidiadas pela MECA; você opera normalmente e recebe 88% do valor pago pelo cliente.',
+          'A MECA cobra uma taxa de intermediação de 12% por serviço (split automático). As tarifas financeiras são cobradas pela Asaas Gestão Financeira S.A. e subsidiadas pela MECA; você opera normalmente e recebe 88% do valor pago pelo cliente.',
         ),
         _FaqItem(
           'Conta em análise ou com erro',

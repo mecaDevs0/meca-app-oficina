@@ -410,7 +410,7 @@ class _FinancialHistoryScreenState extends State<FinancialHistoryScreen> {
                   _buildDetailColumn(
                       'Taxa MECA', mecaFee, isDark),
                   _buildDetailColumn(
-                      'Taxa Gateway', gatewayFee, isDark),
+                      'Tarifa financeira', gatewayFee, isDark),
                   _buildDetailColumn(
                       'Liquido', netAmount, isDark,
                       highlight: true),
