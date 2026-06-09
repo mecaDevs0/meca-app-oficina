@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
@@ -19,6 +20,7 @@ class FinancialScreen extends StatefulWidget {
 class _FinancialScreenState extends State<FinancialScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _financialData;
+  Map<String, dynamic>? _anticipationSummary;
   bool _isAsaasOnboarded = false;
   final ApiService _apiService = ApiService();
   final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -72,6 +74,20 @@ class _FinancialScreenState extends State<FinancialScreen> {
         if (workshop is Map) {
           final walletId = (workshop['asaas_wallet_id'] as String? ?? '').trim();
           _safeSetState(() => _isAsaasOnboarded = walletId.isNotEmpty);
+
+          if (walletId.isNotEmpty) {
+            final workshopId = await _apiService.getWorkshopId();
+            if (workshopId != null && workshopId.isNotEmpty) {
+              try {
+                final summaryRes = await _apiService.getAnticipationSummary(workshopId);
+                if (summaryRes['success'] == true && summaryRes['data'] is Map) {
+                  _safeSetState(() {
+                    _anticipationSummary = (summaryRes['data'] as Map).cast<String, dynamic>();
+                  });
+                }
+              } catch (_) {}
+            }
+          }
         }
       }
 
@@ -252,13 +268,16 @@ class _FinancialScreenState extends State<FinancialScreen> {
         ? 'https://baas.asaas.com/selos/Servicos_financeiros_Asaas-Reduzida-Negativo-Branco.svg?id=2a6ee772-f63f-424d-9d0e-1a3811b0f64c'
         : 'https://baas.asaas.com/selos/Servicos_financeiros_Asaas-Reduzida-Positivo.svg?id=2a6ee772-f63f-424d-9d0e-1a3811b0f64c';
     return Center(
-      child: Opacity(
-        opacity: 0.5,
-        child: SvgPicture.network(
-          sealUrl,
-          height: 32,
-          fit: BoxFit.contain,
-          placeholderBuilder: (_) => const SizedBox.shrink(),
+      child: GestureDetector(
+        onTap: () => launchUrl(Uri.parse(sealUrl), mode: LaunchMode.externalApplication),
+        child: Opacity(
+          opacity: 0.5,
+          child: SvgPicture.network(
+            sealUrl,
+            height: 32,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => const SizedBox.shrink(),
+          ),
         ),
       ),
     );
@@ -269,6 +288,11 @@ class _FinancialScreenState extends State<FinancialScreen> {
     required Color borderColor,
     required Color textColor,
   }) {
+    final s = _anticipationSummary;
+    final totalAnticipated = s != null ? (s['total_anticipated'] ?? 0) : null;
+    final pendingCount = s != null ? ((s['count_by_status'] as Map?)?['PENDING'] ?? 0) : null;
+    final creditedCount = s != null ? ((s['count_by_status'] as Map?)?['CREDITED'] ?? 0) : null;
+
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/financial/anticipation'),
       child: Container(
@@ -279,45 +303,113 @@ class _FinancialScreenState extends State<FinancialScreen> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor.withOpacity(0.4)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C977).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.flash_on_outlined,
-                color: Color(0xFF00C977),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Antecipacao de Recebiveis',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Receba antes do prazo previsto',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF00C977),
-                    ),
+                  child: const Icon(
+                    Icons.flash_on_outlined,
+                    color: Color(0xFF00C977),
+                    size: 22,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Antecipacao de Recebiveis',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Receba antes do prazo previsto',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF00C977),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00C977)),
+              ],
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00C977)),
+            if (s != null && (totalAnticipated is num && totalAnticipated > 0 || pendingCount is int && pendingCount > 0)) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    if (totalAnticipated is num && totalAnticipated > 0)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total antecipado',
+                              style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.6)),
+                            ),
+                            Text(
+                              _currencyFormat.format(totalAnticipated),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF00C977)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (creditedCount is int && creditedCount > 0)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Creditadas',
+                              style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.6)),
+                            ),
+                            Text(
+                              '$creditedCount',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF60A5FA)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (pendingCount is int && pendingCount > 0)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Pendentes',
+                              style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.6)),
+                            ),
+                            Text(
+                              '$pendingCount',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFF59E0B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

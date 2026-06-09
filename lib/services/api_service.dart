@@ -1560,9 +1560,41 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> createAnticipation(String workshopId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createAnticipation(
+    String workshopId,
+    Map<String, dynamic> data, {
+    List<File>? documents,
+  }) async {
     try {
       await loadToken();
+
+      if (documents != null && documents.isNotEmpty) {
+        final formMap = <String, dynamic>{};
+        if (data['payment'] != null) formMap['payment'] = data['payment'];
+        if (data['installment'] != null) formMap['installment'] = data['installment'];
+        if (data['grossAmount'] != null) formMap['grossAmount'] = data['grossAmount'].toString();
+        if (data['dueDate'] != null) formMap['dueDate'] = data['dueDate'].toString();
+
+        final multipartFiles = <MultipartFile>[];
+        for (final file in documents) {
+          multipartFiles.add(
+            await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+          );
+        }
+        formMap['documents'] = multipartFiles;
+
+        final formData = FormData.fromMap(formMap);
+        final response = await _dio.post(
+          '/workshop/$workshopId/asaas/anticipations',
+          data: formData,
+        );
+        final responseData = response.data;
+        if (responseData is Map && responseData['success'] == true) {
+          return {'success': true, 'data': responseData['data']};
+        }
+        return {'success': false, 'error': responseData?['error'] ?? 'Erro ao criar antecipação'};
+      }
+
       final response = await _dio.post(
         '/workshop/$workshopId/asaas/anticipations',
         data: data,
@@ -1572,6 +1604,34 @@ class ApiService {
         return {'success': true, 'data': responseData['data']};
       }
       return {'success': false, 'error': responseData?['error'] ?? 'Erro ao criar antecipação'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> getEligiblePayments(String workshopId, {int limit = 50}) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/workshop/$workshopId/asaas/anticipations/eligible?limit=$limit');
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data'], 'totalCount': data['totalCount']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro ao listar cobranças elegíveis'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAnticipationSummary(String workshopId, {String period = 'all'}) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/workshop/$workshopId/asaas/anticipations/summary?period=$period');
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro ao carregar resumo'};
     } catch (e) {
       return {'success': false, 'error': _getErrorMessage(e)};
     }
