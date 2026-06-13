@@ -533,24 +533,17 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                       secondaryTextColor: secondaryTextColor,
                     ),
                   if (filtered.isNotEmpty)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: borderColor, width: 1),
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: secondaryTextColor.withOpacity(0.15)),
-                        itemBuilder: (context, index) => _buildAnticipationItem(
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      padding: EdgeInsets.zero,
+                      itemBuilder: (context, index) => _buildAnticipationItem(
                           filtered[index],
                           textColor: textColor,
                           secondaryTextColor: secondaryTextColor,
                         ),
                       ),
-                    ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -1115,107 +1108,152 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     final feeAmount = item['fee_amount'] ?? item['fee'];
     final createdAt = _formatDate(item['requested_at'] ?? item['dateCreated'] ?? item['created_at']);
     final canCancel = status == 'PENDING';
+    final statusInfo = _getStatusInfo(status);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildStatusBadge(status),
-                    const SizedBox(height: 6),
-                    Text(createdAt, style: TextStyle(fontSize: 12, color: secondaryTextColor)),
-                  ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: statusInfo.bg.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: statusInfo.bg.withOpacity(0.15)),
+        ),
+        child: Column(
+          children: [
+            // Header: icon + status + date
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: statusInfo.bg.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(statusInfo.icon, color: statusInfo.fg, size: 18),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatusBadge(status),
+                      const SizedBox(height: 3),
+                      Text(createdAt, style: TextStyle(fontSize: 11, color: secondaryTextColor)),
+                    ],
+                  ),
+                ),
+                Text(
+                  _formatCurrency(netValue ?? totalValue),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: status == 'CREDITED' ? _kGreen : textColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Values row
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: secondaryTextColor.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Row(
                 children: [
-                  Text(_formatCurrency(totalValue), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
-                  if (netValue != null) ...[
-                    const SizedBox(height: 2),
-                    Text('Liq: ${_formatCurrency(netValue)}', style: TextStyle(fontSize: 12, color: _kGreen)),
-                  ],
-                  if (feeAmount != null) ...[
-                    const SizedBox(height: 2),
-                    Text('Taxa: ${_formatCurrency(feeAmount)}', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
-                  ],
+                  _buildValueColumn(
+                    label: 'Bruto',
+                    value: _formatCurrency(totalValue),
+                    color: textColor,
+                    secondaryColor: secondaryTextColor,
+                  ),
+                  Container(width: 1, height: 28, color: secondaryTextColor.withOpacity(0.15)),
+                  _buildValueColumn(
+                    label: 'Taxa',
+                    value: feeAmount != null ? '- ${_formatCurrency(feeAmount)}' : '-',
+                    color: _kRed,
+                    secondaryColor: secondaryTextColor,
+                  ),
+                  Container(width: 1, height: 28, color: secondaryTextColor.withOpacity(0.15)),
+                  _buildValueColumn(
+                    label: 'Liquido',
+                    value: _formatCurrency(netValue ?? totalValue),
+                    color: _kGreen,
+                    secondaryColor: secondaryTextColor,
+                  ),
                 ],
               ),
-            ],
-          ),
-          if (canCancel) ...[
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () => _cancel(id),
-              style: TextButton.styleFrom(foregroundColor: _kRed, padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-              icon: const Icon(Icons.cancel_outlined, size: 16),
-              label: const Text('Cancelar solicitacao', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             ),
+            if (canCancel) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _cancel(id),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _kRed.withOpacity(0.8),
+                    side: BorderSide(color: _kRed.withOpacity(0.3)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text('Cancelar solicitacao', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildValueColumn({
+    required String label,
+    required String value,
+    required Color color,
+    required Color secondaryColor,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: secondaryColor)),
+          const SizedBox(height: 3),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color bg;
-    Color fg;
-    String label;
-
+  _StatusInfo _getStatusInfo(String status) {
     switch (status) {
       case 'CREDITED':
-        bg = const Color(0xFFDCFCE7);
-        fg = const Color(0xFF15803D);
-        label = 'Creditada';
-        break;
+        return _StatusInfo(const Color(0xFFDCFCE7), const Color(0xFF15803D), 'Creditada', Icons.check_circle_rounded);
       case 'PENDING':
-        bg = const Color(0xFFFFF7ED);
-        fg = const Color(0xFFB45309);
-        label = 'Pendente';
-        break;
+        return _StatusInfo(const Color(0xFFFFF7ED), const Color(0xFFB45309), 'Pendente', Icons.schedule_rounded);
       case 'SCHEDULED':
-        bg = const Color(0xFFEFF6FF);
-        fg = const Color(0xFF1D4ED8);
-        label = 'Agendada';
-        break;
+        return _StatusInfo(const Color(0xFFEFF6FF), const Color(0xFF1D4ED8), 'Agendada', Icons.event_rounded);
       case 'DENIED':
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFB91C1C);
-        label = 'Negada';
-        break;
+        return _StatusInfo(const Color(0xFFFEE2E2), const Color(0xFFB91C1C), 'Negada', Icons.block_rounded);
       case 'CANCELLED':
-        bg = const Color(0xFFF3F4F6);
-        fg = const Color(0xFF6B7280);
-        label = 'Cancelada';
-        break;
+        return _StatusInfo(const Color(0xFFF3F4F6), const Color(0xFF6B7280), 'Cancelada', Icons.cancel_rounded);
       case 'OVERDUE':
-        bg = const Color(0xFFFFF7ED);
-        fg = const Color(0xFFF97316);
-        label = 'Vencida';
-        break;
+        return _StatusInfo(const Color(0xFFFFF7ED), const Color(0xFFF97316), 'Vencida', Icons.warning_amber_rounded);
       case 'DEBITED':
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFB91C1C);
-        label = 'Debitada';
-        break;
+        return _StatusInfo(const Color(0xFFFEE2E2), const Color(0xFFB91C1C), 'Debitada', Icons.remove_circle_rounded);
       default:
-        bg = const Color(0xFFEFF6FF);
-        fg = const Color(0xFF1D4ED8);
-        label = status;
-        break;
+        return _StatusInfo(const Color(0xFFEFF6FF), const Color(0xFF1D4ED8), status, Icons.info_rounded);
     }
+  }
 
+  Widget _buildStatusBadge(String status) {
+    final info = _getStatusInfo(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: info.bg, borderRadius: BorderRadius.circular(999)),
+      child: Text(info.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: info.fg)),
     );
   }
 
@@ -1241,7 +1279,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     if (value == null) return 'Data nao informada';
     try {
       final dt = value is DateTime ? value : DateTime.parse(value.toString());
-      return DateFormat('dd/MM/yyyy HH:mm', 'pt_BR').format(dt.toLocal());
+      return DateFormat("dd/MM/yyyy 'as' HH:mm", 'pt_BR').format(dt.toLocal());
     } catch (_) {
       return value.toString();
     }
@@ -1256,4 +1294,12 @@ class _AnticipationScreenState extends State<AnticipationScreen>
       return value.toString();
     }
   }
+}
+
+class _StatusInfo {
+  final Color bg;
+  final Color fg;
+  final String label;
+  final IconData icon;
+  const _StatusInfo(this.bg, this.fg, this.label, this.icon);
 }
