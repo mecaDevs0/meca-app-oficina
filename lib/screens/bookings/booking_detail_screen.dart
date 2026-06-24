@@ -29,6 +29,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   bool _generatingInvoice = false;
   bool _needsFiscalConfig = false;
   bool _loading = true;
+  bool _generatingPaymentLink = false;
 
   void _showToast(String message, {String? title, bool isError = false, bool isWarning = false}) {
     if (!mounted) return;
@@ -2941,6 +2942,33 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       }
 
       return [evidenceButton, quoteButton];
+    }
+
+    if (statusFinal == 'finalizado_aguardando_pagamento' || statusFinal == 'aguardando_pagamento' || statusFinal == 'awaiting_payment') {
+      return [
+        _actionButton('Link de Pagamento', Icons.link, const Color(0xFF8B5CF6), () async {
+          final bookingId = booking['id']?.toString() ?? '';
+          if (bookingId.isEmpty) return;
+          setState(() => _generatingPaymentLink = true);
+          try {
+            final res = await _apiService.post('/bookings/$bookingId/payment-link', {});
+            if (!mounted) return;
+            if (res['success'] == true && res['data'] != null) {
+              final link = res['data']['payment_link']?.toString() ?? '';
+              if (link.isNotEmpty) {
+                await Clipboard.setData(ClipboardData(text: link));
+                _showToast('Link copiado! Envie ao cliente via WhatsApp ou SMS.');
+              }
+            } else {
+              _showToast(res['error']?.toString() ?? 'Erro ao gerar link', isError: true);
+            }
+          } catch (e) {
+            if (mounted) _showToast('Erro: $e', isError: true);
+          } finally {
+            if (mounted) setState(() => _generatingPaymentLink = false);
+          }
+        }),
+      ];
     }
 
     if (statusFinal == 'pago' || statusFinal == 'paid') {

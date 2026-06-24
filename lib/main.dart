@@ -12,6 +12,7 @@ import 'screens/bookings/booking_detail_screen.dart';
 import 'screens/config/agenda_config_screen.dart';
 import 'screens/config/banking_screen.dart';
 import 'screens/config/installment_config_screen.dart';
+import 'screens/config/fiscal_config_screen.dart';
 import 'screens/config/services_config_screen.dart';
 import 'screens/core/core_screen.dart';
 import 'screens/financial/anticipation_screen.dart';
@@ -183,6 +184,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.slideFromRight(ServicesConfigScreen());
           case '/config/installment':
             return PageTransitions.slideFromRight(const InstallmentConfigScreen());
+          case '/config/fiscal':
+            return PageTransitions.slideFromRight(const FiscalConfigScreen());
           case '/service/details':
             return PageTransitions.slideFromRight(
               ServiceDetailsScreen(

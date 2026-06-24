@@ -277,6 +277,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildMenuOption(
+                        icon: Icons.receipt_long_outlined,
+                        title: 'Nota Fiscal',
+                        subtitle: 'Emissão automática de NFS-e',
+                        isDark: isDark,
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/config/fiscal');
+                          if (mounted) {
+                            await _loadWorkshopData();
+                          }
+                        },
+                      ),
+                      _buildMenuOption(
                         icon: Icons.card_giftcard_outlined,
                         title: 'Indique e Ganhe',
                         subtitle: 'Código de indicação e taxa reduzida',
