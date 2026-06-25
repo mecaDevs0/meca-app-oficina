@@ -27,6 +27,7 @@ import 'screens/pre_compra/pre_compra_detail_screen.dart';
 import 'screens/schedule/schedule_screen.dart';
 import 'screens/service/service_details_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/workshop/image_management_screen.dart';
 import 'services/theme_service.dart';
 import 'services/onesignal_service.dart';
 import 'services/api_service.dart';
@@ -203,6 +204,8 @@ class MecaOficinaApp extends StatelessWidget {
             return PageTransitions.slideFromRight(const NotificationsScreen());
           case '/config/banking':
             return PageTransitions.slideFromRight(const BankingScreen());
+          case '/portfolio':
+            return PageTransitions.slideFromRight(const ImageManagementScreen());
           case '/pre-compra-detail':
             final args = settings.arguments as Map<String, dynamic>?;
             return PageTransitions.slideFromRight(

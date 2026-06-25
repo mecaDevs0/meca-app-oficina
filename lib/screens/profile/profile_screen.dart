@@ -15,6 +15,7 @@ import '../../utils/formatters.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
+import '../workshop/image_management_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'referral_screen.dart';
@@ -237,6 +238,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               builder: (context) => const ServicesSelectionScreen(),
                             ),
                           );
+                        },
+                      ),
+                      _buildMenuOption(
+                        icon: Icons.photo_library,
+                        title: 'Meu Portfólio',
+                        subtitle: 'Fotos dos seus serviços e oficina',
+                        isDark: isDark,
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/portfolio');
+                          if (mounted) {
+                            await _loadWorkshopData();
+                          }
                         },
                       ),
                       _buildMenuOption(

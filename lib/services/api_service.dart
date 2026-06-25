@@ -653,6 +653,8 @@ class ApiService {
                 s == 'concluido' ||
                 s == 'concluído' ||
                 s == 'finalizado_aguardando_pagamento' ||
+                s == 'aguardando_pagamento' ||
+                s == 'awaiting_payment' ||
                 s == 'pago' ||
                 s == 'paid' ||
                 s == 'approved';
@@ -2655,6 +2657,85 @@ class ApiService {
       return {'success': false, 'error': data?['error'] ?? 'Erro'};
     } catch (e) {
       return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  Future<Map<String, dynamic>> delete(String path, {Map<String, dynamic>? body}) async {
+    try {
+      final response = await _dio.delete(path, data: body);
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
+  // ============================================
+  // GALLERY / PORTFOLIO - DADOS REAIS DA API
+  // ============================================
+
+  Future<List<dynamic>> getWorkshopGallery(int workshopId) async {
+    try {
+      final response = await get('/workshop/$workshopId/gallery');
+      if (response['success'] == true) {
+        final data = response['data'];
+        if (data is List) return data;
+        if (data is Map && data['photos'] != null) return data['photos'] as List;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteGalleryPhoto(int workshopId, int photoId) async {
+    return await delete('/workshop/$workshopId/gallery/$photoId');
+  }
+
+  Future<Map<String, dynamic>> reorderGalleryPhotos(int workshopId, List<Map<String, dynamic>> order) async {
+    return await put('/workshop/$workshopId/gallery/reorder', {'order': order});
+  }
+
+  Future<Map<String, dynamic>> uploadGalleryPhoto(int workshopId, File imageFile, {String? caption}) async {
+    try {
+      await loadToken();
+
+      final formData = FormData.fromMap({
+        'photo': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split('/').last,
+        ),
+        if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim(),
+      });
+
+      final response = await _dio.post(
+        '/workshop/$workshopId/gallery',
+        data: formData,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+        if (responseData is Map && responseData['success'] == true) {
+          return {'success': true, 'data': responseData['data'] ?? responseData};
+        }
+        return {'success': true, 'data': responseData};
+      }
+      return {'success': false, 'error': 'Erro ao enviar foto'};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 413) {
+        return {'success': false, 'error': 'Imagem muito grande. Tamanho máximo: 10 MB.'};
+      }
+      final errorData = e.response?.data;
+      final msg = errorData is Map ? errorData['error']?.toString() : null;
+      return {'success': false, 'error': msg ?? e.message ?? 'Erro ao enviar foto'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
     }
   }
 
