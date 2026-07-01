@@ -23,7 +23,7 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
   List<dynamic> _photos = [];
   bool _isLoading = true;
   bool _isUploading = false;
-  int? _workshopId;
+  String? _workshopId;
 
   @override
   void initState() {
@@ -35,7 +35,7 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
     setState(() => _isLoading = true);
     try {
       final workshopIdStr = await _apiService.getWorkshopId();
-      if (workshopIdStr == null) {
+      if (workshopIdStr == null || workshopIdStr.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -46,8 +46,7 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         }
         return;
       }
-      _workshopId = int.tryParse(workshopIdStr);
-      if (_workshopId == null) return;
+      _workshopId = workshopIdStr;
 
       final photos = await _apiService.getWorkshopGallery(_workshopId!);
       if (mounted) {
@@ -198,7 +197,6 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
       );
       if (image == null) return;
 
-      // Ask for optional caption
       if (!mounted) return;
       final caption = await _showCaptionDialog();
 
@@ -215,8 +213,8 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
     }
   }
 
-  Future<String?> _showCaptionDialog() async {
-    final controller = TextEditingController();
+  Future<String?> _showCaptionDialog({String? initialValue}) async {
+    final controller = TextEditingController(text: initialValue);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return showDialog<String>(
@@ -225,7 +223,7 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Legenda (opcional)',
+          initialValue != null ? 'Editar legenda' : 'Legenda (opcional)',
           style: TextStyle(
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w700,
@@ -234,6 +232,7 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         content: TextField(
           controller: controller,
           maxLength: 100,
+          autofocus: true,
           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
           decoration: InputDecoration(
             hintText: 'Ex: Troca de oleo em andamento',
@@ -254,14 +253,14 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
             child: Text(
-              'Pular',
+              initialValue != null ? 'Cancelar' : 'Pular',
               style: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
             ),
           ),
           ElevatedButton(
             onPressed: () {
               final text = controller.text.trim();
-              Navigator.pop(ctx, text.isEmpty ? null : text);
+              Navigator.pop(ctx, text.isEmpty ? '' : text);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00C977),
@@ -290,8 +289,8 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Row(
-                children: const [
+              content: const Row(
+                children: [
                   Icon(Icons.check_circle, color: Colors.white, size: 18),
                   SizedBox(width: 8),
                   Text('Foto adicionada com sucesso!'),
@@ -325,9 +324,133 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
     }
   }
 
+  Future<void> _showPhotoOptions(Map<String, dynamic> photo) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final caption = (photo['caption'] ?? '').toString();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.edit, color: Color(0xFF00C977), size: 22),
+                ),
+                title: Text(
+                  caption.isEmpty ? 'Adicionar legenda' : 'Editar legenda',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _editCaption(photo);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 22),
+                ),
+                title: Text(
+                  'Remover foto',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmDeletePhoto(photo);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editCaption(Map<String, dynamic> photo) async {
+    if (_workshopId == null) return;
+    final photoId = photo['id']?.toString();
+    if (photoId == null) return;
+
+    final currentCaption = (photo['caption'] ?? '').toString();
+    final newCaption = await _showCaptionDialog(initialValue: currentCaption);
+    if (newCaption == null) return;
+
+    try {
+      final result = await _apiService.updateGalleryPhoto(
+        _workshopId!,
+        photoId,
+        caption: newCaption,
+      );
+
+      if (result['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Text('Legenda atualizada!'),
+                ],
+              ),
+              backgroundColor: const Color(0xFF00C977),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        await _loadData();
+      } else {
+        throw Exception(result['error'] ?? 'Erro ao atualizar');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmDeletePhoto(Map<String, dynamic> photo) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final photoId = photo['id'];
+    final photoId = photo['id']?.toString();
     if (photoId == null || _workshopId == null) return;
 
     final confirmed = await showDialog<bool>(
@@ -370,17 +493,14 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
     if (confirmed != true) return;
 
     try {
-      final result = await _apiService.deleteGalleryPhoto(
-        _workshopId!,
-        photoId is int ? photoId : int.parse(photoId.toString()),
-      );
+      final result = await _apiService.deleteGalleryPhoto(_workshopId!, photoId);
 
       if (result['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Row(
-                children: const [
+              content: const Row(
+                children: [
                   Icon(Icons.check_circle, color: Colors.white, size: 18),
                   SizedBox(width: 8),
                   Text('Foto removida com sucesso!'),
@@ -408,6 +528,81 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         );
       }
     }
+  }
+
+  void _showPhotoViewer(Map<String, dynamic> photo, int index) {
+    final imageUrl = (photo['url'] ?? photo['image_url'] ?? '').toString();
+    final caption = (photo['caption'] ?? '').toString();
+    if (imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(color: Colors.black.withOpacity(0.9)),
+              ),
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 64,
+                    ),
+                  ),
+                ),
+              ),
+              if (caption.isNotEmpty)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 60,
+                  child: Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 50,
+                right: 16,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                ),
+              ),
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Text(
+                    '${index + 1} / ${_photos.length}',
+                    style: const TextStyle(color: Colors.white60, fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -490,7 +685,6 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
 
   Widget _buildEmptyState(bool isDark, Color textColor, Color secondaryText) {
     return ListView(
-      // ListView so pull-to-refresh works on empty state
       children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.65,
@@ -569,13 +763,14 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
         final photo = _photos[index] is Map
             ? Map<String, dynamic>.from(_photos[index] as Map)
             : <String, dynamic>{};
-        return _buildPhotoCard(photo, isDark, textColor, secondaryText, cardColor);
+        return _buildPhotoCard(photo, index, isDark, textColor, secondaryText, cardColor);
       },
     );
   }
 
   Widget _buildPhotoCard(
     Map<String, dynamic> photo,
+    int index,
     bool isDark,
     Color textColor,
     Color secondaryText,
@@ -585,132 +780,135 @@ class _ImageManagementScreenState extends State<ImageManagementScreen> {
     final caption = (photo['caption'] ?? '').toString();
     final borderColor = isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.06);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Image
-            imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 36,
-                              color: secondaryText.withOpacity(0.5),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Erro ao carregar',
-                              style: TextStyle(
-                                fontSize: 11,
+    return GestureDetector(
+      onTap: () => _showPhotoViewer(photo, index),
+      onLongPress: () => _showPhotoOptions(photo),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              imageUrl.isNotEmpty
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image_outlined,
+                                size: 36,
                                 color: secondaryText.withOpacity(0.5),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  )
-                : Container(
-                    color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9),
-                    child: Icon(
-                      Icons.image_outlined,
-                      size: 48,
-                      color: secondaryText.withOpacity(0.3),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Erro ao carregar',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: secondaryText.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF1F5F9),
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 48,
+                        color: secondaryText.withOpacity(0.3),
+                      ),
                     ),
-                  ),
 
-            // Delete button (top-right)
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => _confirmDeletePhoto(photo),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Caption overlay (bottom)
-            if (caption.isNotEmpty)
+              // Delete button (top-right)
               Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
+                top: 6,
+                right: 6,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _confirmDeletePhoto(photo),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.55),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    caption,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-          ],
+
+              // Caption overlay (bottom)
+              if (caption.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      caption,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

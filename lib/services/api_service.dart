@@ -2673,11 +2673,24 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.patch(path, data: body);
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        return {'success': true, 'data': data['data']};
+      }
+      return {'success': false, 'error': data?['error'] ?? 'Erro'};
+    } catch (e) {
+      return {'success': false, 'error': _getErrorMessage(e)};
+    }
+  }
+
   // ============================================
   // GALLERY / PORTFOLIO - DADOS REAIS DA API
   // ============================================
 
-  Future<List<dynamic>> getWorkshopGallery(int workshopId) async {
+  Future<List<dynamic>> getWorkshopGallery(String workshopId) async {
     try {
       final response = await get('/workshop/$workshopId/gallery');
       if (response['success'] == true) {
@@ -2691,20 +2704,26 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> deleteGalleryPhoto(int workshopId, int photoId) async {
+  Future<Map<String, dynamic>> deleteGalleryPhoto(String workshopId, String photoId) async {
     return await delete('/workshop/$workshopId/gallery/$photoId');
   }
 
-  Future<Map<String, dynamic>> reorderGalleryPhotos(int workshopId, List<Map<String, dynamic>> order) async {
+  Future<Map<String, dynamic>> reorderGalleryPhotos(String workshopId, List<Map<String, dynamic>> order) async {
     return await put('/workshop/$workshopId/gallery/reorder', {'order': order});
   }
 
-  Future<Map<String, dynamic>> uploadGalleryPhoto(int workshopId, File imageFile, {String? caption}) async {
+  Future<Map<String, dynamic>> updateGalleryPhoto(String workshopId, String photoId, {String? caption}) async {
+    final body = <String, dynamic>{};
+    if (caption != null) body['caption'] = caption.trim();
+    return await patch('/workshop/$workshopId/gallery/$photoId', body);
+  }
+
+  Future<Map<String, dynamic>> uploadGalleryPhoto(String workshopId, File imageFile, {String? caption}) async {
     try {
       await loadToken();
 
       final formData = FormData.fromMap({
-        'photo': await MultipartFile.fromFile(
+        'image': await MultipartFile.fromFile(
           imageFile.path,
           filename: imageFile.path.split('/').last,
         ),
@@ -2729,7 +2748,7 @@ class ApiService {
       return {'success': false, 'error': 'Erro ao enviar foto'};
     } on DioException catch (e) {
       if (e.response?.statusCode == 413) {
-        return {'success': false, 'error': 'Imagem muito grande. Tamanho máximo: 10 MB.'};
+        return {'success': false, 'error': 'Imagem muito grande. Tamanho maximo: 10 MB.'};
       }
       final errorData = e.response?.data;
       final msg = errorData is Map ? errorData['error']?.toString() : null;
