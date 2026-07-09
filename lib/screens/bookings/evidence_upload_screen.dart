@@ -406,7 +406,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Foto do progresso do serviço',
+                      'Selecione e envie 1 foto por vez',
                       style: TextStyle(
                         color: secondaryText,
                         fontWeight: FontWeight.w600,

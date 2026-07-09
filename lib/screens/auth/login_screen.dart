@@ -39,11 +39,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       if (result['success']) {
+      // Registrar workshopId no OneSignal para receber push via external_user_id
+      try {
+        final workshopId = await _apiService.getWorkshopId();
+        if (workshopId != null && workshopId.isNotEmpty) {
+          await OneSignalService.setExternalUserId(workshopId);
+          print('[Login] OneSignal.login($workshopId) chamado com sucesso');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('[Login] Erro ao registrar workshopId no OneSignal: $e');
+        }
+      }
       // Salvar device token após login bem-sucedido
-      // Aguardar um pouco para garantir que o OneSignal está pronto
       await Future.delayed(const Duration(milliseconds: 500));
       try {
-        // Tentar obter o token até 3 vezes com delay
         String? playerId;
         for (int i = 0; i < 3; i++) {
           playerId = OneSignalService.getSubscriptionId();
@@ -53,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
           }
           await Future.delayed(const Duration(milliseconds: 500));
         }
-        
+
         if (playerId != null && playerId.isNotEmpty) {
           final result = await _apiService.saveDeviceToken(playerId);
           if (result['success'] == true) {

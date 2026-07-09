@@ -45,12 +45,26 @@ class _SplashScreenState extends State<SplashScreen>
     
     final token = await StorageService.getToken();
     
-    // Se usuário já está logado, salvar device token
     if (token != null) {
+      final apiService = ApiService();
+      // Registrar workshopId no OneSignal para receber push via external_user_id
+      try {
+        await apiService.loadToken();
+        final workshopId = await apiService.getWorkshopId();
+        if (workshopId != null && workshopId.isNotEmpty) {
+          await OneSignalService.setExternalUserId(workshopId);
+          if (kDebugMode) {
+            print('[Splash] OneSignal.login($workshopId) chamado com sucesso');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('[Splash] Erro ao registrar workshopId no OneSignal: $e');
+        }
+      }
       try {
         final playerId = OneSignalService.getSubscriptionId();
         if (playerId != null) {
-          final apiService = ApiService();
           await apiService.saveDeviceToken(playerId);
           if (kDebugMode) {
             print('[Splash] Device token salvo após verificar token existente');
