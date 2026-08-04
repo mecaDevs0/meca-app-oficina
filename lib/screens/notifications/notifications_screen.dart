@@ -21,7 +21,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _notifications = [];
   int _unreadCount = 0;
-  int _previousUnreadCount = 0;
   final ApiService _apiService = ApiService();
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
@@ -32,7 +31,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final provider = Provider.of<NotificationProvider>(context, listen: false);
-      _previousUnreadCount = provider.unreadNotifications;
       provider.markProfileBadgeSeen();
       // Marcar todas como lidas na API ANTES de carregar, para persistir e garantir estado correto ao reabrir o app
       await _markAllAsReadSilently();
@@ -125,8 +123,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             
             // Usar setNotifications para manter lista no provider
             provider.setNotifications(normalizedNotifications);
-            
-            _previousUnreadCount = _unreadCount;
             
             // Verificar se há notificações de pagamento não lidas
             final hasUnreadPayments = provider.hasUnreadPaymentNotifications(_notifications);
@@ -626,30 +622,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _formatDate(String? date) {
-    if (date == null) return 'Agora';
-    
-    try {
-      final dateTime = DateTime.parse(date);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-      
-      if (difference.inMinutes < 1) {
-        return 'Agora';
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m atrás';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h atrás';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays}d atrás';
-      } else {
-        return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-      }
-    } catch (e) {
-      return date;
-    }
-  }
-
   Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
     final type = (notification['type'] ?? '').toString();
     final data = notification['data'] is Map
@@ -867,5 +839,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }

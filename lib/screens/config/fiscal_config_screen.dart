@@ -104,6 +104,41 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
     }
   }
 
+  Future<bool> _handleBack() async {
+    if (!_nfEnabled) return true;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          icon: const Icon(Icons.description_outlined, color: Color(0xFF00C977), size: 48),
+          title: Text(
+            'Dados fiscais incompletos',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Você ativou a emissão automática de NF. Preencha os dados fiscais para que as notas sejam emitidas corretamente após cada pagamento.',
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Voltar mesmo assim', style: TextStyle(color: isDark ? Colors.white54 : Colors.black45)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C977), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('Preencher dados'),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeService>(
@@ -116,14 +151,24 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
         final borderColor = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08);
         final inputBg = isDark ? const Color(0xFF252525) : const Color(0xFFF0F0F0);
 
-        return Scaffold(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            final shouldPop = await _handleBack();
+            if (shouldPop && context.mounted) Navigator.pop(context);
+          },
+          child: Scaffold(
           backgroundColor: bgColor,
           appBar: AppBar(
             backgroundColor: bgColor,
             elevation: 0,
             leading: IconButton(
               icon: Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () async {
+                final shouldPop = await _handleBack();
+                if (shouldPop && context.mounted) Navigator.pop(context);
+              },
             ),
             title: Text('Nota Fiscal', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w700)),
             centerTitle: true,
@@ -281,6 +326,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                     ],
                   ),
                 ),
+        ),
         );
       },
     );

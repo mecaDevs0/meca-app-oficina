@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
@@ -15,7 +14,6 @@ import '../../utils/formatters.dart';
 import '../asaas/identity_verification_screen.dart';
 import '../help/help_center_screen.dart';
 import '../setup/services_selection_screen.dart';
-import '../workshop/image_management_screen.dart';
 import 'edit_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'referral_screen.dart';
@@ -60,10 +58,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final normalizedNotifications = rawList.map((notif) {
             return Map<String, dynamic>.from(notif);
           }).toList();
-          
-          final unreadCount = data['unread_count'] is int
-              ? data['unread_count']
-              : int.tryParse('${data['unread_count']}') ?? 0;
           
           final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
           
@@ -242,37 +236,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       _buildMenuOption(
                         icon: Icons.photo_library,
-                        title: 'Meu Portfólio',
-                        subtitle: 'Fotos dos seus serviços e oficina',
+                        title: 'Fotos da Oficina',
+                        subtitle: 'Fachada, interior e servicos realizados',
                         isDark: isDark,
                         onTap: () async {
                           await Navigator.pushNamed(context, '/portfolio');
                           if (mounted) {
-                            await _loadWorkshopData();
-                          }
-                        },
-                      ),
-                      _buildMenuOption(
-                        icon: Icons.notifications_active_outlined,
-                        title: 'Notificações',
-                        subtitle: 'Configurar alertas e notificações',
-                        isDark: isDark,
-                        showBadge: showNotificationsBadge,
-                        onTap: () async {
-                          await Navigator.pushNamed(context, '/notifications');
-                          if (mounted) {
-                            await _loadWorkshopData();
-                          }
-                        },
-                      ),
-                      _buildMenuOption(
-                        icon: Icons.account_balance_wallet_outlined,
-                        title: 'Dados bancários',
-                        subtitle: 'Configurar conta de recebimento',
-                        isDark: isDark,
-                        onTap: () async {
-                          final result = await Navigator.pushNamed(context, '/config/banking');
-                          if (result == true && mounted) {
                             await _loadWorkshopData();
                           }
                         },
@@ -703,8 +672,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isRejected = asaasStatus == 'REJECTED';
     final hasBankData = (_workshopData?['bank_code'] ?? '').toString().trim().isNotEmpty ||
         (_workshopData?['pix_key'] ?? '').toString().trim().isNotEmpty;
-    final isConfigured = isActive || isPending;
-
     // Status visual config
     final Color statusColor = isActive
         ? const Color(0xFF00C977)
@@ -855,13 +822,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Action buttons
             if (isActive) ...[
-              // Active: show edit button
-              _buildActionRow(
-                icon: Icons.settings_outlined,
-                label: 'Editar dados bancarios',
-                color: const Color(0xFF00C977),
-                secondaryText: secondaryText,
+              InkWell(
                 onTap: () => _navigateToBanking(),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C977).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF00C977).withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.settings_outlined, color: Color(0xFF00C977), size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Editar dados bancários',
+                        style: TextStyle(
+                          color: Color(0xFF00C977),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Spacer(),
+                      Icon(Icons.arrow_forward_ios, color: Color(0xFF00C977), size: 14),
+                    ],
+                  ),
+                ),
               ),
             ] else if (isPending) ...[
               // KYC needed: prominent verification button
@@ -1085,31 +1074,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildActionRow({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required Color secondaryText,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: secondaryText),
-            const SizedBox(width: 8),
-            Text(label, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
-            const Spacer(),
-            Icon(Icons.chevron_right, size: 18, color: secondaryText),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -1227,103 +1191,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         duration: const Duration(seconds: 4),
       ),
     );
-  }
-
-  Widget _buildKeyValueRow(String label, dynamic value, Color primary, Color secondary) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: secondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value?.toString() ?? '-',
-              style: TextStyle(
-                color: primary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String? _formatDateTime(dynamic value) {
-    if (value == null) return null;
-    try {
-      final date = value is DateTime ? value : DateTime.parse(value.toString());
-      final local = date.toLocal();
-      final day = local.day.toString().padLeft(2, '0');
-      final month = local.month.toString().padLeft(2, '0');
-      final year = local.year.toString();
-      final hour = local.hour.toString().padLeft(2, '0');
-      final minute = local.minute.toString().padLeft(2, '0');
-      return '$day/$month/$year $hour:$minute';
-    } catch (_) {
-      return value.toString();
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'active':
-      case 'approved':
-        return const Color(0xFF22C55E);
-      case 'pending':
-        return const Color(0xFFF97316);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  String _formatBank(Map<String, dynamic> bank) {
-    final code = (bank['bank_code'] ?? '').toString();
-    final name = (bank['bank_name'] ?? '').toString();
-    if (code.isEmpty && name.isEmpty) return '-';
-    if (name.isEmpty) return code;
-    if (code.isEmpty) return name;
-    return '$code · $name';
-  }
-
-  String _translateAccountType(dynamic value) {
-    switch (value?.toString()) {
-      case 'savings':
-      case 'poupanca':
-        return 'Poupança';
-      default:
-        return 'Conta corrente';
-    }
-  }
-
-  String _translatePixType(dynamic value) {
-    switch (value?.toString()) {
-      case 'cpf':
-        return 'CPF';
-      case 'cnpj':
-        return 'CNPJ';
-      case 'email':
-        return 'E-mail';
-      case 'phone':
-      case 'telefone':
-        return 'Telefone';
-      case 'aleatorio':
-        return 'Chave aleatória';
-      default:
-        return 'Outro';
-    }
   }
 
   Widget _buildThemeCard(bool isDark, ThemeService themeService) {
@@ -1543,7 +1410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final flatCity = _workshopData?['city']?.toString().trim();
     final flatState = _workshopData?['state']?.toString().trim();
     final flatCep = _formatCepVisual(_workshopData?['cep']?.toString().trim());
-    final flatAddressStr = raw is String ? (raw as String).trim() : null;
+    final flatAddressStr = raw is String ? raw.trim() : null;
 
     if (flatAddressStr != null && flatAddressStr.isNotEmpty) {
       final parts = [flatAddressStr, flatCity, flatState, flatCep]
@@ -1602,191 +1469,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       default:
         return status;
     }
-  }
-
-  void _showHelp() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0B1120) : Colors.white;
-    final card = isDark ? const Color(0xFF101826) : const Color(0xFFF8FAFC);
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final secondary = isDark ? Colors.white70 : Colors.black54;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C977).withOpacity(0.16),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.support_agent, color: Color(0xFF00C977)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('MECA Suporte', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 2),
-                          Text('Respostas rápidas', style: TextStyle(color: secondary)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.close, color: textColor.withOpacity(0.8)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFF00C977).withOpacity(0.18)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFaqItem(
-                        title: 'Tarifas financeiras',
-                        body: 'As tarifas financeiras (PIX e cartao) sao definidas e cobradas pela Asaas Gestao Financeira S.A. e subsidiadas integralmente pela MECA. Voce nao e descontado.',
-                        isDark: isDark,
-                      ),
-                      _buildFaqItem(
-                        title: 'Taxa de intermediacao MECA (12%)',
-                        body: 'A MECA cobra uma taxa de intermediacao de 12% por servico (split automatico). As tarifas financeiras sao cobradas pela Asaas Gestao Financeira S.A. e subsidiadas pela MECA; voce recebe 88% do valor pago pelo cliente.',
-                        isDark: isDark,
-                      ),
-                      _buildFaqItem(
-                        title: 'Como funciona o split',
-                        body: 'O cliente paga pelo app e a Asaas Gestao Financeira S.A. faz o repasse automaticamente: 12% referente a taxa de intermediacao da MECA e 88% para sua conta bancaria.',
-                        isDark: isDark,
-                      ),
-                      _buildFaqItem(
-                        title: 'Conta nao atualizada',
-                        body: 'Puxe a tela para baixo para atualizar os dados. Se o problema persistir, entre em contato com contato@mecabr.com.',
-                        isDark: isDark,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      final emailUri = Uri(
-                        scheme: 'mailto',
-                        path: 'contato@mecabr.com',
-                        query: 'subject=Suporte MECA - Ajuda',
-                      );
-                      if (await canLaunchUrl(emailUri)) {
-                        await launchUrl(emailUri);
-                      } else {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Não foi possível abrir o aplicativo de email.'),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00C977),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    icon: const Icon(Icons.email_outlined),
-                    label: const Text('Falar com suporte'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFaqItem({required String title, required String body, required bool isDark}) {
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final secondary = isDark ? Colors.white70 : Colors.black54;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(body, style: TextStyle(color: secondary, height: 1.25)),
-          const SizedBox(height: 10),
-          Divider(height: 1, color: (isDark ? Colors.white : Colors.black).withOpacity(0.08)),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactInfo(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF00C977)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 
   Future<void> _showLogoPicker() async {

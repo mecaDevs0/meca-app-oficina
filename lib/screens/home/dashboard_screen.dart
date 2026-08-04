@@ -431,30 +431,81 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   Map<String, dynamic> _getStatusConfig(String status) {
+    final normalized = status.toLowerCase().trim();
     final configs = {
       'pending': {
         'label': 'Pendente',
-        'color': const Color(0xFFFCF4E5),
-        'textColor': const Color(0xFFDBA800),
+        'color': const Color(0xFFFFF3E0),
+        'textColor': const Color(0xFFFF9800),
+      },
+      'pendente': {
+        'label': 'Pendente',
+        'color': const Color(0xFFFFF3E0),
+        'textColor': const Color(0xFFFF9800),
+      },
+      'pendente_oficina': {
+        'label': 'Pendente',
+        'color': const Color(0xFFFFF3E0),
+        'textColor': const Color(0xFFFF9800),
       },
       'confirmed': {
         'label': 'Confirmado',
-        'color': const Color(0xFFE3EDFA),
-        'textColor': const Color(0xFF7896D8),
+        'color': const Color(0xFFE0FFF0),
+        'textColor': const Color(0xFF00C977),
+      },
+      'confirmado': {
+        'label': 'Confirmado',
+        'color': const Color(0xFFE0FFF0),
+        'textColor': const Color(0xFF00C977),
       },
       'in_progress': {
         'label': 'Em Andamento',
-        'color': const Color(0xFFE8FFEE),
-        'textColor': const Color(0xFF2FD65C),
+        'color': const Color(0xFFE0EDFF),
+        'textColor': const Color(0xFF3B82F6),
+      },
+      'em_andamento': {
+        'label': 'Em Andamento',
+        'color': const Color(0xFFE0EDFF),
+        'textColor': const Color(0xFF3B82F6),
+      },
+      'finalizado_aguardando_pagamento': {
+        'label': 'Aguardando Pgto',
+        'color': const Color(0xFFF0E6FF),
+        'textColor': const Color(0xFF8B5CF6),
+      },
+      'aguardando_pagamento': {
+        'label': 'Aguardando Pgto',
+        'color': const Color(0xFFF0E6FF),
+        'textColor': const Color(0xFF8B5CF6),
       },
       'completed': {
         'label': 'Concluído',
-        'color': const Color(0xFFE8FFEE),
-        'textColor': const Color(0xFF2FD65C),
+        'color': const Color(0xFFD1FAE5),
+        'textColor': const Color(0xFF10B981),
+      },
+      'concluido': {
+        'label': 'Concluído',
+        'color': const Color(0xFFD1FAE5),
+        'textColor': const Color(0xFF10B981),
+      },
+      'pago': {
+        'label': 'Pago',
+        'color': const Color(0xFFD1FAE5),
+        'textColor': const Color(0xFF10B981),
+      },
+      'cancelled': {
+        'label': 'Cancelado',
+        'color': const Color(0xFFFEE2E2),
+        'textColor': const Color(0xFFEF4444),
+      },
+      'cancelado': {
+        'label': 'Cancelado',
+        'color': const Color(0xFFFEE2E2),
+        'textColor': const Color(0xFFEF4444),
       },
     };
-    
-    return configs[status] ?? configs['pending']!;
+
+    return configs[normalized] ?? configs['pending']!;
   }
 
   @override

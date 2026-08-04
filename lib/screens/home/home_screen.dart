@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_config.dart';
 import '../../providers/notification_provider.dart';
@@ -112,7 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _upcomingBookings = [];
   List<Map<String, dynamic>> _historyBookings = [];
   Map<String, dynamic>? _workshopData;
-  List<Map<String, dynamic>> _services = [];
   final ApiService _apiService = ApiService();
   
   // Variáveis para controle de configuração
@@ -120,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isServiceInvalid = false;
   bool _isLogoMissing = false;
   bool _missingAsaasWallet = false;
-  bool _isAsaasOnboarded = false;
   bool _asaasNeedsVerification = false;
   int _activeBookingsCount = 0; // Contador de serviços em andamento
 
@@ -157,11 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ]);
 
       if (!mounted) return;
-      final notificationsResponse = results[0] as Map<String, dynamic>;
-      final profileResponse = results[1] as Map<String, dynamic>;
-      final scheduleResponse = results[2] as Map<String, dynamic>;
-      final servicesResponse = results[3] as Map<String, dynamic>;
-      final bookingsResponse = results[4] as Map<String, dynamic>;
+      final notificationsResponse = results[0];
+      final profileResponse = results[1];
+      final scheduleResponse = results[2];
+      final servicesResponse = results[3];
+      final bookingsResponse = results[4];
 
       try {
         if (notificationsResponse['success'] && mounted) {
@@ -172,10 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
           final normalizedNotifications = rawList.map((notif) {
             return Map<String, dynamic>.from(notif);
           }).toList();
-          
-          final unreadCount = data['unread_count'] is int
-              ? data['unread_count']
-              : int.tryParse('${data['unread_count']}') ?? 0;
           
           final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
           
@@ -195,12 +188,9 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _workshopData = profileResponse['data']);
         final workshop = profileResponse['data'] is Map ? (profileResponse['data'] as Map) : {};
         final walletId = (workshop['asaas_wallet_id'] as String? ?? '').toString().trim();
-        final bankCode = (workshop['bank_code'] ?? '').toString().trim();
-        final pixKey = (workshop['pix_key'] ?? '').toString().trim();
         final asaasStatus = (workshop['asaas_status'] ?? '').toString().trim().toUpperCase();
         final logoUrl = (workshop['logo_url'] ?? workshop['logo'] ?? '').toString().trim();
         setState(() {
-          _isAsaasOnboarded = walletId.isNotEmpty;
           _missingAsaasWallet = walletId.isEmpty;
           _asaasNeedsVerification = walletId.isNotEmpty && asaasStatus != 'APPROVED' && asaasStatus != 'ACTIVE';
           _isLogoMissing = logoUrl.isEmpty;
@@ -240,7 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ? (servicesData['services'] ?? [])
               : (servicesData is List ? servicesData : []);
           hasServices = servicesList.isNotEmpty;
-          setState(() => _services = List<Map<String, dynamic>>.from(servicesList));
         }
       } catch (e) {
         print('⚠️ Erro ao processar serviços: $e');
@@ -518,12 +507,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 4),
                 Text(
                   _workshopData?['name'] ?? 'Oficina MECA',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF00C977),
                     height: 1.3,
+                    letterSpacing: -0.2,
                   ),
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1266,14 +1257,56 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Map<String, Color> _getStatusChipConfig(String? status, bool isDark) {
+    final n = (status ?? '').toLowerCase().trim();
+    if (n == 'pending' || n == 'pendente_oficina' || n == 'pendente') {
+      return isDark
+          ? {'bg': const Color(0xFF3D2800), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFFFB74D)}
+          : {'bg': const Color(0xFFFFF3E0), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFE65100)};
+    }
+    if (n == 'confirmed' || n == 'confirmado') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF00C977), 'text': const Color(0xFF4ADE80)}
+          : {'bg': const Color(0xFFE0FFF0), 'border': const Color(0xFF00C977), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'started' || n == 'in_progress' || n == 'em_andamento') {
+      return isDark
+          ? {'bg': const Color(0xFF0C2340), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF60A5FA)}
+          : {'bg': const Color(0xFFE0EDFF), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF1D4ED8)};
+    }
+    if (n == 'pendente_cliente') {
+      return isDark
+          ? {'bg': const Color(0xFF3D3000), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFFBBF24)}
+          : {'bg': const Color(0xFFFEF3C7), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFB45309)};
+    }
+    if (n == 'finalizado_aguardando_pagamento' || n == 'finalizado_cliente' || n == 'aguardando_pagamento' || n == 'awaiting_payment') {
+      return isDark
+          ? {'bg': const Color(0xFF2E1065), 'border': const Color(0xFF8B5CF6), 'text': const Color(0xFFA78BFA)}
+          : {'bg': const Color(0xFFF0E6FF), 'border': const Color(0xFF8B5CF6), 'text': const Color(0xFF6D28D9)};
+    }
+    if (n == 'pago' || n == 'paid' || n == 'approved' || n == 'completed' || n == 'finished' || n == 'concluido' || n == 'concluído') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF10B981), 'text': const Color(0xFF34D399)}
+          : {'bg': const Color(0xFFD1FAE5), 'border': const Color(0xFF10B981), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'cancelled' || n == 'cancelado') {
+      return isDark
+          ? {'bg': const Color(0xFF3D0A0A), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFF87171)}
+          : {'bg': const Color(0xFFFEE2E2), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFB91C1C)};
+    }
+    return isDark
+        ? {'bg': const Color(0xFF2A2A2A), 'border': Colors.grey, 'text': Colors.grey}
+        : {'bg': const Color(0xFFF3F4F6), 'border': Colors.grey, 'text': Colors.grey};
+  }
+
   Widget _buildStatusChip(String? status, bool isDark) {
-    final Color color = _getStatusColor(status);
+    final chipConfig = _getStatusChipConfig(status, isDark);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.22 : 0.16),
+        color: chipConfig['bg'],
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(isDark ? 0.5 : 0.3)),
+        border: Border.all(color: chipConfig['border']!, width: 1),
       ),
       child: Text(
         _getStatusText(status),
@@ -1282,9 +1315,9 @@ class _HomeScreenState extends State<HomeScreen> {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
-          color: color,
+          color: chipConfig['text'],
         ),
       ),
     );
@@ -1310,45 +1343,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     return null;
-  }
-
-  Color _getStatusColor(String? status) {
-    if (status == null) return Colors.grey;
-    
-    final normalized = status.toString().toLowerCase().trim();
-    
-    switch (normalized) {
-      case 'pending':
-      case 'pendente_oficina':
-      case 'pendente':
-        return Colors.orange;
-      case 'confirmed':
-      case 'confirmado':
-        return const Color(0xFF00C977);
-      case 'started':
-      case 'in_progress':
-      case 'em_andamento':
-        return const Color(0xFF3B82F6);
-      case 'pendente_cliente':
-        return Colors.amber;
-      case 'finalizado_aguardando_pagamento':
-      case 'finalizado_cliente':
-        return Colors.blue;
-      case 'pago':
-      case 'paid':
-      case 'approved':
-        return Colors.green;
-      case 'completed':
-      case 'finished':
-      case 'concluido':
-      case 'concluído':
-        return Colors.green;
-      case 'cancelled':
-      case 'cancelado':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 
   String _getStatusText(String? status) {

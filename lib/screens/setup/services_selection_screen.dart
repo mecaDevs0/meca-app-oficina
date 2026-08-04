@@ -169,10 +169,10 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.blue.shade900.withOpacity(0.3) : Colors.blue.shade50,
+                  color: isDark ? const Color(0xFF065F46).withOpacity(0.3) : const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? Colors.blue.shade700 : Colors.blue.shade100,
+                    color: isDark ? const Color(0xFF047857) : const Color(0xFFBBF7D0),
                     width: 1,
                   ),
                 ),
@@ -181,7 +181,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                   children: [
                     Icon(
                       Icons.lightbulb_outline_rounded,
-                      color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+                      color: isDark ? const Color(0xFF34D399) : const Color(0xFF047857),
                       size: 22,
                     ),
                     const SizedBox(width: 12),
@@ -190,7 +190,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                         'Você pode deixar os campos vazios e configurar depois nas configurações.',
                         style: TextStyle(
                           fontSize: 15,
-                          color: isDark ? Colors.blue.shade200 : Colors.blue.shade900,
+                          color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF065F46),
                           height: 1.4,
                         ),
                       ),
@@ -894,10 +894,10 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: const Color(0xFFECFDF5),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.blue.shade100,
+                      color: const Color(0xFFBBF7D0),
                       width: 1,
                     ),
                   ),
@@ -906,7 +906,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                     children: [
                       Icon(
                         Icons.info_outline_rounded,
-                        color: Colors.blue.shade700,
+                        color: const Color(0xFF047857),
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -915,7 +915,7 @@ class _ServicesSelectionScreenState extends State<ServicesSelectionScreen> with 
                           'Você pode deixar os campos vazios e configurar depois.',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.blue.shade900,
+                            color: const Color(0xFF065F46),
                             height: 1.4,
                           ),
                         ),

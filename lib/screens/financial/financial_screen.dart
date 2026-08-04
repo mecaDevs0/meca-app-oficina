@@ -24,6 +24,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
   bool _isAsaasOnboarded = false;
   final ApiService _apiService = ApiService();
   final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -35,6 +37,12 @@ class _FinancialScreenState extends State<FinancialScreen> {
       final provider = Provider.of<NotificationProvider>(context, listen: false);
       provider.markFinancialBadgeSeen();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _safeSetState(VoidCallback fn) {
@@ -134,7 +142,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Acompanhe faturamento, estatísticas e transações em tempo real.',
+                              'Faturamento, métricas e transações.',
                               style: TextStyle(
                                 fontSize: 15,
                                 color: secondaryTextColor,
@@ -213,6 +221,41 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                 fontSize: 20,
                                 fontWeight: FontWeight.w600,
                                 color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _searchController,
+                              style: TextStyle(color: textColor, fontSize: 14),
+                              onChanged: (value) => _safeSetState(() => _searchQuery = value.toLowerCase()),
+                              decoration: InputDecoration(
+                                hintText: 'Buscar por serviço, carro, valor...',
+                                hintStyle: TextStyle(color: secondaryTextColor, fontSize: 14),
+                                prefixIcon: Icon(Icons.search, color: secondaryTextColor, size: 20),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(Icons.close, color: secondaryTextColor, size: 18),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          _safeSetState(() => _searchQuery = '');
+                                        },
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: themeService.isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: themeService.isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: themeService.isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.08)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -708,11 +751,24 @@ class _FinancialScreenState extends State<FinancialScreen> {
     required Color textColor,
     required Color secondaryTextColor,
   }) {
-    final transactions = (_financialData?['recent_transactions'] as List?)
+    final allTransactions = (_financialData?['recent_transactions'] as List?)
             ?.cast<Map<String, dynamic>>() ??
         [];
 
-    if (transactions.isEmpty) {
+    final transactions = _searchQuery.isEmpty
+        ? allTransactions
+        : allTransactions.where((t) {
+            final service = (t['service_name'] ?? '').toString().toLowerCase();
+            final vehicle = (t['vehicle_display'] ?? '').toString().toLowerCase();
+            final method = (t['payment_method'] ?? '').toString().toLowerCase();
+            final amount = _formatCurrency(t['gross_amount'], fallback: '').toLowerCase();
+            return service.contains(_searchQuery) ||
+                vehicle.contains(_searchQuery) ||
+                method.contains(_searchQuery) ||
+                amount.contains(_searchQuery);
+          }).toList();
+
+    if (allTransactions.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
@@ -753,6 +809,33 @@ class _FinancialScreenState extends State<FinancialScreen> {
       );
     }
 
+    if (transactions.isEmpty && _searchQuery.isNotEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.search_off, size: 48, color: secondaryTextColor.withOpacity(0.5)),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhuma transação encontrada',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tente buscar por outro termo.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: secondaryTextColor),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -786,7 +869,8 @@ class _FinancialScreenState extends State<FinancialScreen> {
   ) {
     final status = (transaction['status'] ?? 'pending').toString();
     final serviceName = (transaction['service_name'] ?? 'Serviço').toString();
-    final method = (transaction['payment_method'] ?? 'Desconhecido').toString().toUpperCase();
+    final rawMethod = (transaction['payment_method'] ?? '').toString().toUpperCase();
+    final method = (rawMethod.isEmpty || rawMethod == 'UNDEFINED') ? 'Não informado' : rawMethod;
     final installments = transaction['installments'] ?? 1;
     final createdAt = _formatDate(transaction['created_at']);
 
@@ -978,7 +1062,13 @@ class _FinancialScreenState extends State<FinancialScreen> {
     if (value == null) return 'Data não informada';
     try {
       final dateTime = value is DateTime ? value : DateTime.parse(value.toString());
-      return DateFormat('dd/MM/yyyy HH:mm', 'pt_BR').format(dateTime.toLocal());
+      final local = dateTime.toLocal();
+      final day = local.day.toString().padLeft(2, '0');
+      final month = local.month.toString().padLeft(2, '0');
+      final year = local.year;
+      final hour = local.hour.toString().padLeft(2, '0');
+      final minute = local.minute.toString().padLeft(2, '0');
+      return '$day/$month/$year às $hour:$minute';
     } catch (_) {
       return value.toString();
     }

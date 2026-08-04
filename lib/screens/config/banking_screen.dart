@@ -650,32 +650,51 @@ class _BankingScreenState extends State<BankingScreen> {
           child: Scaffold(
             backgroundColor: bgColor,
             appBar: AppBar(
-              title: const Text('Configurações Financeiras'),
-              backgroundColor: isDark
-                  ? const Color(0xFF0A0A0A)
-                  : const Color(0xFF00C977),
-              foregroundColor: Colors.white,
+              title: Text(
+                'Configurações Financeiras',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                  color: textColor,
+                ),
+              ),
+              backgroundColor: bgColor,
+              foregroundColor: textColor,
               elevation: 0,
-              actions: [
-                if (_hasUnsavedChanges && !_isLoading)
-                  TextButton(
-                    onPressed: _isSaving ? null : _save,
-                    child: const Text(
-                      'Salvar',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-              ],
             ),
             body: _isLoading
                 ? _buildSkeleton(isDark)
                 : _isViewMode
-                    ? _buildViewBody(isDark, textColor, secondaryColor)
-                    : SingleChildScrollView(
+                    ? Column(
+                    children: [
+                      Expanded(child: _buildViewBody(isDark, textColor, secondaryColor)),
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _safeSetState(() => _isViewMode = false),
+                              icon: const Icon(Icons.edit, size: 20),
+                              label: const Text('Editar Dados Bancários', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF00C977),
+                                side: const BorderSide(color: Color(0xFF00C977), width: 1.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                    : Column(
+                    children: [
+                    Expanded(
+                    child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Form(
                       key: _formKey,
@@ -1035,48 +1054,42 @@ class _BankingScreenState extends State<BankingScreen> {
                               _buildInstallmentSection(isDark, textColor, secondaryColor),
                             ],
                           ),
-                          const SizedBox(height: 36),
-
-                          // ── Botão Salvar ──────────────────────────
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : _save,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C977),
-                                disabledBackgroundColor:
-                                    const Color(0xFF00C977).withOpacity(0.5),
-                                padding: const EdgeInsets.symmetric(vertical: 17),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isSaving
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                            Colors.white),
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Salvar Configurações',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        letterSpacing: 0.2,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
+                  ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00C977),
+                            disabledBackgroundColor: const Color(0xFF00C977).withOpacity(0.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                                )
+                              : const Text(
+                                  'Salvar Configurações',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  ],
                   ),
           ),
         );
@@ -1308,24 +1321,7 @@ class _BankingScreenState extends State<BankingScreen> {
             ),
           ]),
 
-          const SizedBox(height: 32),
-
-          // Botão Editar
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: () => _safeSetState(() => _isViewMode = false),
-              icon: const Icon(Icons.edit, size: 20),
-              label: const Text('Editar Dados Bancários', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF00C977),
-                side: const BorderSide(color: Color(0xFF00C977), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
         ],
       ),
     );

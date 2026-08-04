@@ -1111,7 +1111,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     final statusInfo = _getStatusInfo(status);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

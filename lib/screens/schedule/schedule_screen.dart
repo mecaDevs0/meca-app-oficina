@@ -199,7 +199,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     } catch (e) {
       // Erro silencioso — manter dados atuais
     } finally {
-      if (mounted) _safeSetState(() => _isLoading = false);
+      if (mounted) {
+        _safeSetState(() => _isLoading = false);
+        if (_pendingBookings.isEmpty && _confirmedBookings.isNotEmpty && _tabController.index == 0) {
+          _tabController.animateTo(1);
+        }
+      }
     }
   }
 
@@ -234,7 +239,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Visualize e controle seus agendamentos em tempo real.',
+                    'Gerencie seus agendamentos em tempo real.',
                     style: TextStyle(
                       fontSize: 15,
                       color: secondaryText,
@@ -761,21 +766,25 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getStatusText(status),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: _getStatusColor(status),
+                    Builder(builder: (context) {
+                      final sCfg = _getStatusChipConfig(status, isDark);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: sCfg['bg'],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: sCfg['border']!, width: 1),
                         ),
-                      ),
-                    ),
+                        child: Text(
+                          _getStatusText(status),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: sCfg['text'],
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ],
@@ -888,19 +897,23 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(booking['status']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.car_repair,
-                  color: _getStatusColor(booking['status']),
-                  size: 20,
-                ),
-              ),
+              Builder(builder: (context) {
+                final iconCfg = _getStatusChipConfig(booking['status'], isDark);
+                return Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconCfg['bg'],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.car_repair,
+                    color: iconCfg['text'],
+                    size: 20,
+                  ),
+                );
+              }),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -924,25 +937,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
                   ],
                 ),
               ),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              const SizedBox(width: 8),
+              Builder(builder: (context) {
+                final chipCfg = _getStatusChipConfig(booking['status'], isDark);
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(booking['status']).withOpacity(0.1),
+                    color: chipCfg['bg'],
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: chipCfg['border']!, width: 1),
                   ),
                   child: Text(
                     _getStatusText(booking['status']),
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: _getStatusColor(booking['status']),
+                      fontWeight: FontWeight.w700,
+                      color: chipCfg['text'],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ),
+                );
+              }),
             ],
           ),
           const SizedBox(height: 16),
@@ -1106,22 +1120,51 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
     );
   }
 
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'pendente_oficina':
-        return const Color(0xFFF59E0B);
-      case 'confirmado':
-        return const Color(0xFF10B981);
-      case 'aguardando_pagamento':
-        return const Color(0xFFF59E0B); // amber — ação pendente (pagamento)
-      case 'concluido':
-        return const Color(0xFF6B7280);
-      case 'cancelado':
-      case 'recusado':
-        return const Color(0xFFEF4444);
-      default:
-        return const Color(0xFF6B7280);
+  Map<String, Color> _getStatusChipConfig(String? status, bool isDark) {
+    final n = (status ?? '').toLowerCase().trim();
+    if (n == 'pending' || n == 'pendente' || n == 'pendente_oficina') {
+      return isDark
+          ? {'bg': const Color(0xFF3D2800), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFFFB74D)}
+          : {'bg': const Color(0xFFFFF3E0), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFE65100)};
     }
+    if (n == 'confirmed' || n == 'confirmado') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF00C977), 'text': const Color(0xFF4ADE80)}
+          : {'bg': const Color(0xFFE0FFF0), 'border': const Color(0xFF00C977), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'in_progress' || n == 'em_andamento' || n == 'em andamento' || n == 'started') {
+      return isDark
+          ? {'bg': const Color(0xFF0C2340), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF60A5FA)}
+          : {'bg': const Color(0xFFE0EDFF), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF1D4ED8)};
+    }
+    if (n == 'pendente_cliente') {
+      return isDark
+          ? {'bg': const Color(0xFF3D3000), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFFBBF24)}
+          : {'bg': const Color(0xFFFEF3C7), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFB45309)};
+    }
+    if (n == 'finalizado_aguardando_pagamento' || n == 'aguardando_pagamento' || n == 'awaiting_payment' || n == 'finalizado') {
+      return isDark
+          ? {'bg': const Color(0xFF3D3000), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFFBBF24)}
+          : {'bg': const Color(0xFFFEF3C7), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFB45309)};
+    }
+    if (n == 'pago' || n == 'paid') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF10B981), 'text': const Color(0xFF34D399)}
+          : {'bg': const Color(0xFFD1FAE5), 'border': const Color(0xFF10B981), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'completed' || n == 'concluido' || n == 'concluído') {
+      return isDark
+          ? {'bg': const Color(0xFF1A2E1A), 'border': const Color(0xFF6B7280), 'text': const Color(0xFF9CA3AF)}
+          : {'bg': const Color(0xFFF3F4F6), 'border': const Color(0xFF6B7280), 'text': const Color(0xFF374151)};
+    }
+    if (n == 'cancelled' || n == 'cancelado' || n == 'recusado') {
+      return isDark
+          ? {'bg': const Color(0xFF3D0A0A), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFF87171)}
+          : {'bg': const Color(0xFFFEE2E2), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFB91C1C)};
+    }
+    return isDark
+        ? {'bg': const Color(0xFF2A2A2A), 'border': const Color(0xFF6B7280), 'text': const Color(0xFF9CA3AF)}
+        : {'bg': const Color(0xFFF3F4F6), 'border': const Color(0xFF6B7280), 'text': const Color(0xFF374151)};
   }
 
   String _getStatusText(String? status) {
@@ -1152,7 +1195,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       case 'finalizado_aguardando_pagamento':
       case 'finalizado':
       case 'awaiting_payment':
-        return 'Aguardando Pagamento';
+        return 'Aguard. Pgto';
       case 'pago':
       case 'paid':
         return 'Pago';

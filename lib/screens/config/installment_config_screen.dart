@@ -258,29 +258,36 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 12),
-                                    // Valor grande — estilo iOS
                                     Center(
-                                      child: Text.rich(
-                                        TextSpan(
-                                          text: '$_maxInstallments',
-                                          style: TextStyle(
-                                            fontSize: 56,
-                                            fontWeight: FontWeight.w200,
-                                            color: accentColor,
-                                            letterSpacing: -2,
-                                            height: 1,
-                                          ),
-                                          children: [
-                                            TextSpan(
-                                              text: ' parcelas',
-                                              style: TextStyle(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w400,
-                                                color: muted,
-                                                letterSpacing: -0.5,
-                                              ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                        decoration: BoxDecoration(
+                                          color: accentColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(color: accentColor.withOpacity(0.2)),
+                                        ),
+                                        child: Text.rich(
+                                          TextSpan(
+                                            text: '${_maxInstallments}x',
+                                            style: TextStyle(
+                                              fontSize: 36,
+                                              fontWeight: FontWeight.w700,
+                                              color: accentColor,
+                                              letterSpacing: -1,
+                                              height: 1.2,
                                             ),
-                                          ],
+                                            children: [
+                                              TextSpan(
+                                                text: '  parcelas',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: muted,
+                                                  letterSpacing: 0,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -299,18 +306,24 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                                 decoration: BoxDecoration(
                                                   color: isSelected
-                                                      ? accentColor
-                                                      : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA)),
-                                                  borderRadius: BorderRadius.circular(10),
+                                                      ? const Color(0xFF00C977)
+                                                      : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? const Color(0xFF00C977)
+                                                        : const Color(0xFF00C977).withOpacity(0.4),
+                                                    width: 1.5,
+                                                  ),
                                                 ),
                                                 child: Text(
                                                   '$n×',
                                                   style: TextStyle(
-                                                    fontSize: 16,
+                                                    fontSize: 14,
                                                     fontWeight: FontWeight.w600,
                                                     color: isSelected
                                                         ? Colors.white
-                                                        : (isDark ? Colors.white : const Color(0xFF1C1C1E)),
+                                                        : (isDark ? const Color(0xFF00C977) : const Color(0xFF065F46)),
                                                   ),
                                                 ),
                                               ),
@@ -318,32 +331,6 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
                                           }).toList(),
                                         );
                                       },
-                                    ),
-                                    const SizedBox(height: 28),
-                                    // Slider Cupertino — nativo iOS
-                                    CupertinoSlider(
-                                      value: _maxInstallments.toDouble(),
-                                      min: 1,
-                                      max: 24,
-                                      divisions: 23,
-                                      activeColor: accentColor,
-                                      onChanged: _isSaving ? null : (v) => setState(() => _maxInstallments = v.round()),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '1',
-                                            style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w400),
-                                          ),
-                                          Text(
-                                            '24',
-                                            style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w400),
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                     const SizedBox(height: 20),
                                     Text(

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -20,6 +21,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _bookingDetails;
   bool _loading = true;
+  bool _generatingPaymentLink = false;
 
   void _showSnackBar(SnackBar snackBar) {
     if (!mounted) return;
@@ -747,7 +749,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   }
 
   Widget _buildActionsCard(Map<String, dynamic> booking, bool isDarkMode, String statusFinal, String normalizedStatus) {
-    final hasAnyButton = statusFinal == 'confirmado' || normalizedStatus == 'confirmado';
+    final isConfirmado = statusFinal == 'confirmado' || normalizedStatus == 'confirmado';
+    final isAguardandoPagamento = statusFinal == 'finalizado_aguardando_pagamento' ||
+        statusFinal == 'aguardando_pagamento' ||
+        statusFinal == 'awaiting_payment';
+    final hasAnyButton = isConfirmado || isAguardandoPagamento;
     if (!hasAnyButton) {
       return const SizedBox.shrink();
     }
@@ -956,60 +962,123 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                 ),
               ),
             ),
+
+          // Botão de Link de Pagamento (quando aguardando pagamento)
+          if (isAguardandoPagamento) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _generatingPaymentLink ? null : () => _generatePaymentLink(booking),
+                icon: _generatingPaymentLink
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.link, color: Colors.white),
+                label: Text(
+                  _generatingPaymentLink ? 'Gerando...' : 'Link de Pagamento',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C977),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  Future<void> _generatePaymentLink(Map<String, dynamic> booking) async {
+    final bookingId = booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+
+    setState(() => _generatingPaymentLink = true);
+    try {
+      final result = await _apiService.post('/bookings/$bookingId/payment-link', {});
+      if (!mounted) return;
+
+      if (result['success'] == true && result['data'] != null) {
+        final link = result['data']['payment_link'] ?? '';
+        if (link.isNotEmpty) {
+          await Clipboard.setData(ClipboardData(text: link));
+          _showSnackBar(const SnackBar(
+            content: Text('Link copiado! Envie ao cliente.'),
+            backgroundColor: Colors.green,
+          ));
+        }
+      } else {
+        _showSnackBar(SnackBar(
+          content: Text(result['error']?.toString() ?? 'Erro ao gerar link'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(SnackBar(
+        content: Text('Erro: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ));
+    } finally {
+      if (mounted) setState(() => _generatingPaymentLink = false);
+    }
+  }
+
   Color _getStatusColor(String status) {
-    final normalizedStatus = (status ?? '').toLowerCase();
+    final normalizedStatus = status.toLowerCase();
     switch (normalizedStatus) {
       case 'pending':
       case 'pendente':
       case 'pendente_oficina':
-        return Colors.orange;
+        return const Color(0xFFFF9800);
       case 'confirmed':
       case 'confirmado':
-        return Colors.blue;
+        return const Color(0xFF00C977);
       case 'in_progress':
       case 'em_andamento':
       case 'em andamento':
-        return Colors.purple;
+        return const Color(0xFF3B82F6);
       case 'aguardando_aprovacao_orcamento':
       case 'awaiting_quote_approval':
-        return Colors.amber.shade700;
+        return const Color(0xFFF59E0B);
       case 'aguardando_autorizacao_inicio':
       case 'awaiting_service_start':
-        return Colors.blue.shade700;
+        return const Color(0xFF0EA5E9);
       case 'veiculo_na_oficina':
       case 'vehicle_at_workshop':
-        return Colors.cyan.shade700;
+        return const Color(0xFF06B6D4);
       case 'aguardando_aprovacao_finalizacao':
       case 'awaiting_finalization_approval':
-        return Colors.cyan.shade700;
+        return const Color(0xFF06B6D4);
       case 'em_disputa':
       case 'in_dispute':
-        return Colors.red.shade700;
+        return const Color(0xFFDC2626);
       case 'pendente_cliente':
-        return Colors.amber.shade700;
+        return const Color(0xFFF59E0B);
       case 'finalizado_aguardando_pagamento':
-        return Colors.blue.shade700;
+      case 'aguardando_pagamento':
+      case 'awaiting_payment':
+        return const Color(0xFF8B5CF6);
       case 'pago':
       case 'paid':
+        return const Color(0xFF10B981);
       case 'completed':
       case 'concluido':
       case 'concluído':
-        return Colors.green;
+        return const Color(0xFF10B981);
       case 'cancelled':
       case 'cancelado':
-        return Colors.red;
+        return const Color(0xFFEF4444);
       default:
         return Colors.grey;
     }
   }
 
   String _getStatusText(String status) {
-    final normalizedStatus = (status ?? '').toLowerCase();
+    final normalizedStatus = status.toLowerCase();
     switch (normalizedStatus) {
       case 'pending':
       case 'pendente':
@@ -1052,7 +1121,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       case 'cancelado':
         return 'Cancelado';
       default:
-        return status ?? 'Desconhecido';
+        return status.isEmpty ? 'Desconhecido' : status;
     }
   }
 

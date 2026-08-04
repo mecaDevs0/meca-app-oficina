@@ -185,7 +185,6 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
       // IMPORTANTE: Usar CurrencyTextInputFormatter para parsear o valor formatado
       final diagnosticValueCents = CurrencyTextInputFormatter.parseToCents(_diagnosticController.text);
-      final diagnosticValue = diagnosticValueCents != null && diagnosticValueCents > 0 ? diagnosticValueCents : null;
 
       final quoteReason = _quoteReasonController.text.trim().isNotEmpty 
           ? _quoteReasonController.text.trim() 

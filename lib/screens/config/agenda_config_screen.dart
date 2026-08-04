@@ -135,28 +135,6 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         foregroundColor: textColor,
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _saveSchedule,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
-                    ),
-                  )
-                : const Text(
-                    'Salvar',
-                    style: TextStyle(
-                      color: Color(0xFF00C977),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(
@@ -164,59 +142,81 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C977)),
               ),
             )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Text(
-                    'Horários de Funcionamento',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                      letterSpacing: -0.5,
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Configure os horários de atendimento para cada dia da semana',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildActionButton(
+                                title: 'Selecionar Todos',
+                                icon: Icons.check_circle_outline,
+                                onTap: _selectAllDays,
+                                color: const Color(0xFF00C977),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildActionButton(
+                                title: 'Desmarcar Todos',
+                                icon: Icons.cancel_outlined,
+                                onTap: _deselectAllDays,
+                                color: const Color(0xFFEF4444),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        ..._days.map((day) => _buildDayCard(day)).toList(),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Configure os horários de atendimento para cada dia da semana',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: secondaryTextColor,
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveSchedule,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00C977),
+                          disabledBackgroundColor: const Color(0xFF00C977).withOpacity(0.5),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                              )
+                            : const Text(
+                                'Salvar Agenda',
+                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 32),
-
-                  // Select All / Deselect All buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildActionButton(
-                          title: 'Selecionar Todos',
-                          icon: Icons.check_circle_outline,
-                          onTap: _selectAllDays,
-                          color: const Color(0xFF00C977),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildActionButton(
-                          title: 'Desmarcar Todos',
-                          icon: Icons.cancel_outlined,
-                          onTap: _deselectAllDays,
-                          color: const Color(0xFFEF4444),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Days list
-                  ..._days.map((day) => _buildDayCard(day)).toList(),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
@@ -395,7 +395,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
               children: [
                 Expanded(
                   child: _buildTimeInput(
-                    label: 'Início do Almoço (opcional)',
+                    label: 'Início da Pausa',
                     value: dayData['lunch_start'] ?? '',
                     onChanged: (value) {
                       setState(() {
@@ -411,7 +411,7 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildTimeInput(
-                    label: 'Fim do Almoço (opcional)',
+                    label: 'Fim da Pausa',
                     value: dayData['lunch_end'] ?? '',
                     onChanged: (value) {
                       setState(() {
@@ -479,9 +479,9 @@ class _AgendaConfigScreenState extends State<AgendaConfigScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    value.isEmpty ? (isOptional ? 'Selecionar' : '08:00') : value,
+                    value.isEmpty ? (isOptional ? '--:--' : '08:00') : value,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       color: value.isEmpty && isOptional 
                           ? secondaryTextColor 
                           : textColor,

@@ -296,8 +296,6 @@ class _PreCompraDetailOfinaScreenState extends State<PreCompraDetailOfinaScreen>
   Widget _buildContent() {
     final item = _item!;
     final status = item['status']?.toString() ?? 'pendente';
-    final paymentStatus = item['payment_status']?.toString() ?? 'pendente';
-    final isPago = paymentStatus == 'pago';
     final customerName = '${item['customer_name'] ?? ''} ${item['customer_last_name'] ?? ''}'.trim();
     final customerPhone = item['customer_phone']?.toString() ?? '';
     final brand = item['vehicle_brand']?.toString() ?? '';

@@ -124,9 +124,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         // IMPORTANTE: pendente_cliente NÃO deve aparecer em "Confirmados"
         // pendente_cliente é quando a oficina finalizou e está aguardando aprovação do cliente
         // Deve aparecer apenas em "Confirmados" os que estão realmente confirmados ou em andamento
-        return s == 'confirmed' || s == 'confirmado' || 
+        return s == 'confirmed' || s == 'confirmado' ||
                s == 'in_progress' || s == 'em_andamento' ||
-               s == 'started';
+               s == 'started' ||
+               s == 'veiculo_na_oficina' || s == 'vehicle_at_workshop';
         // REMOVIDO: s == 'pendente_cliente' - este status deve ter tratamento separado
       }).toList();
     } else if (status == 'pending_client') {
@@ -139,7 +140,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       return _bookings.where((b) {
         final s = (b['status'] ?? '').toLowerCase();
         return s == 'completed' || s == 'concluido' || s == 'concluído' ||
-               s == 'finalizado_aguardando_pagamento' || s == 'pago' || s == 'paid' ||
+               s == 'finalizado_aguardando_pagamento' || s == 'aguardando_pagamento' || s == 'awaiting_payment' ||
+               s == 'pago' || s == 'paid' ||
                s == 'cancelled' || s == 'cancelado';
       }).toList();
     }
@@ -234,21 +236,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                       ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(booking['status']).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _getStatusText(booking['status']),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _getStatusColor(booking['status']),
+                  Builder(builder: (context) {
+                    final chipConfig = _getStatusChipConfig(booking['status'] ?? '', isDarkMode);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: chipConfig['bg'] as Color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: chipConfig['border'] as Color, width: 1),
                       ),
-                    ),
-                  ),
+                      child: Text(
+                        _getStatusText(booking['status']),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: chipConfig['text'] as Color,
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
               // Aviso especial para status aguardando aprovação
@@ -368,40 +374,55 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     );
   }
 
-  Color _getStatusColor(String status) {
-    final normalizedStatus = (status ?? '').toLowerCase();
-    switch (normalizedStatus) {
-      case 'pending':
-      case 'pendente':
-      case 'pendente_oficina':
-        return Colors.orange;
-      case 'confirmed':
-      case 'confirmado':
-        return Colors.blue;
-      case 'in_progress':
-      case 'em_andamento':
-      case 'em andamento':
-        return Colors.purple;
-      case 'pendente_cliente':
-        return Colors.amber.shade700;
-      case 'finalizado_aguardando_pagamento':
-        return Colors.blue.shade700;
-      case 'pago':
-      case 'paid':
-      case 'completed':
-      case 'concluido':
-      case 'concluído':
-        return Colors.green;
-      case 'cancelled':
-      case 'cancelado':
-        return Colors.red;
-      default:
-        return Colors.grey;
+  Map<String, Color> _getStatusChipConfig(String status, bool isDark) {
+    final n = status.toLowerCase().trim();
+    if (n == 'pending' || n == 'pendente' || n == 'pendente_oficina') {
+      return isDark
+          ? {'bg': const Color(0xFF3D2800), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFFFB74D)}
+          : {'bg': const Color(0xFFFFF3E0), 'border': const Color(0xFFFF9800), 'text': const Color(0xFFE65100)};
     }
+    if (n == 'confirmed' || n == 'confirmado') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF00C977), 'text': const Color(0xFF4ADE80)}
+          : {'bg': const Color(0xFFE0FFF0), 'border': const Color(0xFF00C977), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'veiculo_na_oficina' || n == 'vehicle_at_workshop') {
+      return isDark
+          ? {'bg': const Color(0xFF003D3D), 'border': const Color(0xFF06B6D4), 'text': const Color(0xFF22D3EE)}
+          : {'bg': const Color(0xFFE0F7FA), 'border': const Color(0xFF06B6D4), 'text': const Color(0xFF0E7490)};
+    }
+    if (n == 'in_progress' || n == 'em_andamento' || n == 'em andamento' || n == 'started') {
+      return isDark
+          ? {'bg': const Color(0xFF0C2340), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF60A5FA)}
+          : {'bg': const Color(0xFFE0EDFF), 'border': const Color(0xFF3B82F6), 'text': const Color(0xFF1D4ED8)};
+    }
+    if (n == 'pendente_cliente') {
+      return isDark
+          ? {'bg': const Color(0xFF3D3000), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFFBBF24)}
+          : {'bg': const Color(0xFFFEF3C7), 'border': const Color(0xFFF59E0B), 'text': const Color(0xFFB45309)};
+    }
+    if (n == 'finalizado_aguardando_pagamento' || n == 'aguardando_pagamento' || n == 'awaiting_payment') {
+      return isDark
+          ? {'bg': const Color(0xFF2E1065), 'border': const Color(0xFF8B5CF6), 'text': const Color(0xFFA78BFA)}
+          : {'bg': const Color(0xFFF0E6FF), 'border': const Color(0xFF8B5CF6), 'text': const Color(0xFF6D28D9)};
+    }
+    if (n == 'pago' || n == 'paid' || n == 'completed' || n == 'concluido' || n == 'concluído') {
+      return isDark
+          ? {'bg': const Color(0xFF003D20), 'border': const Color(0xFF10B981), 'text': const Color(0xFF34D399)}
+          : {'bg': const Color(0xFFD1FAE5), 'border': const Color(0xFF10B981), 'text': const Color(0xFF047857)};
+    }
+    if (n == 'cancelled' || n == 'cancelado') {
+      return isDark
+          ? {'bg': const Color(0xFF3D0A0A), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFF87171)}
+          : {'bg': const Color(0xFFFEE2E2), 'border': const Color(0xFFEF4444), 'text': const Color(0xFFB91C1C)};
+    }
+    return isDark
+        ? {'bg': const Color(0xFF2A2A2A), 'border': Colors.grey, 'text': Colors.grey}
+        : {'bg': const Color(0xFFF3F4F6), 'border': Colors.grey, 'text': Colors.grey};
   }
 
   String _getStatusText(String status) {
-    final normalizedStatus = (status ?? '').toLowerCase();
+    final normalizedStatus = status.toLowerCase();
     switch (normalizedStatus) {
       case 'pending':
       case 'pendente':
@@ -410,6 +431,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       case 'confirmed':
       case 'confirmado':
         return 'Confirmado';
+      case 'veiculo_na_oficina':
+      case 'vehicle_at_workshop':
+        return 'Na Oficina';
       case 'in_progress':
       case 'em_andamento':
       case 'em andamento':
@@ -429,7 +453,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       case 'cancelado':
         return 'Cancelado';
       default:
-        return status ?? 'Desconhecido';
+        return status.isEmpty ? 'Desconhecido' : status;
     }
   }
 

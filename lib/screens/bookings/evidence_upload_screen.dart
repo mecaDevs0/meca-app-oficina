@@ -393,35 +393,42 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Enviar nova evidência',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: primaryText,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Selecione e envie 1 foto por vez',
-                      style: TextStyle(
-                        color: secondaryText,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Enviar nova evidência',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: primaryText,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Selecione uma imagem da galeria ou tire uma foto para registrar o progresso.',
-            style: TextStyle(color: secondaryText, height: 1.35),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C977).withOpacity(0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF00C977).withOpacity(0.30)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Color(0xFF00C977), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Envie uma foto de cada vez para registrar o progresso.',
+                    style: TextStyle(
+                      color: primaryText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -502,7 +509,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.cloud_upload_rounded),
-              label: Text(_isUploading ? 'Enviando...' : 'Enviar evidência'),
+              label: Text(_isUploading ? 'Enviando...' : 'Enviar foto'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00C977),
                 disabledBackgroundColor: const Color(0xFF00C977).withOpacity(0.55),
