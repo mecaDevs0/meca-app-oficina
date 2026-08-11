@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 
 import '../bookings/booking_detail_screen.dart' show BookingDetailScreen;
 import '../pre_compra/pre_compra_detail_screen.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({Key? key}) : super(key: key);
@@ -1230,32 +1231,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
         if (mounted) {
           _tabController.index = 1;
           _safeSetState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Agendamento aprovado! Movido para Confirmados.'),
-              backgroundColor: Color(0xFF00C977),
-              duration: Duration(seconds: 3),
-            ),
-          );
+          BeautifulErrorSnackbar.showSuccess(context, 'Agendamento aprovado! Movido para Confirmados.');
           Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted) _loadBookings(forceRefresh: true);
           });
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: ${result['error']}'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        BeautifulErrorSnackbar.show(context, result['error']?.toString() ?? 'Erro ao aprovar');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: $e'),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
+      BeautifulErrorSnackbar.show(context, 'Erro: $e');
     }
   }
 
@@ -1457,28 +1442,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       try {
         final apiResult = await _apiService.rejectBooking(booking['id'], result);
         if (apiResult['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Agendamento recusado com sucesso! O cliente foi notificado.'),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
+          BeautifulErrorSnackbar.showSuccess(context, 'Agendamento recusado com sucesso! O cliente foi notificado.');
           await _loadBookings(forceRefresh: true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${apiResult['error']}'),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, apiResult['error']?.toString() ?? 'Erro ao recusar');
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        BeautifulErrorSnackbar.show(context, 'Erro: $e');
       }
     }
   }
@@ -1496,28 +1466,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           _confirmedBookings.insert(0, updated);
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pré-Compra aprovada!'),
-              backgroundColor: Color(0xFF00C977),
-            ),
-          );
+          BeautifulErrorSnackbar.showSuccess(context, 'Pré-Compra aprovada!');
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${result['error'] ?? 'Falha ao aprovar'}'),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, result['error']?.toString() ?? 'Falha ao aprovar');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
-        );
+        BeautifulErrorSnackbar.show(context, 'Erro: $e');
       }
     }
   }
@@ -1550,28 +1508,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           _completedBookings.insert(0, updated);
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pré-Compra recusada.'),
-              backgroundColor: Color(0xFF6B7280),
-            ),
-          );
+          BeautifulErrorSnackbar.showWarning(context, 'Pré-Compra recusada.');
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${result['error'] ?? 'Falha ao recusar'}'),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, result['error']?.toString() ?? 'Falha ao recusar');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
-        );
+        BeautifulErrorSnackbar.show(context, 'Erro: $e');
       }
     }
   }
@@ -1605,29 +1551,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
       });
       if (result['success'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Novo horário sugerido com sucesso!'),
-              backgroundColor: Color(0xFF00C977),
-            ),
-          );
+          BeautifulErrorSnackbar.showSuccess(context, 'Novo horário sugerido com sucesso!');
           _loadBookings(forceRefresh: true);
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erro: ${result['error'] ?? 'Falha ao sugerir horário'}'),
-              backgroundColor: const Color(0xFFEF4444),
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, result['error']?.toString() ?? 'Falha ao sugerir horário');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFEF4444)),
-        );
+        BeautifulErrorSnackbar.show(context, 'Erro: $e');
       }
     }
   }
@@ -2291,21 +2225,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
               ),
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erro: ${apiResult['error']}'),
-                backgroundColor: const Color(0xFFEF4444),
-              ),
-            );
+            BeautifulErrorSnackbar.show(context, apiResult['error']?.toString() ?? 'Erro');
           }
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
+        BeautifulErrorSnackbar.show(context, 'Erro: $e');
       }
     }
   }
