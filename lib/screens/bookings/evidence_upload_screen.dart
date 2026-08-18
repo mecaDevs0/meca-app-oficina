@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/appsflyer_service.dart';
 import '../../services/evidence_service.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
 
@@ -118,6 +119,7 @@ class _EvidenceUploadScreenState extends State<EvidenceUploadScreen> {
     if (!mounted) return;
 
     if (result['success'] == true) {
+      AppsFlyerService.instance.logEvidenceUploaded(widget.bookingId, 'photo');
       BeautifulErrorSnackbar.showSuccess(context, 'Evidência enviada com sucesso!');
       setState(() {
         _selectedFile = null;

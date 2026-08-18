@@ -49,6 +49,8 @@
 	<string>Este app precisa acessar sua localização para mostrar a posição da oficina no mapa.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Este app precisa acessar a galeria para selecionar imagens dos serviços e perfil.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Seus dados serão usados para oferecer anúncios e promoções mais relevantes para você.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Este app precisa enviar notificações sobre novos agendamentos e atualizações.</string>
 	<key>UIApplicationSceneManifest</key>

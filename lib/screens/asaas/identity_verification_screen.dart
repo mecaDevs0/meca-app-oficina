@@ -111,7 +111,12 @@ class _IdentityVerificationScreenState
           _asaasStatus = data['asaas_status']?.toString();
           _rootOnboardingUrl = data['onboarding_url']?.toString();
           _onboardingUrlStatus = data['onboarding_url_status']?.toString();
-          _rejectReasons = data['reject_reasons'] as List?;
+          final rawReject = data['reject_reasons'];
+          _rejectReasons = rawReject is List
+              ? rawReject
+              : rawReject is String
+                  ? [rawReject]
+                  : null;
 
           final rawGroups = data['document_groups'];
           if (rawGroups is List) {

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../services/appsflyer_service.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
 import '../bookings/build_quote_screen.dart';
 import '../bookings/evidence_upload_screen.dart';
@@ -1414,6 +1415,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
 
     if (!mounted) return;
     if (result['success'] == true) {
+      final totalCents = items.fold<int>(0, (sum, i) => sum + ((i['quantity'] as int) * (i['unitPrice'] as int))) + diagnosticCents.toInt();
+      AppsFlyerService.instance.logServiceCompleted(bookingId, totalCents / 100.0);
       _showToast('Serviço finalizado! O cliente foi notificado para pagamento.');
       await _loadBookingDetails(forceRefresh: true);
     } else {
@@ -2633,6 +2636,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           final result = await _apiService.confirmBooking(bookingId);
           if (!mounted) return;
           if (result['success'] == true) {
+            AppsFlyerService.instance.logBookingAccepted(bookingId, booking['customer_id']?.toString() ?? '');
             Navigator.pop(context, 'approved');
           } else {
             _showToast(result['error']?.toString() ?? 'Erro ao aprovar.', isError: true);
@@ -2737,6 +2741,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             final result = await _apiService.startService(bookingId);
             if (!mounted) return;
             if (result['success'] == true) {
+              AppsFlyerService.instance.logServiceStarted(bookingId);
               await _loadBookingDetails(forceRefresh: true);
               _showToast('Serviço iniciado!');
             } else {

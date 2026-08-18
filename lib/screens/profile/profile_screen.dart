@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/notification_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/appsflyer_service.dart';
 import '../../services/image_service.dart';
 import '../../services/theme_service.dart';
 import '../../services/onesignal_service.dart';
@@ -1883,6 +1884,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 print('Erro ao remover device token: $e');
               }
               
+              AppsFlyerService.instance.clearCustomerUserId();
+
               // Fazer logout na API
               try {
                 await _apiService.logout();

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../services/appsflyer_service.dart';
 import '../../services/onesignal_service.dart';
 import '../../widgets/animation_widgets.dart';
 
@@ -79,6 +80,15 @@ class _LoginScreenState extends State<LoginScreen> {
           print('[Login] Erro ao salvar device token após login: $e');
         }
       }
+      // AppsFlyer: log login + set CUID
+      try {
+        final wId = await _apiService.getWorkshopId();
+        if (wId != null && wId.isNotEmpty) {
+          AppsFlyerService.instance.setCustomerUserId(wId);
+          AppsFlyerService.instance.logLogin(wId);
+        }
+      } catch (_) {}
+
         await _onLoginSuccess();
       } else {
         _showError(result['error'] ?? 'Erro ao fazer login');

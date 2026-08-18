@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:meca_app_oficina/services/api_service.dart';
+import 'package:meca_app_oficina/services/appsflyer_service.dart';
 import 'package:meca_app_oficina/utils/price_utils.dart';
 import 'package:meca_app_oficina/utils/currency_formatter.dart';
 import 'package:meca_app_oficina/widgets/beautiful_error_snackbar.dart';
@@ -220,6 +221,10 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
+        if (!widget.isEditMode) {
+          final totalCents = itemsPayload.fold<int>(0, (sum, i) => sum + ((i['quantity'] as int) * (i['unitPrice'] as int))) + diagnosticValueCents;
+          AppsFlyerService.instance.logQuoteSent(widget.bookingId, totalCents / 100.0);
+        }
         Navigator.of(context).pop(true);
         if (context.mounted) {
           BeautifulErrorSnackbar.showSuccess(

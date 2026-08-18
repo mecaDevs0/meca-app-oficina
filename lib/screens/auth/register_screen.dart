@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../services/appsflyer_service.dart';
 import '../../services/theme_service.dart';
 import '../../utils/form_styles.dart';
 import '../../utils/cnpj_formatter.dart';
@@ -371,6 +372,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (result['success']) {
+      final workshopId = result['data']?['id']?.toString() ?? '';
+      AppsFlyerService.instance.logRegistration('email', workshopId);
+
       showDialog(
         context: context,
         barrierDismissible: false,

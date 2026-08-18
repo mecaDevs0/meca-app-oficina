@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/banks_data.dart';
 import '../../services/api_service.dart';
+import '../../services/appsflyer_service.dart';
 // BankSelectorModal is defined in bank_account_screen.dart (same directory)
 import 'bank_account_screen.dart' show BankSelectorModal;
 import '../../services/storage_service.dart';
@@ -372,7 +373,12 @@ class _BankingScreenState extends State<BankingScreen> {
           _asaasStatus = asaasResult['asaas_status']?.toString();
           _asaasError = asaasResult['error']?.toString();
         });
-        if (_asaasStatus == 'PENDING') _startStatusPolling();
+        if (_asaasStatus == 'PENDING') {
+          _startStatusPolling();
+          _apiService.getWorkshopId().then((wId) {
+            if (wId != null) AppsFlyerService.instance.logFinancialOnboarding(wId);
+          });
+        }
         final isAsaasError = _asaasStatus == 'ERROR' || _asaasStatus == 'REJECTED';
         final msg = asaasResult['message']?.toString();
         if (msg != null && msg.isNotEmpty && mounted) {

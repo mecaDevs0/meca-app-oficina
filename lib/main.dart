@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+
+import 'services/appsflyer_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/notification_provider.dart';
@@ -101,7 +105,24 @@ void main() async {
       }
     }
   });
-  
+
+  // Initialize AppsFlyer (after OneSignal)
+  Future.microtask(() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        await AppTrackingTransparency.requestTrackingAuthorization();
+      }
+      await AppsFlyerService.instance.init();
+      final prefs = await SharedPreferences.getInstance();
+      final workshopId = prefs.getString('workshop_id');
+      if (workshopId != null) {
+        AppsFlyerService.instance.setCustomerUserId(workshopId);
+      }
+    } catch (e) {
+      if (kDebugMode) print('[AppsFlyer] Init error: $e');
+    }
+  });
+
   try {
     runApp(const MecaOficinaApp());
   } catch (e, stackTrace) {
