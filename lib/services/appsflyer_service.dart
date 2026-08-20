@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../main.dart';
 
@@ -25,6 +26,7 @@ class AppsFlyerService {
 
       _sdk!.onInstallConversionData((data) {
         if (kDebugMode) print('[AppsFlyer] Install conversion data: $data');
+        _handleDeferredDeepLink(data);
       });
 
       _sdk!.onAppOpenAttribution((data) {
@@ -81,6 +83,57 @@ class AppsFlyerService {
       _sdk?.setCustomerUserId('');
     } catch (e) {
       if (kDebugMode) print('[AppsFlyer] clearCustomerUserId error: $e');
+    }
+  }
+
+  // ── Deferred Deep Linking ──
+
+  void _handleDeferredDeepLink(Map? data) {
+    try {
+      if (data == null) return;
+      final payload = data['payload'] as Map? ?? data;
+
+      final isFirstLaunch = payload['is_first_launch'];
+      if (isFirstLaunch != true && isFirstLaunch != 'true') return;
+
+      final screen = payload['af_dp']?.toString() ?? payload['screen']?.toString();
+      final id = payload['id']?.toString();
+      if (screen == null) return;
+
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('af_deferred_screen', screen);
+        if (id != null) prefs.setString('af_deferred_id', id);
+      });
+    } catch (e) {
+      if (kDebugMode) print('[AppsFlyer] Deferred deep link error: $e');
+    }
+  }
+
+  Future<void> applyDeferredDeepLink() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final screen = prefs.getString('af_deferred_screen');
+      if (screen == null) return;
+
+      final id = prefs.getString('af_deferred_id');
+      await prefs.remove('af_deferred_screen');
+      await prefs.remove('af_deferred_id');
+
+      final nav = MecaOficinaApp.navigatorKey.currentState;
+      if (nav == null) return;
+
+      switch (screen) {
+        case 'booking':
+          if (id != null && id.isNotEmpty) {
+            nav.pushNamed('/booking-detail', arguments: {'id': id});
+          }
+          break;
+        case 'dashboard':
+          nav.pushNamed('/core');
+          break;
+      }
+    } catch (e) {
+      if (kDebugMode) print('[AppsFlyer] Apply deferred deep link error: $e');
     }
   }
 

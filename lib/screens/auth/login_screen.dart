@@ -89,6 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } catch (_) {}
 
+        AppsFlyerService.instance.applyDeferredDeepLink();
         await _onLoginSuccess();
       } else {
         _showError(result['error'] ?? 'Erro ao fazer login');

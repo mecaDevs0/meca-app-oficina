@@ -374,6 +374,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (result['success']) {
       final workshopId = result['data']?['id']?.toString() ?? '';
       AppsFlyerService.instance.logRegistration('email', workshopId);
+      AppsFlyerService.instance.applyDeferredDeepLink();
 
       showDialog(
         context: context,
