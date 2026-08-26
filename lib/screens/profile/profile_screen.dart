@@ -64,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
           // PROTEÇÃO: Se usuário já marcou como lidas (contador = 0), NÃO sobrescrever
           if (notificationProvider.unreadNotifications == 0 && notificationProvider.notifications.isNotEmpty) {
-            print('🔒 [Profile] Mantendo notificações locais (já marcadas como lidas)');
+            // Already marked as read locally — skip server overwrite
           } else {
             // Atualizar com dados do servidor
             notificationProvider.setNotifications(normalizedNotifications);
@@ -72,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } catch (e) {
         // Erro ao carregar notificações não deve bloquear o carregamento da tela
-        print('⚠️ Erro ao carregar notificações: $e');
+        debugPrint('[Profile] Erro ao carregar notificações: $e');
       }
       
       if (!mounted) return;
@@ -107,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } catch (_) {}
       }
     } catch (e) {
-      print('❌ Erro ao carregar dados: $e');
+      debugPrint('[Profile] Erro ao carregar dados: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -723,10 +723,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : isError
                     ? 'Houve um erro ao configurar sua conta. Toque em "Tentar novamente" para corrigir.'
                     : isRejected
-                        ? 'Sua conta foi rejeitada. Verifique se os dados cadastrados estao corretos e tente novamente.'
+                        ? 'Sua conta foi rejeitada. Verifique se os dados cadastrados estão corretos e tente novamente.'
                         : hasBankData
-                            ? 'Seus dados bancarios foram salvos, mas a conta de recebimento ainda nao foi ativada. Preencha todos os campos obrigatorios.'
-                            : 'Configure seus dados bancarios para comecar a receber pagamentos dos clientes.';
+                            ? 'Seus dados bancários foram salvos, mas a conta de recebimento ainda não foi ativada. Preencha todos os campos obrigatórios.'
+                            : 'Configure seus dados bancários para começar a receber pagamentos dos clientes.';
 
     return Container(
       width: double.infinity,
@@ -1881,7 +1881,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   await OneSignalService.removeExternalUserId();
                 }
               } catch (e) {
-                print('Erro ao remover device token: $e');
+                debugPrint('[Profile] Erro ao remover device token: $e');
               }
               
               AppsFlyerService.instance.clearCustomerUserId();
@@ -1890,7 +1890,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               try {
                 await _apiService.logout();
               } catch (e) {
-                print('Erro ao fazer logout na API: $e');
+                debugPrint('[Profile] Erro ao fazer logout na API: $e');
               }
               
               // Aguardar um pouco mais para garantir que tudo foi processado
@@ -1906,7 +1906,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     (route) => false,
                   );
                 } catch (e) {
-                  print('Erro ao navegar com Navigator.of: $e');
+                  debugPrint('[Profile] Erro ao navegar: $e');
                   // Se falhar, tentar usar uma abordagem alternativa
                   try {
                     // Forçar navegação usando o contexto do MaterialApp
@@ -1916,7 +1916,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       (route) => false,
                     );
                   } catch (e2) {
-                    print('Erro ao navegar após logout: $e2');
+                    debugPrint('[Profile] Erro ao navegar após logout: $e2');
                     // Em último caso, o app será redirecionado na próxima inicialização
                     // pois o token já foi removido
                   }

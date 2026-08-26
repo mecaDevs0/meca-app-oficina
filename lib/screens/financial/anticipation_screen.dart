@@ -36,6 +36,8 @@ class _AnticipationScreenState extends State<AnticipationScreen>
   List<Map<String, dynamic>> _eligible = [];
   Map<String, dynamic>? _summary;
   String? _selectedPaymentId;
+  String? _selectedInstallmentId;
+  bool _useInstallmentMode = false;
   Map<String, dynamic>? _simulation;
   String? _errorMessage;
   String _statusFilter = 'ALL';
@@ -75,7 +77,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     if (id == null || id.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Sessao invalida. Faca login novamente.';
+        _errorMessage = 'Sessão inválida. Faça login novamente.';
       });
       return;
     }
@@ -93,6 +95,8 @@ class _AnticipationScreenState extends State<AnticipationScreen>
       _errorMessage = null;
       _simulation = null;
       _selectedPaymentId = null;
+      _selectedInstallmentId = null;
+      _useInstallmentMode = false;
       _selectedDocs = [];
     });
 
@@ -142,7 +146,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
 
   Future<void> _simulate() async {
     if (_workshopId == null || _selectedPaymentId == null || _selectedPaymentId!.isEmpty) {
-      _safeSetState(() => _errorMessage = 'Selecione uma cobranca para antecipar.');
+      _safeSetState(() => _errorMessage = 'Selecione uma cobrança para antecipar.');
       return;
     }
     _safeSetState(() {
@@ -152,9 +156,13 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     });
 
     try {
-      final res = await _apiService.simulateAnticipation(_workshopId!, {
-        'payment': _selectedPaymentId,
-      });
+      final simData = <String, dynamic>{};
+      if (_useInstallmentMode && _selectedInstallmentId != null) {
+        simData['installment'] = _selectedInstallmentId;
+      } else {
+        simData['payment'] = _selectedPaymentId;
+      }
+      final res = await _apiService.simulateAnticipation(_workshopId!, simData);
       if (!mounted) return;
       if (res['success'] == true) {
         _safeSetState(() {
@@ -194,13 +202,19 @@ class _AnticipationScreenState extends State<AnticipationScreen>
         orElse: () => <String, dynamic>{},
       );
 
+      final createData = <String, dynamic>{
+        'grossAmount': selectedPayment['value']?.toString(),
+        'dueDate': selectedPayment['due_date']?.toString(),
+      };
+      if (_useInstallmentMode && _selectedInstallmentId != null) {
+        createData['installment'] = _selectedInstallmentId;
+      } else {
+        createData['payment'] = _selectedPaymentId;
+      }
+
       final res = await _apiService.createAnticipation(
         _workshopId!,
-        {
-          'payment': _selectedPaymentId,
-          'grossAmount': selectedPayment['value']?.toString(),
-          'dueDate': selectedPayment['due_date']?.toString(),
-        },
+        createData,
         documents: _selectedDocs.isNotEmpty ? _selectedDocs : null,
       );
 
@@ -209,16 +223,18 @@ class _AnticipationScreenState extends State<AnticipationScreen>
         _safeSetState(() {
           _simulation = null;
           _selectedPaymentId = null;
+          _selectedInstallmentId = null;
+          _useInstallmentMode = false;
           _selectedDocs = [];
         });
-        _showSuccessSnack('Antecipacao solicitada com sucesso!');
+        _showSuccessSnack('Antecipação solicitada com sucesso!');
         await _loadData();
       } else {
         _safeSetState(() =>
-            _errorMessage = res['error']?.toString() ?? 'Erro ao criar antecipacao');
+            _errorMessage = res['error']?.toString() ?? 'Erro ao criar antecipação');
       }
     } catch (e) {
-      _safeSetState(() => _errorMessage = 'Erro ao criar antecipacao: ${e.toString()}');
+      _safeSetState(() => _errorMessage = 'Erro ao criar antecipação: ${e.toString()}');
     } finally {
       _safeSetState(() => _isCreating = false);
     }
@@ -292,9 +308,9 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar antecipacao'),
+        title: const Text('Confirmar antecipação'),
         content: const Text(
-          'Deseja confirmar a solicitacao de antecipacao? Os valores e taxas da simulacao serao aplicados.',
+          'Deseja confirmar a solicitação de antecipação? Os valores e taxas da simulação serão aplicados.',
         ),
         actions: [
           TextButton(
@@ -319,8 +335,8 @@ class _AnticipationScreenState extends State<AnticipationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancelar antecipacao'),
-        content: const Text('Deseja cancelar esta solicitacao de antecipacao?'),
+        title: const Text('Cancelar antecipação'),
+        content: const Text('Deseja cancelar esta solicitação de antecipação?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -332,7 +348,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancelar antecipacao'),
+            child: const Text('Cancelar antecipação'),
           ),
         ],
       ),
@@ -392,7 +408,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
               labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
               unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               tabs: const [
-                Tab(text: 'Disponiveis'),
+                Tab(text: 'Disponíveis'),
                 Tab(text: 'Historico'),
               ],
             ),
@@ -450,11 +466,11 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                   const SizedBox(height: 16),
                   _buildFeeTierInfo(cardColor: cardColor, textColor: textColor, secondaryTextColor: secondaryTextColor),
                   const SizedBox(height: 16),
-                  Text('Selecione uma cobranca', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: textColor)),
+                  Text('Selecione uma cobrança', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: textColor)),
                   const SizedBox(height: 4),
-                  Text('Cobranças confirmadas elegiveis para antecipacao.', style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                  Text('Cobranças confirmadas elegíveis para antecipação.', style: TextStyle(fontSize: 13, color: secondaryTextColor)),
                   const SizedBox(height: 12),
-                  if (_eligible.isEmpty) _buildEmptyState(icon: Icons.info_outline, title: 'Nenhuma cobranca disponivel', subtitle: 'Cobranças confirmadas aparecerao aqui.', cardColor: cardColor, borderColor: borderColor, textColor: textColor, secondaryTextColor: secondaryTextColor),
+                  if (_eligible.isEmpty) _buildEmptyState(icon: Icons.info_outline, title: 'Nenhuma cobrança disponível', subtitle: 'Cobranças confirmadas aparecerão aqui.', cardColor: cardColor, borderColor: borderColor, textColor: textColor, secondaryTextColor: secondaryTextColor),
                   if (_eligible.isNotEmpty) ...[
                     _buildPaymentSelector(cardColor: cardColor, borderColor: borderColor, textColor: textColor, secondaryTextColor: secondaryTextColor),
                     const SizedBox(height: 16),
@@ -480,7 +496,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                           icon: _isSimulating
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Icon(Icons.calculate_outlined),
-                          label: Text(_isSimulating ? 'Simulando...' : 'Simular antecipacao', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                          label: Text(_isSimulating ? 'Simulando...' : 'Simular antecipação', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                         ),
                       ),
                   ],
@@ -523,10 +539,10 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                   if (filtered.isEmpty)
                     _buildEmptyState(
                       icon: Icons.inbox_outlined,
-                      title: 'Nenhuma solicitacao encontrada',
+                      title: 'Nenhuma solicitação encontrada',
                       subtitle: _statusFilter == 'ALL'
-                          ? 'Suas solicitacoes de antecipacao aparecerao aqui.'
-                          : 'Nenhuma antecipacao com este status.',
+                          ? 'Suas solicitações de antecipação aparecerão aqui.'
+                          : 'Nenhuma antecipação com este status.',
                       cardColor: cardColor,
                       borderColor: borderColor,
                       textColor: textColor,
@@ -874,7 +890,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
             ],
           ),
           const SizedBox(height: 20),
-          _buildBalanceRow(label: 'Saldo disponivel', value: available, textColor: textColor, secondaryTextColor: secondaryTextColor, highlight: true),
+          _buildBalanceRow(label: 'Saldo disponível', value: available, textColor: textColor, secondaryTextColor: secondaryTextColor, highlight: true),
           if (pending != null) ...[
             const SizedBox(height: 12),
             _buildBalanceRow(label: 'Saldo a receber', value: pending, textColor: textColor, secondaryTextColor: secondaryTextColor),
@@ -915,7 +931,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
               children: [
                 Icon(Icons.receipt_long, size: 18, color: secondaryTextColor),
                 const SizedBox(width: 8),
-                Text('${_eligible.length} cobranca(s) disponivel(is)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: secondaryTextColor)),
+                Text('${_eligible.length} cobrança(s) disponível(is)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: secondaryTextColor)),
               ],
             ),
           ),
@@ -929,11 +945,17 @@ class _AnticipationScreenState extends State<AnticipationScreen>
             final tierLabel = _feeTierLabel(dueDate);
             final tierColor = _feeTierColor(dueDate);
             final estNet = payment['estimated_net_amount'];
+            final installmentId = payment['installment_id']?.toString();
+            final installmentNum = payment['installment_number'];
+            final installmentCount = payment['installment_count'];
+            final isInstallment = installmentId != null && installmentId.isNotEmpty;
 
             return InkWell(
               onTap: () {
                 _safeSetState(() {
                   _selectedPaymentId = isSelected ? null : payId;
+                  _selectedInstallmentId = isSelected ? null : installmentId;
+                  _useInstallmentMode = false;
                   _simulation = null;
                   _selectedDocs = [];
                 });
@@ -944,44 +966,128 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                   color: isSelected ? _kGreen.withOpacity(0.08) : Colors.transparent,
                   border: Border(top: BorderSide(color: secondaryTextColor.withOpacity(0.1))),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 22, height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSelected ? _kGreen : Colors.transparent,
-                        border: Border.all(color: isSelected ? _kGreen : secondaryTextColor.withOpacity(0.4), width: 2),
-                      ),
-                      child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      children: [
+                        Container(
+                          width: 22, height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected ? _kGreen : Colors.transparent,
+                            border: Border.all(color: isSelected ? _kGreen : secondaryTextColor.withOpacity(0.4), width: 2),
+                          ),
+                          child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(_formatCurrency(value), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
-                              if (estNet != null) ...[
-                                const SizedBox(width: 6),
-                                Text('(liq. ${_formatCurrency(estNet)})', style: TextStyle(fontSize: 11, color: _kGreen)),
-                              ],
+                              Row(
+                                children: [
+                                  Text(_formatCurrency(value), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
+                                  if (estNet != null) ...[
+                                    const SizedBox(width: 6),
+                                    Text('(liq. ${_formatCurrency(estNet)})', style: TextStyle(fontSize: 11, color: _kGreen)),
+                                  ],
+                                  if (isInstallment && installmentNum != null) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: _kBlue.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'Parcela $installmentNum/$installmentCount',
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kBlue),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                customer.toString().isNotEmpty ? '$customer • $dueDateStr' : dueDateStr,
+                                style: TextStyle(fontSize: 12, color: secondaryTextColor),
+                              ),
+                              if (tierLabel.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(tierLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: tierColor)),
+                                ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            customer.toString().isNotEmpty ? '$customer • $dueDateStr' : dueDateStr,
-                            style: TextStyle(fontSize: 12, color: secondaryTextColor),
-                          ),
-                          if (tierLabel.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(tierLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: tierColor)),
-                            ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                    if (isSelected && isInstallment) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 34),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => _safeSetState(() {
+                                  _useInstallmentMode = false;
+                                  _simulation = null;
+                                }),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: !_useInstallmentMode ? _kGreen.withOpacity(0.15) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: !_useInstallmentMode ? _kGreen : secondaryTextColor.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Todas as parcelas',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: !_useInstallmentMode ? _kGreen : secondaryTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => _safeSetState(() {
+                                  _useInstallmentMode = true;
+                                  _simulation = null;
+                                }),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _useInstallmentMode ? _kGreen.withOpacity(0.15) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: _useInstallmentMode ? _kGreen : secondaryTextColor.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Apenas esta parcela',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _useInstallmentMode ? _kGreen : secondaryTextColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1020,14 +1126,14 @@ class _AnticipationScreenState extends State<AnticipationScreen>
             children: [
               const Icon(Icons.check_circle_outline, color: _kGreen, size: 22),
               const SizedBox(width: 8),
-              Text('Simulacao de antecipacao', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
+              Text('Simulação de antecipação', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor)),
             ],
           ),
           const SizedBox(height: 16),
           _buildSimRow(label: 'Valor bruto', value: _formatCurrency(grossValue), textColor: textColor, secondaryTextColor: secondaryTextColor),
           if (fee != null) ...[
             const SizedBox(height: 10),
-            _buildSimRow(label: 'Taxa de antecipacao', value: '- ${_formatCurrency(fee)}', textColor: _kRed, secondaryTextColor: secondaryTextColor),
+            _buildSimRow(label: 'Taxa de antecipação', value: '- ${_formatCurrency(fee)}', textColor: _kRed, secondaryTextColor: secondaryTextColor),
           ],
           if (docRequired) ...[
             const SizedBox(height: 10),
@@ -1200,7 +1306,7 @@ class _AnticipationScreenState extends State<AnticipationScreen>
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Cancelar solicitacao', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  label: const Text('Cancelar solicitação', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],

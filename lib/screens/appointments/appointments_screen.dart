@@ -32,7 +32,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       await _apiService.markAllNotificationsAsRead();
     } catch (e) {
       // Silenciar erros
-      print('Erro ao marcar notificações como lidas: $e');
+      debugPrint('[Appointments] Erro ao marcar notificações como lidas: $e');
     }
   }
 

@@ -149,6 +149,11 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       }
       
     } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar dados bancários: ${e.toString()}')),
+        );
+      }
     } finally {
       _safeSetState(() => _isLoading = false);
     }
@@ -702,17 +707,20 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     required IconData icon,
   }) {
     final isSelected = _selectedAccountType == value;
-    
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: () => _safeSetState(() => _selectedAccountType = value),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF00C977).withOpacity(0.1) : const Color(0xFF1A1A1A),
+          color: isSelected
+              ? const Color(0xFF00C977).withOpacity(0.1)
+              : (dark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF00C977) : const Color(0xFF333333),
+            color: isSelected ? const Color(0xFF00C977) : (dark ? const Color(0xFF333333) : const Color(0xFFDDDDDD)),
             width: 1,
           ),
         ),
@@ -782,17 +790,21 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     required IconData icon,
   }) {
     final isSelected = _selectedPixKeyType == value;
-    
+    final isDark = Provider.of<ThemeService>(context, listen: false).isDarkMode;
+    final cardColor = ThemeService.getCardColor(isDark);
+    final borderColor = ThemeService.getBorderColor(isDark);
+    final secondaryColor = ThemeService.getSecondaryTextColor(isDark);
+
     return InkWell(
       onTap: () => _safeSetState(() => _selectedPixKeyType = value),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF00C977).withOpacity(0.1) : const Color(0xFF1A1A1A),
+          color: isSelected ? const Color(0xFF00C977).withOpacity(0.1) : cardColor,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFF00C977) : const Color(0xFF333333),
+            color: isSelected ? const Color(0xFF00C977) : borderColor,
             width: 1,
           ),
         ),
@@ -800,7 +812,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF00C977) : const Color(0xFF8B8B8B),
+              color: isSelected ? const Color(0xFF00C977) : secondaryColor,
               size: 16,
             ),
             const SizedBox(height: 4),
@@ -886,9 +898,10 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
   }
 
   void _showBankSelector() {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: dark ? const Color(0xFF1A1A1A) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

@@ -46,7 +46,13 @@ class _FinancialHistoryScreenState extends State<FinancialHistoryScreen> {
       }
 
       await _apiService.loadToken();
-      final response = await _apiService.getFinancialSummary();
+      final now = DateTime.now();
+      final days = _period == '7d' ? 7 : _period == '90d' ? 90 : 30;
+      final startDate = now.subtract(Duration(days: days));
+      final response = await _apiService.getFinancialSummary(
+        startDate: startDate.toIso8601String().split('T').first,
+        endDate: now.toIso8601String().split('T').first,
+      );
 
       if (!mounted) return;
 
@@ -62,7 +68,7 @@ class _FinancialHistoryScreenState extends State<FinancialHistoryScreen> {
         });
       } else {
         setState(() {
-          _error = response['error']?.toString() ?? 'Erro ao carregar historico';
+          _error = response['error']?.toString() ?? 'Erro ao carregar histórico';
           _isLoading = false;
         });
       }
@@ -260,7 +266,7 @@ class _FinancialHistoryScreenState extends State<FinancialHistoryScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Nenhuma transacao encontrada',
+              'Nenhuma transação encontrada',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

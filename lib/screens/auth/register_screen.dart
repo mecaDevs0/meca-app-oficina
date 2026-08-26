@@ -345,31 +345,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       data['referral_code'] = referralCode;
     }
 
-    // Log dos dados que serão enviados (sem senha) para debug
-    final address = data['address'] as Map<String, dynamic>? ?? {};
-    print('📤 [Register] Enviando dados de cadastro:');
-    print('  - Nome: ${data['name']}');
-    print('  - CNPJ: ${data['cnpj']}');
-    print('  - Email: ${data['email']}');
-    print('  - Telefone: ${data['phone']}');
-    print('  - CEP: ${address['cep']}');
-    print('  - Endereço: ${address['logradouro']}, ${address['numero']}');
-    print('  - Bairro: ${address['bairro']}');
-    print('  - Cidade: ${address['cidade']}');
-    print('  - Estado: ${address['estado']}');
-    if (referralCode.isNotEmpty) {
-      print('  - Código de indicação: $referralCode');
-    }
-
     final result = await _apiService.registerWorkshop(data);
 
     setState(() => _isLoading = false);
-    
-    // Log do resultado
-    print('📥 [Register] Resultado: ${result['success'] ? '✅ Sucesso' : '❌ Erro'}');
-    if (!result['success']) {
-      print('  - Erro: ${result['error']}');
-    }
 
     if (result['success']) {
       final workshopId = result['data']?['id']?.toString() ?? '';

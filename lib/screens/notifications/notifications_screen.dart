@@ -66,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       // Silenciar erros - não mostrar mensagem ao usuário
-      print('Erro ao marcar notificações como lidas: $e');
+      debugPrint('[Notifications] Erro ao marcar como lidas: $e');
     }
   }
 

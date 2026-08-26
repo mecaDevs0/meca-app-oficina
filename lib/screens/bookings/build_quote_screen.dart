@@ -222,7 +222,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
 
       if (result['success'] == true) {
         if (!widget.isEditMode) {
-          final totalCents = itemsPayload.fold<int>(0, (sum, i) => sum + ((i['quantity'] as int) * (i['unitPrice'] as int))) + diagnosticValueCents;
+          final totalCents = itemsPayload.fold<int>(0, (sum, i) => sum + (((i['quantity'] as int?) ?? 0) * ((i['unitPrice'] as int?) ?? 0))) + (diagnosticValueCents ?? 0);
           AppsFlyerService.instance.logQuoteSent(widget.bookingId, totalCents / 100.0);
         }
         Navigator.of(context).pop(true);

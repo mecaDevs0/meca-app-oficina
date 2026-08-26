@@ -44,6 +44,7 @@ class _BankingScreenState extends State<BankingScreen> {
   // ── Estado Asaas ──────────────────────────────
   String? _asaasStatus;
   String? _asaasError;
+  String? _bankAccountInfoStatus;
   bool _isCheckingStatus = false;
   Timer? _pollingTimer;
 
@@ -239,6 +240,7 @@ class _BankingScreenState extends State<BankingScreen> {
         // ── Status Asaas ──
         _asaasStatus = d['asaas_status']?.toString();
         _asaasError = d['asaas_error']?.toString();
+        _bankAccountInfoStatus = d['bank_account_info_status']?.toString();
         // Pre-fill Asaas fields from DB
         if (d['asaas_birth_date'] != null) {
           try { _birthDate = DateTime.parse(d['asaas_birth_date'].toString()); } catch (_) {}
@@ -275,7 +277,7 @@ class _BankingScreenState extends State<BankingScreen> {
             final parsed = raw is int
                 ? raw
                 : int.tryParse(raw.toString()) ?? 12;
-            _maxInstallments = parsed.clamp(1, 24);
+            _maxInstallments = parsed.clamp(1, 12);
           }
         }
       }
@@ -1124,10 +1126,12 @@ class _BankingScreenState extends State<BankingScreen> {
       if (response['success'] == true && response['data'] != null) {
         final data = response['data'];
         final newStatus = data['asaas_status']?.toString();
-        if (newStatus != _asaasStatus) {
+        final newBankStatus = data['bank_account_info_status']?.toString();
+        if (newStatus != _asaasStatus || newBankStatus != _bankAccountInfoStatus) {
           setState(() {
             _asaasStatus = newStatus;
             _asaasError = data['asaas_error']?.toString();
+            _bankAccountInfoStatus = newBankStatus;
           });
           if (newStatus == 'APPROVED' || newStatus == 'ACTIVE') {
             _pollingTimer?.cancel();
@@ -1343,10 +1347,17 @@ class _BankingScreenState extends State<BankingScreen> {
     switch (_asaasStatus) {
       case 'APPROVED':
       case 'ACTIVE':
-        bgColor = const Color(0xFF00C977);
-        icon = Icons.check_circle;
-        title = 'Conta Asaas Ativa';
-        subtitle = 'Pronta para receber pagamentos';
+        if (_bankAccountInfoStatus == 'PENDING' || _bankAccountInfoStatus == 'AWAITING_APPROVAL') {
+          bgColor = Colors.orange;
+          icon = Icons.account_balance;
+          title = 'Dados Bancários em Análise';
+          subtitle = 'Você pode receber pagamentos, mas saques estão pendentes até aprovação dos dados bancários.';
+        } else {
+          bgColor = const Color(0xFF00C977);
+          icon = Icons.check_circle;
+          title = 'Conta Asaas Ativa';
+          subtitle = 'Pronta para receber pagamentos e saques';
+        }
       case 'PENDING':
         bgColor = Colors.orange;
         icon = Icons.hourglass_top;
@@ -1606,10 +1617,11 @@ class _BankingScreenState extends State<BankingScreen> {
   }
 
   void _showBankSelectorModal() {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: dark ? const Color(0xFF1A1A1A) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1781,12 +1793,19 @@ class _BankingScreenState extends State<BankingScreen> {
           confirmText: 'Confirmar',
           builder: (context, child) => Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Color(0xFF00C977),
-                onPrimary: Colors.white,
-                surface: Color(0xFF1A1A1A),
-                onSurface: Colors.white,
-              ),
+              colorScheme: isDark
+                  ? const ColorScheme.dark(
+                      primary: Color(0xFF00C977),
+                      onPrimary: Colors.white,
+                      surface: Color(0xFF1A1A1A),
+                      onSurface: Colors.white,
+                    )
+                  : const ColorScheme.light(
+                      primary: Color(0xFF00C977),
+                      onPrimary: Colors.white,
+                      surface: Colors.white,
+                      onSurface: Color(0xFF252940),
+                    ),
             ),
             child: child!,
           ),
@@ -1967,10 +1986,10 @@ class _BankingScreenState extends State<BankingScreen> {
               ),
             ),
             child: Slider(
-              value: _maxInstallments.toDouble(),
+              value: _maxInstallments.toDouble().clamp(1, 12),
               min: 1,
-              max: 24,
-              divisions: 23,
+              max: 12,
+              divisions: 11,
               label: '${_maxInstallments}x',
               onChanged: (val) => _safeSetState(() {
                 _maxInstallments = val.round();

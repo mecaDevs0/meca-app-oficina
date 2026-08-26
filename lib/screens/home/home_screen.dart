@@ -133,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const timeout = Duration(seconds: AppConfig.homeLoadTimeoutSeconds);
     Future<Map<String, dynamic>> _timeout(String name, Future<Map<String, dynamic>> f) {
       return f.timeout(timeout, onTimeout: () {
-        print('⚠️ Timeout ao carregar $name');
+        debugPrint('[Home] Timeout ao carregar $name');
         return {'success': false, 'error': 'Timeout'};
       });
     }
@@ -174,14 +174,14 @@ class _HomeScreenState extends State<HomeScreen> {
           
           // PROTEÇÃO: Se usuário já marcou como lidas (contador = 0), NÃO sobrescrever
           if (notificationProvider.unreadNotifications == 0 && notificationProvider.notifications.isNotEmpty) {
-            print('🔒 [Home] Mantendo notificações locais (já marcadas como lidas)');
+            // Already marked as read locally — skip server overwrite
           } else {
             // Atualizar com dados do servidor
             notificationProvider.setNotifications(normalizedNotifications);
           }
         }
       } catch (e) {
-        print('⚠️ Erro ao processar notificações: $e');
+        debugPrint('[Home] Erro ao processar notificações: $e');
       }
 
       if (profileResponse['success']) {
@@ -219,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       } catch (e) {
-        print('⚠️ Erro ao processar agenda: $e');
+        debugPrint('[Home] Erro ao processar agenda: $e');
       }
 
       bool hasServices = false;
@@ -232,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
           hasServices = servicesList.isNotEmpty;
         }
       } catch (e) {
-        print('⚠️ Erro ao processar serviços: $e');
+        debugPrint('[Home] Erro ao processar serviços: $e');
       }
 
       setState(() {
@@ -297,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       } catch (e) {
-        print('⚠️ Erro ao carregar agendamentos: $e');
+        debugPrint('[Home] Erro ao carregar agendamentos: $e');
       }
       
     } catch (e) {

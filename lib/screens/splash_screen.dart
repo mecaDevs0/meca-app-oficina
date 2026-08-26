@@ -54,12 +54,12 @@ class _SplashScreenState extends State<SplashScreen>
         if (workshopId != null && workshopId.isNotEmpty) {
           await OneSignalService.setExternalUserId(workshopId);
           if (kDebugMode) {
-            print('[Splash] OneSignal.login($workshopId) chamado com sucesso');
+            debugPrint('[Splash] OneSignal.login($workshopId) chamado com sucesso');
           }
         }
       } catch (e) {
         if (kDebugMode) {
-          print('[Splash] Erro ao registrar workshopId no OneSignal: $e');
+          debugPrint('[Splash] Erro ao registrar workshopId no OneSignal: $e');
         }
       }
       try {
@@ -67,12 +67,12 @@ class _SplashScreenState extends State<SplashScreen>
         if (playerId != null) {
           await apiService.saveDeviceToken(playerId);
           if (kDebugMode) {
-            print('[Splash] Device token salvo após verificar token existente');
+            debugPrint('[Splash] Device token salvo após verificar token existente');
           }
         }
       } catch (e) {
         if (kDebugMode) {
-          print('[Splash] Erro ao salvar device token: $e');
+          debugPrint('[Splash] Erro ao salvar device token: $e');
         }
       }
     }

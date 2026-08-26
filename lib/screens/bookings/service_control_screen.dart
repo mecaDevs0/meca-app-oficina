@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../utils/price_utils.dart';
 import 'evidence_upload_screen.dart';
 import 'build_quote_screen.dart';
 
@@ -608,7 +609,8 @@ class _ServiceControlScreenState extends State<ServiceControlScreen> {
     // IMPORTANTE: Usar BuildQuoteScreen para permitir adicionar items do orçamento
     // Buscar items existentes do orçamento (se houver)
     final existingItems = widget.booking['quote_items'] as List<dynamic>?;
-    final existingDiagnostic = widget.booking['diagnostic_value'] as int?;
+    final rawDiag = widget.booking['diagnostic_value'];
+    final existingDiagnostic = rawDiag != null ? PriceUtils.toCents(rawDiag) : null;
     
     // Navegar para tela de montar orçamento final
     final result = await Navigator.push(

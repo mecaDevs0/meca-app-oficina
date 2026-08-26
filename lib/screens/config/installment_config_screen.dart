@@ -49,8 +49,8 @@ class _InstallmentConfigScreenState extends State<InstallmentConfigScreen> {
         if (workshop != null) {
           final accepts = workshop['accepts_installment'] ?? true;
           final max = (workshop['max_installments'] is int)
-              ? (workshop['max_installments'] as int).clamp(1, 24)
-              : (int.tryParse(workshop['max_installments']?.toString() ?? '12') ?? 12).clamp(1, 24);
+              ? (workshop['max_installments'] as int).clamp(1, 12)
+              : (int.tryParse(workshop['max_installments']?.toString() ?? '12') ?? 12).clamp(1, 12);
           setState(() {
             _acceptsInstallment = accepts;
             _maxInstallments = max;

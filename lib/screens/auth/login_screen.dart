@@ -45,11 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
         final workshopId = await _apiService.getWorkshopId();
         if (workshopId != null && workshopId.isNotEmpty) {
           await OneSignalService.setExternalUserId(workshopId);
-          print('[Login] OneSignal.login($workshopId) chamado com sucesso');
+          debugPrint('[Login] OneSignal.login($workshopId) chamado com sucesso');
         }
       } catch (e) {
         if (kDebugMode) {
-          print('[Login] Erro ao registrar workshopId no OneSignal: $e');
+          debugPrint('[Login] Erro ao registrar workshopId no OneSignal: $e');
         }
       }
       // Salvar device token após login bem-sucedido
@@ -59,25 +59,17 @@ class _LoginScreenState extends State<LoginScreen> {
         for (int i = 0; i < 3; i++) {
           playerId = OneSignalService.getSubscriptionId();
           if (playerId != null && playerId.isNotEmpty) {
-            print('[Login] Token OneSignal encontrado: ${playerId.substring(0, 20)}...');
             break;
           }
           await Future.delayed(const Duration(milliseconds: 500));
         }
 
         if (playerId != null && playerId.isNotEmpty) {
-          final result = await _apiService.saveDeviceToken(playerId);
-          if (result['success'] == true) {
-            print('[Login] Device token salvo com sucesso no backend');
-          } else {
-            print('[Login] Erro ao salvar device token: ${result['error']}');
-          }
-        } else {
-          print('[Login] Token OneSignal não disponível após login');
+          await _apiService.saveDeviceToken(playerId);
         }
       } catch (e) {
         if (kDebugMode) {
-          print('[Login] Erro ao salvar device token após login: $e');
+          debugPrint('[Login] Erro ao salvar device token após login: $e');
         }
       }
       // AppsFlyer: log login + set CUID

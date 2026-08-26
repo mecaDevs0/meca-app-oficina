@@ -59,13 +59,13 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
   Future<void> _saveConfig() async {
     if (_nfEnabled && _serviceCodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Codigo do servico municipal e obrigatorio'), backgroundColor: Color(0xFFEF4444)),
+        const SnackBar(content: Text('Código do serviço municipal é obrigatório'), backgroundColor: Color(0xFFEF4444)),
       );
       return;
     }
     if (_nfEnabled && _serviceNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nome do servico municipal e obrigatorio'), backgroundColor: Color(0xFFEF4444)),
+        const SnackBar(content: Text('Nome do serviço municipal é obrigatório'), backgroundColor: Color(0xFFEF4444)),
       );
       return;
     }
@@ -83,7 +83,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
       });
       if (res['success'] == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Configuracao fiscal salva!'), backgroundColor: Color(0xFF00C977)),
+          const SnackBar(content: Text('Configuração fiscal salva!'), backgroundColor: Color(0xFF00C977)),
         );
       } else {
         final error = res['error'] ?? 'Erro ao salvar';
@@ -225,7 +225,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'A MECA arca com o custo de emissao da NF (R\$ 0,49 por nota). Nao ha cobranca adicional para sua oficina.',
+                                'A MECA arca com o custo de emissão da NF (R\$ 0,49 por nota). Não há cobrança adicional para sua oficina.',
                                 style: TextStyle(color: secondaryText, fontSize: 12, height: 1.5),
                               ),
                             ),
@@ -247,7 +247,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                             children: [
                               Text('Dados Fiscais', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 16),
-                              Text('Codigo do servico municipal', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
+                              Text('Código do serviço municipal', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
                               const SizedBox(height: 8),
                               TextField(
                                 controller: _serviceCodeController,
@@ -262,15 +262,15 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text('Para oficinas mecanicas, geralmente e 1401', style: TextStyle(color: secondaryText, fontSize: 10)),
+                              Text('Para oficinas mecânicas, geralmente é 1401', style: TextStyle(color: secondaryText, fontSize: 10)),
                               const SizedBox(height: 16),
-                              Text('Nome do servico municipal', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
+                              Text('Nome do serviço municipal', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
                               const SizedBox(height: 8),
                               TextField(
                                 controller: _serviceNameController,
                                 style: TextStyle(color: textColor, fontSize: 14),
                                 decoration: InputDecoration(
-                                  hintText: '14.01 - Manutencao e reparacao de veiculos',
+                                  hintText: '14.01 - Manutenção e reparação de veículos',
                                   hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
                                   filled: true,
                                   fillColor: inputBg,
@@ -279,7 +279,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              Text('Aliquota ISS (%)', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
+                              Text('Alíquota ISS (%)', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
                               const SizedBox(height: 8),
                               SizedBox(
                                 width: 120,

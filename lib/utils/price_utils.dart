@@ -32,6 +32,22 @@ class PriceUtils {
     return normalized;
   }
 
+  /// Converte qualquer formato de preço em centavos (int).
+  /// Aceita int, double, String ("2665072", "2665072.00", "2665072,00").
+  /// Retorna 0 se não puder parsear.
+  static int toCents(dynamic raw) {
+    if (raw == null) return 0;
+    if (raw is int) return raw;
+    if (raw is double) return raw.round();
+    if (raw is String) {
+      final cleaned = raw.trim();
+      if (cleaned.isEmpty) return 0;
+      final parsed = double.tryParse(cleaned.replaceAll(',', '.'));
+      if (parsed != null) return parsed.round();
+    }
+    return 0;
+  }
+
   static bool hasValidPrice(dynamic value) => extractPrice(value) != null;
 
   static String? formatCurrency(dynamic value) {

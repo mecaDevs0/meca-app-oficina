@@ -19,6 +19,7 @@ class FinancialScreen extends StatefulWidget {
 
 class _FinancialScreenState extends State<FinancialScreen> {
   bool _isLoading = true;
+  String? _error;
   Map<String, dynamic>? _financialData;
   Map<String, dynamic>? _anticipationSummary;
   bool _isAsaasOnboarded = false;
@@ -100,6 +101,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
       }
 
     } catch (e) {
+      _safeSetState(() => _error = 'Erro ao carregar dados financeiros: ${e.toString()}');
     } finally {
       _safeSetState(() => _isLoading = false);
     }
@@ -282,7 +284,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                             onPressed: () => Navigator.pushNamed(context, '/financial-history'),
                             icon: const Icon(Icons.history, color: Color(0xFF00C977), size: 18),
                             label: const Text(
-                              'Ver historico completo',
+                              'Ver histórico completo',
                               style: TextStyle(
                                 color: Color(0xFF00C977),
                                 fontWeight: FontWeight.w600,
@@ -673,7 +675,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
       },
       {
         'title': 'Taxa MECA efetiva',
-        'value': _formatPercent(metrics['effective_meca_fee'] ?? 12, fallback: '12%'),
+        'value': _formatPercent(metrics['effective_meca_fee'] ?? 0.12, fallback: '12%'),
         'icon': Icons.percent,
         'color': const Color(0xFF8B5CF6),
       },
@@ -1053,8 +1055,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
   String _formatPercent(dynamic value, {String fallback = '—'}) {
     final parsed = _toDouble(value);
     if (parsed == null) return fallback;
-    // API retorna 12 para 12% (já em percentual); se < 1 é decimal (0.12)
-    final pct = parsed > 1 ? parsed : (parsed * 100);
+    final pct = parsed * 100;
     return '${pct.toStringAsFixed(0)}%';
   }
 

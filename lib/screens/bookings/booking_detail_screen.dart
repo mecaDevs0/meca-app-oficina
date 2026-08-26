@@ -6,8 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../services/api_service.dart';
 import '../../services/appsflyer_service.dart';
+import '../../services/calendar_service.dart';
+import '../../utils/price_utils.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
 import '../bookings/build_quote_screen.dart';
 import '../bookings/evidence_upload_screen.dart';
@@ -31,6 +35,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   bool _needsFiscalConfig = false;
   bool _loading = true;
 
+  // Calendar state
+  bool _calendarAdded = false;
+  bool _calendarLoading = false;
+
   void _showToast(String message, {String? title, bool isError = false, bool isWarning = false}) {
     if (!mounted) return;
     if (isError) {
@@ -52,6 +60,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadBookingDetails();
+    _loadCalendarState();
   }
 
   @override
@@ -154,8 +163,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
              appointmentUTC.month == todayUTC.month &&
              appointmentUTC.day == todayUTC.day;
     } catch (e) {
-      print('❌ [_isAppointmentDay] Erro ao verificar data: $e');
-      print('   - appointment_date: ${booking['appointment_date']}');
+      debugPrint('[_isAppointmentDay] Erro ao verificar data: $e');
       return false;
     }
   }
@@ -317,6 +325,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
 
                     // Dados para NF do cliente
                     _buildBillingDataSection(booking, isDarkMode),
+
+                    // ── Adicionar ao Calendário ──
+                    if (_shouldShowCalendarButton(statusFinal, booking))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: _buildCalendarButton(booking),
+                      ),
 
                     // ── Informações de referência (prioridade baixa) ──
 
@@ -1403,7 +1418,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     final items = quoteItems.map((item) => {
       'description': item['description']?.toString() ?? 'Item',
       'quantity': int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
-      'unitPrice': int.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
+      'unitPrice': PriceUtils.toCents(item['unit_price']),
     }).toList();
 
     final result = await _apiService.finishService(
@@ -2759,7 +2774,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
         Colors.orange,
         () async {
           final allItems = booking['quote_items'] as List<dynamic>?;
-          final existingDiagnostic = int.tryParse(booking['diagnostic_value']?.toString() ?? '');
+          final existingDiagnostic = PriceUtils.toCents(booking['diagnostic_value']);
           final quoteResponse = booking['quote_response'] as Map<String, dynamic>?;
           final responseItems = (quoteResponse?['items'] as List<dynamic>?) ?? [];
 
@@ -3325,6 +3340,181 @@ class _ImageFullScreen extends StatelessWidget {
                 color: Colors.white,
                 size: 64,
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _shouldShowCalendarButton(String statusFinal, Map<String, dynamic> booking) {
+    const preServiceStatuses = {
+      'pending', 'pendente', 'pendente_oficina', 'pending_oficina',
+      'pendente_cliente', 'pending_customer',
+      'confirmed', 'confirmado', 'confirmado_oficina',
+      'awaiting_quote_approval', 'aguardando_aprovacao_orcamento',
+      'awaiting_service_start', 'aguardando_autorizacao_inicio',
+      'vehicle_at_workshop', 'veiculo_na_oficina',
+    };
+    if (!preServiceStatuses.contains(statusFinal.toLowerCase().trim())) return false;
+
+    final appointmentDate = booking['appointment_date'] ?? booking['scheduled_date'];
+    if (appointmentDate == null) return false;
+
+    try {
+      return DateTime.parse(appointmentDate.toString()).isAfter(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _loadCalendarState() async {
+    final bookingId = widget.booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final added = prefs.getBool('calendar_added_$bookingId') ?? false;
+    if (added && mounted) {
+      setState(() => _calendarAdded = true);
+    }
+  }
+
+  Future<void> _saveCalendarState() async {
+    final bookingId = widget.booking['id']?.toString() ?? '';
+    if (bookingId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('calendar_added_$bookingId', true);
+  }
+
+  Future<void> _addToCalendar(Map<String, dynamic> booking) async {
+    if (_calendarLoading) return;
+    setState(() => _calendarLoading = true);
+
+    try {
+      final success = await CalendarService.addBookingToCalendar(
+        booking: booking,
+        bookingDetails: _bookingDetails,
+      );
+
+      if (!mounted) {
+        _calendarLoading = false;
+        return;
+      }
+
+      if (success) {
+        setState(() {
+          _calendarAdded = true;
+          _calendarLoading = false;
+        });
+        _saveCalendarState();
+        _showToast('Adicionado ao calendário! 📅');
+      } else {
+        setState(() => _calendarLoading = false);
+      }
+    } catch (e) {
+      if (!mounted) {
+        _calendarLoading = false;
+        return;
+      }
+      setState(() => _calendarLoading = false);
+      _showToast('Não foi possível adicionar ao calendário.', isError: true);
+    }
+  }
+
+  Widget _buildCalendarButton(Map<String, dynamic> booking) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    const green = Color(0xFF00C977);
+
+    final bgColor = _calendarAdded
+        ? green
+        : (isDarkMode ? const Color(0xFF1A1A1A) : Colors.white);
+    final borderColor = _calendarAdded
+        ? green
+        : green.withValues(alpha: 0.5);
+    final iconColor = _calendarAdded
+        ? Colors.white
+        : green;
+    final titleColor = _calendarAdded
+        ? Colors.white
+        : (isDarkMode ? Colors.white : const Color(0xFF252940));
+    final subtitleColor = _calendarAdded
+        ? Colors.white.withValues(alpha: 0.9)
+        : (isDarkMode ? Colors.grey[400]! : Colors.grey[600]!);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: _calendarAdded
+            ? [
+                BoxShadow(
+                  color: green.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _calendarLoading ? null : () => _addToCalendar(booking),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Row(
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Icon(
+                    _calendarAdded ? Icons.check_circle : Icons.calendar_month,
+                    key: ValueKey(_calendarAdded),
+                    color: iconColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _calendarAdded ? 'Adicionado ao Calendário ✓' : 'Adicionar ao Calendário',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _calendarAdded
+                            ? 'Toque para adicionar novamente'
+                            : 'Salve na sua agenda e não esqueça',
+                        style: TextStyle(fontSize: 12, color: subtitleColor),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_calendarLoading)
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _calendarAdded ? Colors.white : green,
+                    ),
+                  )
+                else
+                  Icon(
+                    _calendarAdded ? Icons.refresh : Icons.add_circle_outline,
+                    color: iconColor,
+                    size: 22,
+                  ),
+              ],
             ),
           ),
         ),
