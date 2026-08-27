@@ -19,6 +19,8 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
   final _serviceCodeController = TextEditingController();
   final _serviceNameController = TextEditingController();
   final _issRateController = TextEditingController();
+  final _inscricaoMunicipalController = TextEditingController();
+  String _taxRegime = 'SIMPLES_NACIONAL';
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
     _serviceCodeController.dispose();
     _serviceNameController.dispose();
     _issRateController.dispose();
+    _inscricaoMunicipalController.dispose();
     super.dispose();
   }
 
@@ -47,6 +50,8 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
           _serviceCodeController.text = data['nf_municipal_service_code'] ?? '';
           _serviceNameController.text = data['nf_municipal_service_name'] ?? '';
           _issRateController.text = (data['nf_iss_rate'] ?? 5.0).toString();
+          _inscricaoMunicipalController.text = data['inscricao_municipal'] ?? '';
+          _taxRegime = data['tax_regime'] ?? 'SIMPLES_NACIONAL';
         });
       }
     } catch (e) {
@@ -80,6 +85,8 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
         'nf_municipal_service_code': _serviceCodeController.text.trim(),
         'nf_municipal_service_name': _serviceNameController.text.trim(),
         'nf_iss_rate': double.tryParse(_issRateController.text) ?? 5.0,
+        'inscricao_municipal': _inscricaoMunicipalController.text.trim(),
+        'tax_regime': _taxRegime,
       });
       if (res['success'] == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -301,6 +308,43 @@ class _FiscalConfigScreenState extends State<FiscalConfigScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text('Geralmente entre 2% e 5%', style: TextStyle(color: secondaryText, fontSize: 10)),
+                              const SizedBox(height: 16),
+                              Text('Inscrição Municipal (opcional)', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _inscricaoMunicipalController,
+                                style: TextStyle(color: textColor, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: 'Ex: 12345678',
+                                  hintStyle: TextStyle(color: secondaryText.withValues(alpha: 0.5)),
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text('Regime Tributário', style: TextStyle(color: secondaryText, fontSize: 12, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                value: _taxRegime,
+                                dropdownColor: cardColor,
+                                style: TextStyle(color: textColor, fontSize: 14),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'SIMPLES_NACIONAL', child: Text('Simples Nacional')),
+                                  DropdownMenuItem(value: 'LUCRO_PRESUMIDO', child: Text('Lucro Presumido')),
+                                  DropdownMenuItem(value: 'LUCRO_REAL', child: Text('Lucro Real')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _taxRegime = val);
+                                },
+                              ),
                             ],
                           ),
                         ),
