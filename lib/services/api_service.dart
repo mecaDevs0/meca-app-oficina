@@ -1655,6 +1655,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getAnticipationConfig(String workshopId) async {
+    return get('/workshop/$workshopId/asaas/anticipations/configurations', skipCache: true);
+  }
+
+  Future<Map<String, dynamic>> updateAnticipationConfig(String workshopId, bool enabled) async {
+    return put('/workshop/$workshopId/asaas/anticipations/configurations', {
+      'creditCardAutomaticEnabled': enabled,
+    });
+  }
+
   /// GET /workshop/referrals - Programa Indique e Ganhe (código, contagem, taxa atual)
   Future<Map<String, dynamic>> getReferrals() async {
     try {

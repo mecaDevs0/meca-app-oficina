@@ -27,6 +27,9 @@ class _FinancialScreenState extends State<FinancialScreen> {
   final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _autoAnticipationEnabled = false;
+  bool _autoAnticipationLoading = true;
+  bool _autoAnticipationUpdating = false;
 
   @override
   void initState() {
@@ -95,6 +98,19 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   });
                 }
               } catch (_) {}
+
+              try {
+                final configRes = await _apiService.getAnticipationConfig(workshopId);
+                if (configRes['success'] == true && configRes['data'] is Map) {
+                  final d = (configRes['data'] as Map).cast<String, dynamic>();
+                  _safeSetState(() {
+                    _autoAnticipationEnabled = d['creditCardAutomaticEnabled'] == true;
+                    _autoAnticipationLoading = false;
+                  });
+                }
+              } catch (_) {
+                _safeSetState(() => _autoAnticipationLoading = false);
+              }
             }
           }
         }
@@ -183,6 +199,15 @@ class _FinancialScreenState extends State<FinancialScreen> {
                                   ],
                                 ),
                               ),
+                            if (_isAsaasOnboarded) ...[
+                              const SizedBox(height: 12),
+                              _buildAutoAnticipationCard(
+                                cardColor: cardColor,
+                                textColor: textColor,
+                                secondaryTextColor: secondaryTextColor,
+                                isDarkMode: themeService.isDarkMode,
+                              ),
+                            ],
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -459,6 +484,258 @@ class _FinancialScreenState extends State<FinancialScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAutoAnticipationCard({
+    required Color cardColor,
+    required Color textColor,
+    required Color secondaryTextColor,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _autoAnticipationEnabled
+              ? const Color(0xFF00C977).withOpacity(0.4)
+              : (isDarkMode ? Colors.grey[800]! : Colors.grey[200]!),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.bolt, color: Color(0xFF00C977), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Antecipação Automática',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textColor),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _autoAnticipationEnabled
+                          ? 'Ativo — receba em D+2'
+                          : 'Desativado',
+                      style: TextStyle(fontSize: 12, color: _autoAnticipationEnabled ? const Color(0xFF00C977) : secondaryTextColor),
+                    ),
+                  ],
+                ),
+              ),
+              if (_autoAnticipationLoading || _autoAnticipationUpdating)
+                const SizedBox(
+                  width: 24, height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00C977)),
+                )
+              else
+                Switch(
+                  value: _autoAnticipationEnabled,
+                  activeColor: const Color(0xFF00C977),
+                  onChanged: (val) => val ? _showActivateDialog() : _showDeactivateDialog(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _autoAnticipationEnabled
+                ? 'Pagamentos parcelados são antecipados em D+2. Taxa: 1,15% ao mês.'
+                : 'Seus pagamentos parcelados são creditados conforme vencem. Ative para receber em até 2 dias úteis.',
+            style: TextStyle(fontSize: 12, color: secondaryTextColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showActivateDialog() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final txtColor = isDark ? Colors.white : Colors.black87;
+        final subColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 24),
+                  const SizedBox(width: 10),
+                  Text('Antecipação Automática', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: txtColor)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Ao ativar, todos os seus pagamentos parcelados por cartão de crédito serão antecipados automaticamente.',
+                style: TextStyle(fontSize: 14, color: subColor),
+              ),
+              const SizedBox(height: 16),
+              _bulletPoint('Você recebe em até 2 dias úteis', txtColor),
+              _bulletPoint('Sem precisar pedir a cada pagamento', txtColor),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C977).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Taxa: 1,15% ao mês', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: txtColor)),
+                    const SizedBox(height: 8),
+                    Text('Exemplo: R\$ 10.000 em 6x', style: TextStyle(fontSize: 13, color: subColor)),
+                    const SizedBox(height: 4),
+                    Text('Sem antecipação: recebe R\$ 10.000 em 6 meses', style: TextStyle(fontSize: 12, color: subColor)),
+                    Text('Com antecipação: recebe ~R\$ 9.570 em 2 dias', style: TextStyle(fontSize: 12, color: const Color(0xFF00C977), fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Você pode desativar a qualquer momento.', style: TextStyle(fontSize: 12, color: subColor)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Cancelar', style: TextStyle(color: subColor)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _toggleAnticipation(true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C977),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Ativar', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bulletPoint(String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF00C977), size: 18),
+          const SizedBox(width: 8),
+          Flexible(child: Text(text, style: TextStyle(fontSize: 13, color: color))),
+        ],
+      ),
+    );
+  }
+
+  void _showDeactivateDialog() {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final isDark = themeService.isDarkMode;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Desativar antecipação automática?', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Text(
+          'Seus próximos pagamentos parcelados voltarão a ser creditados conforme vencem.',
+          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _toggleAnticipation(false);
+            },
+            child: const Text('Desativar', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleAnticipation(bool enable) async {
+    final workshopId = await _apiService.getWorkshopId();
+    if (workshopId == null || workshopId.isEmpty) return;
+
+    _safeSetState(() => _autoAnticipationUpdating = true);
+    try {
+      final res = await _apiService.updateAnticipationConfig(workshopId, enable);
+      if (res['success'] == true) {
+        _safeSetState(() => _autoAnticipationEnabled = enable);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(enable ? 'Antecipação automática ativada' : 'Antecipação automática desativada'),
+            backgroundColor: const Color(0xFF00C977),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['error']?.toString() ?? 'Erro ao atualizar configuração'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().contains('45 dias')
+          ? 'Antecipação automática não disponível. Sua conta precisa ter pelo menos 45 dias e uma transferência externa realizada.'
+          : 'Erro ao atualizar: ${e.toString()}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: const Color(0xFFEF4444)),
+      );
+    } finally {
+      _safeSetState(() => _autoAnticipationUpdating = false);
+    }
   }
 
   Widget _buildSummarySection({
