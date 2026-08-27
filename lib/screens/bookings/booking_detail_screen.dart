@@ -30,6 +30,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
   Map<String, dynamic>? _bookingDetails;
   Map<String, dynamic>? _paymentData; // PASSO 15: Dados do pagamento
   Map<String, dynamic>? _invoiceData;
+  List<Map<String, dynamic>> _invoicesList = [];
   bool _loadingInvoice = false;
   bool _generatingInvoice = false;
   bool _needsFiscalConfig = false;
@@ -123,9 +124,28 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     if (statusFinal != 'pago' && statusFinal != 'paid' && statusFinal != 'completed') return;
     setState(() => _loadingInvoice = true);
     try {
-      final result = await _apiService.getInvoice(bookingId);
-      if (result['success'] == true && mounted) {
-        setState(() => _invoiceData = result['data'] as Map<String, dynamic>?);
+      final result = await _apiService.getBookingInvoices(bookingId);
+      if (result['success'] == true && result['data'] is List) {
+        final list = (result['data'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _invoicesList = list;
+            if (list.isNotEmpty) {
+              _invoiceData = {
+                'available': true,
+                'status': list.first['asaas_status'],
+                'url': list.first['pdf_url'],
+              };
+            }
+          });
+        }
+      } else {
+        final fallback = await _apiService.getInvoice(bookingId);
+        if (fallback['success'] == true && mounted) {
+          setState(() => _invoiceData = fallback['data'] as Map<String, dynamic>?);
+        }
       }
     } catch (_) {}
     if (mounted) setState(() => _loadingInvoice = false);
@@ -451,15 +471,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
     final borderColor = isDarkMode ? Colors.grey[800]! : Colors.grey[200]!;
     final subtextColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
 
-    final hasInvoice = _invoiceData != null && _invoiceData!['available'] == true;
-    final invoiceStatus = hasInvoice ? (_invoiceData!['status']?.toString() ?? 'PENDING') : null;
-    final invoiceUrl = hasInvoice ? _invoiceData!['url']?.toString() : null;
-
     const statusLabels = {
       'SCHEDULED': 'Agendada',
       'SYNCHRONIZED': 'Sincronizada',
-      'AUTHORIZED': 'Autorizada',
+      'AUTHORIZED': 'Emitida',
       'CANCELED': 'Cancelada',
+      'CANCELLED': 'Cancelada',
       'ERROR': 'Erro',
       'PENDING': 'Pendente',
     };
@@ -471,7 +488,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       'PENDING': Colors.amber,
       'ERROR': Colors.red,
       'CANCELED': Colors.red,
+      'CANCELLED': Colors.red,
     };
+
+    const issuerLabels = {'workshop': 'NF Serviço', 'meca': 'NF Intermediação MECA'};
+    final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -488,24 +509,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
             children: [
               const Icon(Icons.receipt_long, color: Color(0xFF00C977), size: 22),
               const SizedBox(width: 8),
-              Text('Nota Fiscal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: isDarkMode ? Colors.white : Colors.black87)),
-              const Spacer(),
-              if (hasInvoice && invoiceStatus != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (statusColors[invoiceStatus] ?? Colors.grey).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    statusLabels[invoiceStatus] ?? invoiceStatus,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColors[invoiceStatus] ?? Colors.grey,
-                    ),
-                  ),
-                ),
+              Text('Notas Fiscais', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: isDarkMode ? Colors.white : Colors.black87)),
             ],
           ),
           const SizedBox(height: 12),
@@ -514,52 +518,100 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
               padding: EdgeInsets.all(12),
               child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00C977))),
             ))
-          else if (hasInvoice && invoiceStatus == 'AUTHORIZED') ...[
-            Text(invoiceUrl != null ? 'NF emitida com sucesso.' : 'NF emitida. PDF ainda não disponível.', style: TextStyle(color: subtextColor, fontSize: 13)),
-            const SizedBox(height: 12),
-            if (invoiceUrl != null)
+          else if (_invoicesList.isNotEmpty) ...[
+            ..._invoicesList.map((inv) {
+              final st = inv['asaas_status']?.toString() ?? 'PENDING';
+              final issuer = inv['issuer_type']?.toString() ?? 'workshop';
+              final pdfUrl = inv['pdf_url']?.toString();
+              final value = inv['value'];
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (statusColors[st] ?? Colors.grey).withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: (statusColors[st] ?? Colors.grey).withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      issuer == 'meca' ? Icons.storefront : Icons.build,
+                      color: statusColors[st] ?? Colors.grey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            issuerLabels[issuer] ?? issuer,
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white : Colors.black87),
+                          ),
+                          if (value != null)
+                            Text(
+                              currencyFormat.format(double.tryParse(value.toString()) ?? 0),
+                              style: TextStyle(fontSize: 12, color: subtextColor),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (statusColors[st] ?? Colors.grey).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        statusLabels[st] ?? st,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColors[st] ?? Colors.grey),
+                      ),
+                    ),
+                    if (st == 'AUTHORIZED' && pdfUrl != null && pdfUrl.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: pdfUrl));
+                          _showToast('Link da NF copiado!');
+                        },
+                        child: const Icon(Icons.picture_as_pdf, color: Color(0xFF00C977), size: 20),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+            if (_invoicesList.any((inv) {
+              final st = inv['asaas_status']?.toString() ?? 'PENDING';
+              return st == 'SCHEDULED' || st == 'SYNCHRONIZED' || st == 'PENDING';
+            })) ...[
+              const SizedBox(height: 4),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: invoiceUrl));
-                    _showToast('Link da NF copiado!');
-                  },
-                  icon: const Icon(Icons.picture_as_pdf, size: 18),
-                  label: const Text('Copiar link da NF'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C977),
-                    foregroundColor: Colors.white,
+                child: OutlinedButton.icon(
+                  onPressed: _loadingInvoice ? null : () => _loadInvoiceData(),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Atualizar status'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.amber,
+                    side: const BorderSide(color: Colors.amber),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
-          ] else if (hasInvoice && (invoiceStatus == 'SCHEDULED' || invoiceStatus == 'SYNCHRONIZED' || invoiceStatus == 'PENDING')) ...[
-            Text('NF em processamento. A emissão pode levar até 15 minutos.', style: TextStyle(color: subtextColor, fontSize: 13)),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _loadingInvoice ? null : () => _loadInvoiceData(),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Atualizar status'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.amber,
-                  side: const BorderSide(color: Colors.amber),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ] else if (hasInvoice && invoiceStatus == 'ERROR') ...[
-            Text('Erro ao emitir NF. Tente gerar novamente.', style: TextStyle(color: Colors.red[300], fontSize: 13)),
-            const SizedBox(height: 8),
-            _buildGenerateNfButton(),
+            ],
+            if (_invoicesList.any((inv) => (inv['asaas_status']?.toString() ?? '') == 'ERROR')) ...[
+              const SizedBox(height: 4),
+              _buildGenerateNfButton(),
+            ],
+          ] else if (_invoiceData != null && _invoiceData!['available'] == true) ...[
+            Text('NF em processamento...', style: TextStyle(color: subtextColor, fontSize: 13)),
           ] else ...[
-            Text('NF ainda não foi gerada para este agendamento.', style: TextStyle(color: subtextColor, fontSize: 13)),
+            Text('NFs serão geradas automaticamente após confirmação do pagamento.', style: TextStyle(color: subtextColor, fontSize: 13)),
             const SizedBox(height: 8),
-            _buildGenerateNfButton(),
+            if (!_needsFiscalConfig) _buildGenerateNfButton(),
           ],
         ],
       ),

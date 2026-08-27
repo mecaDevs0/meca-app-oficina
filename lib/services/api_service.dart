@@ -984,6 +984,10 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getBookingInvoices(String bookingId) async {
+    return get('/bookings/$bookingId/invoices', skipCache: true);
+  }
+
   // ============================================
   // SERVICES - DADOS REAIS DA API EC2 AWS
   // ============================================
