@@ -9,6 +9,7 @@ import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../widgets/animation_widgets.dart';
 import '../../providers/notification_provider.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 
 class FinancialScreen extends StatefulWidget {
   const FinancialScreen({Key? key}) : super(key: key);
@@ -710,19 +711,15 @@ class _FinancialScreenState extends State<FinancialScreen> {
       if (res['success'] == true) {
         _safeSetState(() => _autoAnticipationEnabled = enable);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(enable ? 'Antecipação automática ativada' : 'Antecipação automática desativada'),
-            backgroundColor: const Color(0xFF00C977),
-          ),
+        BeautifulErrorSnackbar.showSuccess(
+          context,
+          enable ? 'Antecipação automática ativada' : 'Antecipação automática desativada',
         );
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res['error']?.toString() ?? 'Erro ao atualizar configuração'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
+        BeautifulErrorSnackbar.show(
+          context,
+          res['error']?.toString() ?? 'Erro ao atualizar configuração',
         );
       }
     } catch (e) {
@@ -730,9 +727,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
       final msg = e.toString().contains('45 dias')
           ? 'Antecipação automática não disponível. Sua conta precisa ter pelo menos 45 dias e uma transferência externa realizada.'
           : 'Erro ao atualizar: ${e.toString()}';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: const Color(0xFFEF4444)),
-      );
+      BeautifulErrorSnackbar.show(context, msg);
     } finally {
       _safeSetState(() => _autoAnticipationUpdating = false);
     }
@@ -971,7 +966,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.5,
+        childAspectRatio: 1.2,
       ),
       itemCount: stats.length,
       itemBuilder: (context, index) {
@@ -1332,7 +1327,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
   String _formatPercent(dynamic value, {String fallback = '—'}) {
     final parsed = _toDouble(value);
     if (parsed == null) return fallback;
-    final pct = parsed * 100;
+    final pct = parsed > 1 ? parsed : parsed * 100;
     return '${pct.toStringAsFixed(0)}%';
   }
 
