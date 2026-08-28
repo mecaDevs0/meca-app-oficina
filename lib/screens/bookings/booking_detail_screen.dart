@@ -3362,42 +3362,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
       ),
     );
   }
-}
-
-// Widget para exibir imagem em tela cheia
-class _ImageFullScreen extends StatelessWidget {
-  final String url;
-
-  const _ImageFullScreen({required this.url});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          child: CachedNetworkImage(
-            imageUrl: url,
-            fit: BoxFit.contain,
-            placeholder: (context, url) => const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-            errorWidget: (context, url, error) => const Center(
-              child: Icon(
-                Icons.broken_image,
-                color: Colors.white,
-                size: 64,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   bool _shouldShowCalendarButton(String statusFinal, Map<String, dynamic> booking) {
     const preServiceStatuses = {
@@ -3567,6 +3531,42 @@ class _ImageFullScreen extends StatelessWidget {
                     size: 22,
                   ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Widget para exibir imagem em tela cheia
+class _ImageFullScreen extends StatelessWidget {
+  final String url;
+
+  const _ImageFullScreen({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(
+                Icons.broken_image,
+                color: Colors.white,
+                size: 64,
+              ),
             ),
           ),
         ),
