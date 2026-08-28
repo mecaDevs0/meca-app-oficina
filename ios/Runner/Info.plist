@@ -39,6 +39,10 @@
 	<string>AIzaSyBvOkBwJhXmQ2nE8fG9iL3pR7sT1uV4wX6</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>O Meca Oficina usa acesso ao calendário para adicionar agendamentos de serviços.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>O Meca Oficina usa acesso ao calendário para adicionar agendamentos de serviços.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Este app precisa acessar a câmera para tirar fotos dos serviços e perfil.</string>
 	<key>NSFaceIDUsageDescription</key>

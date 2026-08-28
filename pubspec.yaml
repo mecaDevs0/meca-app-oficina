@@ -1,6 +1,6 @@
 name: meca_app_oficina
 description: MECA - App da Oficina para gestão de agendamentos
-version: 3.6.0+360
+version: 3.7.0+370
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -31,6 +31,9 @@ dependencies:
   timezone: ^0.9.4
   file_picker: ^8.0.0
   flutter_svg: ^2.0.10+1
+
+  # Calendar Integration
+  add_2_calendar: ^3.0.1
 
   # Analytics & Attribution
   appsflyer_sdk: ^6.15.3
