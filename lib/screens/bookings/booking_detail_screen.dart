@@ -640,8 +640,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                 _loadInvoiceData();
               } else {
                 final errorMsg = result['error']?.toString() ?? '';
-                if (errorMsg.contains('fiscal') || errorMsg.contains('informações fiscais')) {
+                final lowerMsg = errorMsg.toLowerCase();
+                if (lowerMsg.contains('fiscal') || lowerMsg.contains('informações fiscais') ||
+                    lowerMsg.contains('municipal') || lowerMsg.contains('configuração')) {
                   setState(() => _needsFiscalConfig = true);
+                  _showToast(errorMsg, isWarning: true);
+                } else if (lowerMsg.contains('habilitado') || lowerMsg.contains('painel asaas') ||
+                    lowerMsg.contains('ativar') || lowerMsg.contains('nota fiscal não')) {
+                  _showToast(errorMsg, isWarning: true);
                 } else {
                   _showToast(errorMsg.isNotEmpty ? errorMsg : 'Erro ao gerar NF', isError: true);
                 }
