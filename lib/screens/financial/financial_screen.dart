@@ -1150,7 +1150,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
 
     final netAmount = _formatCurrency(transaction['net_amount'], fallback: '—');
     final mecaFeeAmount = _formatCurrency(transaction['meca_fee_amount'], fallback: '—');
-    final gatewayFeeAmount = _formatCurrency(transaction['gateway_fee_amount'] ?? transaction['pagbank_fee_amount'], fallback: '—');
+    final gatewayFeeAmount = _formatCurrency(transaction['gateway_fee_amount'], fallback: '—');
     final grossAmount = _formatCurrency(transaction['gross_amount'], fallback: 'R\$ 0,00');
 
     return Padding(

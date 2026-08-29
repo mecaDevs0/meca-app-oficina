@@ -306,7 +306,7 @@ class _FinancialHistoryScreenState extends State<FinancialHistoryScreen> {
     final netAmount = _formatCurrency(t['net_amount'] ?? t['split_amount']);
     final mecaFee = _formatCurrency(t['meca_fee_amount']);
     final gatewayFee =
-        _formatCurrency(t['gateway_fee_amount'] ?? t['pagbank_fee_amount']);
+        _formatCurrency(t['gateway_fee_amount']);
     final method =
         (t['payment_method'] ?? '').toString().toUpperCase();
     final status = t['status']?.toString() ?? '';

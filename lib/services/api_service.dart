@@ -2140,30 +2140,6 @@ class ApiService {
   }
 
   // ============================================
-  // CONTA GRÁFICA — LEGADO (compatibilidade)
-  // ============================================
-
-  /// GET /workshop/:id/pagbank/grafico/status
-  /// Status da conta gráfica. Passe refresh=true para atualizar via gateway de pagamento.
-  Future<Map<String, dynamic>> getGraficoStatus({bool refresh = false}) async {
-    try {
-      await loadToken();
-      final workshopId = await getWorkshopId();
-      if (workshopId == null) return {'success': false, 'error': 'workshopId não encontrado'};
-      final response = await _dio.get(
-        '/workshop/$workshopId/pagbank/grafico/status',
-        queryParameters: refresh ? {'refresh': 'true'} : null,
-      );
-      return response.data is Map ? Map<String, dynamic>.from(response.data as Map) : {'success': false};
-    } on DioException catch (e) {
-      final msg = (e.response?.data as Map?)?['error'] ?? e.message ?? 'Erro ao buscar status Conta Gráfica';
-      return {'success': false, 'error': msg};
-    } catch (e) {
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
-  // ============================================
   // ASAAS - ONBOARDING E STATUS
   // ============================================
 
