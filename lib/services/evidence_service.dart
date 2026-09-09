@@ -111,6 +111,115 @@ class EvidenceService {
     }
   }
 
+  Future<Map<String, dynamic>> uploadCheckinPhoto(
+    String bookingId,
+    File file, {
+    required String type,
+    required String caption,
+  }) async {
+    try {
+      await loadToken();
+
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split('/').last,
+        ),
+        'type': type,
+        'caption': caption.trim(),
+      });
+
+      final response = await _dio.post(
+        '/bookings/$bookingId/checkin-photos',
+        data: formData,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = response.data;
+        if (responseData is Map && responseData['success'] == true) {
+          return {'success': true, 'data': responseData['data'] ?? responseData};
+        }
+        return {'success': true, 'data': responseData};
+      } else {
+        return {'success': false, 'error': 'Erro no upload da foto de check-in'};
+      }
+    } catch (e) {
+      String errorMessage = 'Erro de conexão';
+      if (e is DioException) {
+        if (e.response != null) {
+          final statusCode = e.response?.statusCode;
+          final errorData = e.response?.data;
+          if (statusCode == 413 ||
+              (errorData is Map && (errorData['error']?.toString().toLowerCase().contains('413') == true ||
+                  errorData['error']?.toString().toLowerCase().contains('entity too large') == true))) {
+            errorMessage = 'Imagem muito grande. Escolha uma foto menor (recomendado até 10 MB).';
+          } else if (errorData is Map && errorData['error'] != null) {
+            errorMessage = errorData['error'].toString();
+          } else {
+            errorMessage = 'Erro ${e.response?.statusCode}: ${e.response?.statusMessage ?? 'Erro desconhecido'}';
+          }
+        } else {
+          errorMessage = 'Erro de conexão: ${e.message ?? e.toString()}';
+        }
+      } else {
+        errorMessage = 'Erro: ${e.toString()}';
+      }
+      return {'success': false, 'error': errorMessage};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCheckinPhotos(String bookingId) async {
+    try {
+      await loadToken();
+      final response = await _dio.get('/bookings/$bookingId/checkin-photos');
+
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        return {'success': true, 'data': responseData};
+      } else {
+        return {'success': false, 'error': 'Erro ao buscar fotos de check-in'};
+      }
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 404) {
+        return {'success': true, 'data': {'data': [], 'checklist_status': {'painel': false, 'generic_count': 0, 'total': 0, 'complete': false}}};
+      }
+      String errorMessage = 'Erro de conexão';
+      if (e is DioException) {
+        final errorData = e.response?.data;
+        if (errorData is Map && errorData['error'] != null) {
+          errorMessage = errorData['error'].toString();
+        }
+      }
+      return {'success': false, 'error': errorMessage};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteCheckinPhoto(String bookingId, String photoKey) async {
+    try {
+      await loadToken();
+      final encodedKey = Uri.encodeComponent(photoKey);
+      final response = await _dio.delete('/bookings/$bookingId/checkin-photos/$encodedKey');
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        return {'success': false, 'error': 'Erro ao excluir foto'};
+      }
+    } catch (e) {
+      String errorMessage = 'Erro de conexão';
+      if (e is DioException) {
+        final errorData = e.response?.data;
+        if (errorData is Map && errorData['error'] != null) {
+          errorMessage = errorData['error'].toString();
+        }
+      }
+      return {'success': false, 'error': errorMessage};
+    }
+  }
+
   // Obter evidências de um agendamento
   Future<Map<String, dynamic>> getBookingEvidence(String bookingId) async {
     try {

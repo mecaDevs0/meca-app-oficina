@@ -14,7 +14,9 @@ import '../../services/calendar_service.dart';
 import '../../utils/price_utils.dart';
 import '../../widgets/beautiful_error_snackbar.dart';
 import '../bookings/build_quote_screen.dart';
+import '../bookings/checkin_photo_screen.dart';
 import '../bookings/evidence_upload_screen.dart';
+import '../../widgets/checkin_photos_gallery.dart';
 
 class BookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -346,6 +348,32 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                     // Dados para NF do cliente
                     _buildBillingDataSection(booking, isDarkMode),
 
+                    // Fotos de check-in do veículo
+                    if (_hasCheckIn(booking))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: CheckinPhotosGallery(
+                          bookingId: booking['id']?.toString() ?? '',
+                          hasCheckIn: _hasCheckIn(booking),
+                          onAddPhotos: () async {
+                            final result = await Navigator.push<String>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CheckinPhotoScreen(
+                                  bookingId: booking['id']?.toString() ?? '',
+                                  booking: booking,
+                                  alreadyCheckedIn: true,
+                                ),
+                              ),
+                            );
+                            if (!mounted) return;
+                            if (result != null && result != 'error') {
+                              await _loadBookingDetails(forceRefresh: true);
+                            }
+                          },
+                        ),
+                      ),
+
                     // ── Adicionar ao Calendário ──
                     if (_shouldShowCalendarButton(statusFinal, booking))
                       Padding(
@@ -524,6 +552,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
               final issuer = inv['issuer_type']?.toString() ?? 'workshop';
               final pdfUrl = inv['pdf_url']?.toString();
               final value = inv['value'];
+              final errorReason = inv['error_reason']?.toString();
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
@@ -533,51 +562,64 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: (statusColors[st] ?? Colors.grey).withOpacity(0.2)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      issuer == 'meca' ? Icons.storefront : Icons.build,
-                      color: statusColors[st] ?? Colors.grey,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            issuerLabels[issuer] ?? issuer,
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white : Colors.black87),
+                    Row(
+                      children: [
+                        Icon(
+                          issuer == 'meca' ? Icons.storefront : Icons.build,
+                          color: statusColors[st] ?? Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                issuerLabels[issuer] ?? issuer,
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white : Colors.black87),
+                              ),
+                              if (value != null)
+                                Text(
+                                  currencyFormat.format(double.tryParse(value.toString()) ?? 0),
+                                  style: TextStyle(fontSize: 12, color: subtextColor),
+                                ),
+                            ],
                           ),
-                          if (value != null)
-                            Text(
-                              currencyFormat.format(double.tryParse(value.toString()) ?? 0),
-                              style: TextStyle(fontSize: 12, color: subtextColor),
-                            ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (statusColors[st] ?? Colors.grey).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            statusLabels[st] ?? st,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColors[st] ?? Colors.grey),
+                          ),
+                        ),
+                        if (st == 'AUTHORIZED' && pdfUrl != null && pdfUrl.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: pdfUrl));
+                              _showToast('Link da NF copiado!');
+                            },
+                            child: const Icon(Icons.picture_as_pdf, color: Color(0xFF00C977), size: 20),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (statusColors[st] ?? Colors.grey).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+                    if (st == 'ERROR' && errorReason != null && errorReason.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 30, top: 6),
+                        child: Text(
+                          errorReason,
+                          style: TextStyle(fontSize: 11, color: isDarkMode ? Colors.red[300] : Colors.red[700]),
+                        ),
                       ),
-                      child: Text(
-                        statusLabels[st] ?? st,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColors[st] ?? Colors.grey),
-                      ),
-                    ),
-                    if (st == 'AUTHORIZED' && pdfUrl != null && pdfUrl.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: pdfUrl));
-                          _showToast('Link da NF copiado!');
-                        },
-                        child: const Icon(Icons.picture_as_pdf, color: Color(0xFF00C977), size: 20),
-                      ),
-                    ],
                   ],
                 ),
               );
@@ -2724,13 +2766,18 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> with WidgetsB
           _actionButton('Check-in do Veículo', Icons.directions_car, const Color(0xFF3B82F6), () async {
             final bookingId = booking['id']?.toString() ?? '';
             if (bookingId.isEmpty) return;
-            final result = await _apiService.checkInVehicle(bookingId);
+            final result = await Navigator.push<String>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CheckinPhotoScreen(
+                  bookingId: bookingId,
+                  booking: booking,
+                ),
+              ),
+            );
             if (!mounted) return;
-            if (result['success'] == true) {
+            if (result != null && result != 'error') {
               await _loadBookingDetails(forceRefresh: true);
-              _showToast('Check-in realizado!');
-            } else {
-              _showToast(result['error']?.toString() ?? 'Erro no check-in.', isError: true);
             }
           }),
         ];
