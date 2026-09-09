@@ -256,9 +256,9 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
     });
 
     if (!anyError) {
-      final kmText = _mileageController.text.trim();
-      if (kmText.isNotEmpty) {
-        await _apiService.checkInVehicle(widget.bookingId, mileageKm: int.tryParse(kmText));
+      final kmDigits = _mileageController.text.replaceAll(RegExp(r'\D'), '');
+      if (kmDigits.isNotEmpty) {
+        await _apiService.checkInVehicle(widget.bookingId, mileageKm: int.tryParse(kmDigits));
       }
       if (!mounted) return;
       BeautifulErrorSnackbar.showSuccess(context, 'Fotos de check-in enviadas!');
@@ -485,11 +485,12 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
           TextField(
             controller: _mileageController,
             keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            inputFormatters: [_KmFormatter()],
             decoration: InputDecoration(
               labelText: 'Quilometragem (km)',
-              hintText: 'Ex: 45230',
+              hintText: 'Ex: 45.363',
               prefixIcon: const Icon(Icons.speed, color: Color(0xFF3B82F6), size: 18),
+              suffixText: 'km',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
@@ -1045,6 +1046,27 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _KmFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return const TextEditingValue();
+    final capped = digits.length > 7 ? digits.substring(0, 7) : digits;
+    final number = int.parse(capped);
+    final formatted = number.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
