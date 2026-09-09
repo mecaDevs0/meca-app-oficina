@@ -132,8 +132,6 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
         maxHeight: 1600,
       );
       if (picked != null) {
-        final key = 'painel_${DateTime.now().millisecondsSinceEpoch}';
-        _captionControllers[key] = TextEditingController(text: 'Painel / Odômetro');
         setState(() {
           _painelPhoto = _PhotoEntry(
             file: File(picked.path),
@@ -546,22 +544,23 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _captionControllers.entries
-                  .where((e) => e.key.startsWith('painel'))
-                  .map((e) => e.value)
-                  .firstOrNull,
-              maxLength: 500,
-              onChanged: (v) => setState(() => _painelPhoto!.caption = v),
-              decoration: InputDecoration(
-                labelText: 'Legenda',
-                hintText: 'Ex: Painel marcando 45.230 km',
-                prefixIcon: const Icon(Icons.edit, color: Color(0xFF3B82F6), size: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                counterText: '',
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
-              style: TextStyle(fontSize: 13, color: primaryText),
+              child: Row(
+                children: [
+                  Icon(Icons.label_outline, color: secondaryText, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Painel / Odômetro',
+                    style: TextStyle(fontSize: 13, color: secondaryText),
+                  ),
+                ],
+              ),
             ),
           ] else
             Row(
