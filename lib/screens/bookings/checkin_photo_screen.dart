@@ -553,7 +553,7 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.label_outline, color: secondaryText, size: 16),
+                  Icon(Icons.photo_camera_outlined, color: secondaryText, size: 16),
                   const SizedBox(width: 8),
                   Text(
                     'Painel / Odômetro',
