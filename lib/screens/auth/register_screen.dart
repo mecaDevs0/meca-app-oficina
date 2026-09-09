@@ -787,8 +787,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                             onChanged: (value) {
-                              if (value.length == 8) {
-                                _buscarCEP(value);
+                              final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                              if (digits.length == 8) {
+                                _buscarCEP(digits);
                               }
                             },
                           ),

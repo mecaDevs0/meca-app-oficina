@@ -227,14 +227,15 @@ class ApiService {
         'email': data['email']?.toString().trim() ?? '',
         'password': data['password']?.toString() ?? '',
         'name': data['name']?.toString().trim() ?? '',
+        'owner_name': data['owner_name']?.toString().trim() ?? '',
         'cnpj': data['cnpj']?.toString().replaceAll(RegExp(r'\D'), '') ?? '',
         'phone': data['phone']?.toString().replaceAll(RegExp(r'\D'), '') ?? '',
         'address': fullAddress,
         'city': address['cidade']?.toString().trim() ?? '',
         'state': address['estado']?.toString().trim() ?? '',
         'cep': address['cep']?.toString().replaceAll(RegExp(r'\D'), '') ?? '',
-        'latitude': null, // Será calculado via CEP ou geolocalização
-        'longitude': null, // Será calculado via CEP ou geolocalização
+        'latitude': null,
+        'longitude': null,
       };
       final referralCode = data['referral_code']?.toString().trim();
       if (referralCode != null && referralCode.isNotEmpty) {
@@ -722,10 +723,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> checkInVehicle(String bookingId) async {
+  Future<Map<String, dynamic>> checkInVehicle(String bookingId, {int? mileageKm}) async {
     try {
       await loadToken();
-      final response = await _dio.put('/bookings/$bookingId/check-in', data: {});
+      final body = <String, dynamic>{};
+      if (mileageKm != null) {
+        body['checklist_mileage_km'] = mileageKm;
+      }
+      final response = await _dio.put('/bookings/$bookingId/check-in', data: body);
       return {'success': true, 'data': response.data['data'] ?? response.data};
     } on DioException catch (e) {
       final errorMessage = e.response?.data?['error']?.toString() ??

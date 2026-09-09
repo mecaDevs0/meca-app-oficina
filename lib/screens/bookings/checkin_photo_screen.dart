@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/api_service.dart';
@@ -34,6 +35,8 @@ class _PhotoEntry {
     required this.file,
     required this.type,
     this.caption = '',
+    this.uploaded = false,
+    this.uploading = false,
   });
 }
 
@@ -55,6 +58,7 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
   Map<String, dynamic>? _checklistStatus;
 
   final Map<String, TextEditingController> _captionControllers = {};
+  final TextEditingController _mileageController = TextEditingController();
 
   @override
   void initState() {
@@ -72,6 +76,7 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
     for (final c in _captionControllers.values) {
       c.dispose();
     }
+    _mileageController.dispose();
     super.dispose();
   }
 
@@ -118,10 +123,10 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
     }
   }
 
-  Future<void> _pickPainelPhoto() async {
+  Future<void> _pickPainelPhoto(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 70,
         maxWidth: 1600,
         maxHeight: 1600,
@@ -251,6 +256,11 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
     });
 
     if (!anyError) {
+      final kmText = _mileageController.text.trim();
+      if (kmText.isNotEmpty) {
+        await _apiService.checkInVehicle(widget.bookingId, mileageKm: int.tryParse(kmText));
+      }
+      if (!mounted) return;
       BeautifulErrorSnackbar.showSuccess(context, 'Fotos de check-in enviadas!');
       _genericPhotos.removeWhere((p) => p.uploaded);
       if (_painelPhoto?.uploaded == true) _painelPhoto = null;
@@ -472,6 +482,20 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
             ],
           ),
           const SizedBox(height: 14),
+          TextField(
+            controller: _mileageController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: 'Quilometragem (km)',
+              hintText: 'Ex: 45230',
+              prefixIcon: const Icon(Icons.speed, color: Color(0xFF3B82F6), size: 18),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            style: TextStyle(fontSize: 14, color: primaryText),
+          ),
+          const SizedBox(height: 14),
           if (_painelPhoto != null) ...[
             Stack(
               children: [
@@ -539,19 +563,36 @@ class _CheckinPhotoScreenState extends State<CheckinPhotoScreen> {
               style: TextStyle(fontSize: 13, color: primaryText),
             ),
           ] else
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isUploading ? null : _pickPainelPhoto,
-                icon: const Icon(Icons.photo_camera, size: 18),
-                label: const Text('Fotografar Painel'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF3B82F6),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  side: BorderSide(color: const Color(0xFF3B82F6).withOpacity(0.35)),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isUploading ? null : () => _pickPainelPhoto(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera, size: 18),
+                    label: const Text('Câmera'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF3B82F6),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      side: BorderSide(color: const Color(0xFF3B82F6).withOpacity(0.35)),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isUploading ? null : () => _pickPainelPhoto(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library, size: 18),
+                    label: const Text('Galeria'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF3B82F6),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      side: BorderSide(color: const Color(0xFF3B82F6).withOpacity(0.35)),
+                    ),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
