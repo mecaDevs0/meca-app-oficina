@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/theme_service.dart';
 import '../../core/app_colors.dart';
+import '../../widgets/beautiful_error_snackbar.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -189,28 +190,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         // NÃO recarregar do servidor! Mantém estado local.
         // Sincronização acontecerá quando usuário reabrir a tela
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Todas as notificações foram marcadas como lidas.'),
-            backgroundColor: AppColors.primaryColor,
-          ),
-        );
+        BeautifulErrorSnackbar.showSuccess(context, 'Todas as notificações foram marcadas como lidas.');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['error'] ?? 'Não foi possível atualizar as notificações'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        BeautifulErrorSnackbar.showWarning(context, response['error'] ?? 'Não foi possível atualizar as notificações');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      BeautifulErrorSnackbar.showWarning(context, 'Erro ao atualizar notificações');
     }
   }
 

@@ -171,7 +171,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> with TickerProviderStat
           .where((p) => (p['status'] ?? '') == 'pendente')
           .toList();
       final confirmedPreCompras = preCompras
-          .where((p) => ['confirmado', 'em_andamento', 'aguardando_pagamento'].contains(p['status'] ?? ''))
+          .where((p) => ['confirmado', 'veiculo_na_oficina', 'em_andamento', 'aguardando_pagamento'].contains(p['status'] ?? ''))
           .toList();
       final completedPreCompras = preCompras
           .where((p) => ['concluido', 'concluído', 'cancelado'].contains(p['status'] ?? ''))

@@ -5,7 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/material.dart';
+
 import '../config/app_config.dart';
+import '../main.dart';
 import 'image_service.dart';
 
 class ApiService {
@@ -14,6 +17,7 @@ class ApiService {
   final Dio _dio = Dio();
   String? _token;
   String? _workshopId; // Cache do workshopId do token
+  static bool _redirectingToLogin = false;
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
@@ -40,6 +44,14 @@ class ApiService {
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
           saveToken('');
+          if (!_redirectingToLogin) {
+            _redirectingToLogin = true;
+            final nav = MecaOficinaApp.navigatorKey.currentState;
+            if (nav != null) {
+              nav.pushNamedAndRemoveUntil('/login', (_) => false);
+            }
+            Future.delayed(const Duration(seconds: 2), () => _redirectingToLogin = false);
+          }
         }
         // Retry único para GET em erro de rede/timeout (reduz travamento em rede instável)
         final isRetryable = error.requestOptions.extra['_retry'] != true &&
@@ -643,6 +655,8 @@ class ApiService {
           if (target == 'confirmado' || target == 'confirmed') {
             return s == 'confirmed' ||
                 s == 'confirmado' ||
+                s == 'veiculo_na_oficina' ||
+                s == 'vehicle_at_workshop' ||
                 s == 'started' ||
                 s == 'in_progress' ||
                 s == 'em_andamento';

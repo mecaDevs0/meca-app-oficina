@@ -267,7 +267,9 @@ class _HomeScreenState extends State<HomeScreen> {
             return status == 'pending' ||
                 status == 'pendente_oficina' ||
                 status == 'confirmed' ||
-                status == 'confirmado';
+                status == 'confirmado' ||
+                status == 'veiculo_na_oficina' ||
+                status == 'em_andamento';
           }).toList()
             ..sort(
               (a, b) => (a['sort_timestamp'] ?? 0).compareTo(b['sort_timestamp'] ?? 0),
