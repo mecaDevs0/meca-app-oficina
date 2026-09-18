@@ -132,12 +132,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['error'] ?? 'Erro ao carregar notificações'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          BeautifulErrorSnackbar.show(context, response['error'] ?? 'Erro ao carregar notificações');
         }
       }
       
@@ -775,12 +770,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       );
       _loadNotifications();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(response['error']?.toString() ?? 'Não foi possível abrir o agendamento.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      BeautifulErrorSnackbar.show(context, response['error']?.toString() ?? 'Não foi possível abrir o agendamento.');
     }
   }
 
