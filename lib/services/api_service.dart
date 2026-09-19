@@ -43,14 +43,16 @@ class ApiService {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
-          saveToken('');
+          await saveToken('');
           if (!_redirectingToLogin) {
             _redirectingToLogin = true;
-            final nav = MecaOficinaApp.navigatorKey.currentState;
-            if (nav != null) {
-              nav.pushNamedAndRemoveUntil('/login', (_) => false);
-            }
-            Future.delayed(const Duration(seconds: 2), () => _redirectingToLogin = false);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final nav = MecaOficinaApp.navigatorKey.currentState;
+              if (nav != null) {
+                nav.pushNamedAndRemoveUntil('/login', (_) => false);
+              }
+              Future.delayed(const Duration(seconds: 3), () => _redirectingToLogin = false);
+            });
           }
         }
         // Retry único para GET em erro de rede/timeout (reduz travamento em rede instável)

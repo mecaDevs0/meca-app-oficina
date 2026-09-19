@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -38,14 +40,40 @@ class _SplashScreenState extends State<SplashScreen>
     _startSplashSequence();
   }
 
+  bool _isTokenExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+
+      String payload = parts[1];
+      switch (payload.length % 4) {
+        case 2: payload += '=='; break;
+        case 3: payload += '='; break;
+      }
+
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final Map<String, dynamic> payloadMap = json.decode(decoded);
+
+      final exp = payloadMap['exp'];
+      if (exp == null) return false;
+
+      final expSeconds = exp is int ? exp : int.tryParse(exp.toString());
+      if (expSeconds == null) return false;
+
+      return DateTime.now().millisecondsSinceEpoch > expSeconds * 1000;
+    } catch (e) {
+      return true;
+    }
+  }
+
   Future<void> _startSplashSequence() async {
     _fadeController.forward();
-    
+
     await Future.delayed(const Duration(milliseconds: 3000));
-    
+
     final token = await StorageService.getToken();
-    
-    if (token != null) {
+
+    if (token != null && token.isNotEmpty && !_isTokenExpired(token)) {
       final apiService = ApiService();
       // Registrar workshopId no OneSignal para receber push via external_user_id
       try {
@@ -75,12 +103,17 @@ class _SplashScreenState extends State<SplashScreen>
           debugPrint('[Splash] Erro ao salvar device token: $e');
         }
       }
-    }
-    
-    if (mounted) {
-      if (token != null) {
+      if (mounted) {
         Navigator.pushReplacementNamed(context, '/core');
-      } else {
+      }
+    } else {
+      if (token != null) {
+        await StorageService.clearToken();
+        if (kDebugMode) {
+          debugPrint('[Splash] Token expirado — redirecionando para login');
+        }
+      }
+      if (mounted) {
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
