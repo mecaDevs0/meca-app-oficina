@@ -42,7 +42,16 @@ class ApiService {
         return handler.next(response);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
+        if (error.response?.statusCode == 401 && error.requestOptions.extra['_isRefresh'] != true) {
+          final refreshed = await _tryRefreshToken();
+          if (refreshed) {
+            try {
+              error.requestOptions.headers['Authorization'] = 'Bearer $_token';
+              error.requestOptions.extra['_isRefresh'] = true;
+              final response = await _dio.fetch(error.requestOptions);
+              return handler.resolve(response);
+            } catch (_) {}
+          }
           await saveToken('');
           if (!_redirectingToLogin) {
             _redirectingToLogin = true;
@@ -74,6 +83,33 @@ class ApiService {
         return handler.next(error);
       },
     ));
+  }
+
+  Future<bool> _tryRefreshToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final oldToken = prefs.getString('auth_token');
+      if (oldToken == null || oldToken.isEmpty) return false;
+
+      final response = await Dio(BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      )).post('/auth/refresh', data: {'token': oldToken});
+
+      final data = response.data;
+      if (data != null && data['success'] == true) {
+        final newToken = data['data']?['token'];
+        if (newToken is String && newToken.isNotEmpty) {
+          await saveToken(newToken);
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[Auth] Falha ao renovar token: $e');
+      return false;
+    }
   }
 
   Future<Map<String, dynamic>> _handleAuthResponse(

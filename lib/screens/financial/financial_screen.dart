@@ -135,13 +135,16 @@ class _FinancialScreenState extends State<FinancialScreen> {
     
     return Scaffold(
       backgroundColor: bgColor,
-      body: SafeArea(
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: SafeArea(
         bottom: false,
         child: _isLoading
             ? AnimationWidgets.buildLoadingWidget(message: 'Carregando dados financeiros...')
             : RefreshIndicator(
                 onRefresh: _loadFinancialData,
                 child: CustomScrollView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   slivers: [
                     SliverToBoxAdapter(
@@ -330,6 +333,7 @@ class _FinancialScreenState extends State<FinancialScreen> {
                   ],
                 ),
               ),
+      ),
       ),
     );
   }

@@ -113,6 +113,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         );
         if (response['success'] == true) {
+          FocusManager.instance.primaryFocus?.unfocus();
           Navigator.pop(context, true);
         }
       }

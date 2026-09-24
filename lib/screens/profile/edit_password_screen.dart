@@ -59,6 +59,7 @@ class _EditPasswordScreenState extends State<EditPasswordScreen> {
           backgroundColor: Color(0xFF00C977),
         ),
       );
+      FocusManager.instance.primaryFocus?.unfocus();
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -503,6 +503,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _onLoginSuccess() async {
     if (!mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.pushReplacementNamed(context, '/core');
   }
 

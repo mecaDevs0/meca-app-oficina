@@ -494,6 +494,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
                       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                     },
                     style: ElevatedButton.styleFrom(

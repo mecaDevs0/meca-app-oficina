@@ -133,7 +133,10 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
 
     return Scaffold(
       backgroundColor: bg,
-      body: CustomScrollView(
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           SliverAppBar(
             expandedHeight: 140,
@@ -285,6 +288,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

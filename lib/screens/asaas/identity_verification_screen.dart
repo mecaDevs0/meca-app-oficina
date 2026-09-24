@@ -537,6 +537,7 @@ class _IdentityVerificationScreenState
                           if (numberController.text.trim().isNotEmpty) {
                             payload['addressNumber'] = numberController.text.trim();
                           }
+                          FocusManager.instance.primaryFocus?.unfocus();
                           Navigator.pop(ctx, payload);
                         },
                         child: const Text(

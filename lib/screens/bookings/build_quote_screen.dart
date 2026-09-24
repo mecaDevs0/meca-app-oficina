@@ -83,7 +83,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
     final newNode = FocusNode();
     _descriptionFocusNodes.add(newNode);
 
-    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     setState(() {
       _items.add(QuoteItem());
@@ -225,6 +225,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
           final totalCents = itemsPayload.fold<int>(0, (sum, i) => sum + (((i['quantity'] as int?) ?? 0) * ((i['unitPrice'] as int?) ?? 0))) + (diagnosticValueCents ?? 0);
           AppsFlyerService.instance.logQuoteSent(widget.bookingId, totalCents / 100.0);
         }
+        FocusManager.instance.primaryFocus?.unfocus();
         Navigator.of(context).pop(true);
         if (context.mounted) {
           BeautifulErrorSnackbar.showSuccess(
@@ -745,7 +746,7 @@ class _BuildQuoteScreenState extends State<BuildQuoteScreen> {
                             if (!item.isRequired)
                               TextButton.icon(
                                 onPressed: () {
-                                  FocusScope.of(context).unfocus();
+                                  FocusManager.instance.primaryFocus?.unfocus();
                                   final newOption = QuoteItemOption(isDefault: item.options.isEmpty);
                                   setState(() {
                                     item.options.add(newOption);

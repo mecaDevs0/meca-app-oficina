@@ -185,6 +185,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       );
       
       if (response['success']) {
+        FocusManager.instance.primaryFocus?.unfocus();
         // Aguardar um pouco para garantir que o banco foi atualizado
         await Future.delayed(const Duration(milliseconds: 1000));
         
